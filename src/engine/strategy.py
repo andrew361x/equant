@@ -254,6 +254,8 @@ class Strategy:
         
     def _runTimer(self):
         timeList = self._dataModel.getConfigData()['Trigger']['Timer']
+        if timeList is None:
+            timeList = []
         self._isTimeTriggered = [False for i in timeList]
         self._nowTime = datetime.now()
         '''秒级定时器'''
@@ -538,8 +540,10 @@ class Strategy:
                 "Config":self._dataModel.getConfigData(),
                 "Pid":os.getpid(),
                 "Path":self._filePath,
+                "StrategyName": self._strategyName,
             }
         })
+
         self.sendEvent2Engine(quitEvent)
 
     def _onStrategyResume(self, event):

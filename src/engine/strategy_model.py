@@ -288,7 +288,7 @@ class StrategyModel(object):
 
     # ////////////////////////策略函数////////////////////////////
     def setBuy(self, contractNo, share, price):
-        contNo = contractNo
+        contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
 
         # 基准合约的cur bar
         curBar = self._hisModel.getCurBar()
@@ -299,8 +299,8 @@ class StrategyModel(object):
         self.sendOrder(userNo, contNo, otMarket, vtNone, dBuy, oOpen, hSpeculate, price, share, curBar, 'Buy')
 
 
-    def setBuyToCover(self, share, price):
-        contNo = self._cfgModel.getBenchmark()
+    def setBuyToCover(self, contractNo, share, price):
+        contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
         curBar = self._hisModel.getCurBar()
 
         # 交易计算、生成回测报告
@@ -308,8 +308,8 @@ class StrategyModel(object):
         userNo = self._cfgModel.getUserNo() if self._cfgModel.isActualRun() else "Default"
         self.sendOrder(userNo, contNo, otMarket, vtNone, dBuy, oCover, hSpeculate, price, share, curBar, 'BuyToCover')
 
-    def setSell(self, share, price):
-        contNo = self._cfgModel.getBenchmark()
+    def setSell(self, contractNo, share, price):
+        contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
         curBar = self._hisModel.getCurBar()
 
         # 交易计算、生成回测报告
@@ -317,8 +317,8 @@ class StrategyModel(object):
         userNo = self._cfgModel.getUserNo() if self._cfgModel.isActualRun() else "Default"
         self.sendOrder(userNo, contNo, otMarket, vtNone, dSell, oCover, hSpeculate, price, share, curBar, 'Sell')
 
-    def setSellShort(self, share, price):
-        contNo = self._cfgModel.getBenchmark()
+    def setSellShort(self, contractNo, share, price):
+        contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
         curBar = self._hisModel.getCurBar()
 
         #交易计算、生成回测报告
@@ -375,8 +375,8 @@ class StrategyModel(object):
     def setAllKTrue(self):
         self._cfgModel.setAllKTrue()
 
-    def setBarInterval(self, barType, barInterval):
-        self._cfgModel.setBarInterval(barType, barInterval)
+    def setBarInterval(self, barType, barInterval, contNo):
+        self._cfgModel.setBarInterval(barType, barInterval, contNo)
 
     def setSample(self, sampleType, sampleValue):
         if sampleType not in ('A', 'D', 'C', 'N'):
@@ -425,31 +425,31 @@ class StrategyModel(object):
     def setBarCount(self, count):
         self._cfgModel.setBarCount(count)
 
-    def setInitCapital(self, capital):
+    def setInitCapital(self, capital, userNo):
         initFund = capital if capital else 1000000
-        self._cfgModel.setInitCapital(initFund)
+        self._cfgModel.setInitCapital(initFund, userNo)
         return 0
 
-    def setMargin(self, type, value):
-        if not type or type not in (0, 1):
+    def setMargin(self, type, value, contNo):
+        if type not in (0, 1):
             return -1
 
         if type == 0:
             # 按比例
             if not value or value == 0:
-                return self._cfgModel.setMargin(EEQU_FEE_TYPE_RATIO, 0.08)
+                return self._cfgModel.setMargin(EEQU_FEE_TYPE_RATIO, 0.08, contNo)
 
             if value > 1:
                 return -1
-            return self._cfgModel.setMargin(EEQU_FEE_TYPE_FIXED, ())
+            return self._cfgModel.setMargin(EEQU_FEE_TYPE_FIXED, value, contNo)
 
         if type == 1:
             # 按固定值
             if not value or value <= 0:
                 return -1
-            return self._cfgModel.setMargin(EEQU_FEE_TYPE_FIXED, value)
+            return self._cfgModel.setMargin(EEQU_FEE_TYPE_FIXED, value, contNo)
 
-    def setTradeFee(self, type, rateFee, fixFee):
+    def setTradeFee(self, type, rateFee, fixFee, contNo):
         '''
         :param type: 手续费类型，A-全部，O-开仓，C-平仓，T-平今
         :param rateFee: 按比例收取手续费，为0表示按定额收取
@@ -466,14 +466,14 @@ class StrategyModel(object):
             return -1
 
         if rateFee == 0:
-            self._cfgModel.setTradeFee(type, EEQU_FEE_TYPE_FIXED, fixFee)
+            self._cfgModel.setTradeFee(type, EEQU_FEE_TYPE_FIXED, fixFee, contNo)
             return 0
 
         if fixFee == 0:
-            self._cfgModel.setTradeFee(type, EEQU_FEE_TYPE_RATIO, rateFee)
+            self._cfgModel.setTradeFee(type, EEQU_FEE_TYPE_RATIO, rateFee, contNo)
             return 0
 
-        self._cfgModel.setTradeFee(type, EEQU_FEE_TYPE_FIXED, rateFee*fixFee)
+        self._cfgModel.setTradeFee(type, EEQU_FEE_TYPE_FIXED, rateFee*fixFee, contNo)
         return 0
 
     def setTradeMode(self, inActual, sendOrderType, useSample, useReal):
@@ -497,11 +497,11 @@ class StrategyModel(object):
         self._cfgModel.setMinQty(tradeQty)
         return 0
 
-    def setHedge(self, hedge):
+    def setHedge(self, hedge, contNo):
         if hedge not in ('T', 'B', 'S', 'M'):
             return -1
 
-        self._cfgModel.setHedge(hedge)
+        self._cfgModel.setHedge(hedge, contNo)
         return 0
 
     def setSlippage(self, slippage):
@@ -686,8 +686,10 @@ class StrategyModel(object):
     def setPlotNumeric(self, name, value, locator, color, barsback):
         curBar = self._hisModel.getCurBar()
 
-        # if self._strategy.isRealTimeStatus() and name == "MA_1906_5":
-        #     print("name: ", name, "value:", value)
+        # if self._strategy.isRealTimeStatus() and name == "MA_909_5":
+        #     print("Real Time ************* :", "name: ", name, "value:", value)
+        # if self._strategy.isRealTimeAsHisStatus() and name == "MA_909_5":
+        #     print("Real Time As History*** :", "name: ", name, "value:", value)
 
         if name not in self._plotedDict:
             self._addSeries(name, value, locator, color, barsback)
@@ -1031,8 +1033,12 @@ class StrategyConfig(object):
         },
         
         'Sample'   : {  #样本设置
-            'KLineType'     : 'M',   K线类型
-            'KLineSlice'    : 1,     K线周期
+            'BarInterval'    :  {
+                'ZCE|F|SC|906'  :   {
+                    'KLineType'     : 'M',   K线类型
+                    'KLineSlice'    : 1,     K线周期
+                }
+            }
             'UseSample'     : True,  是否使用样本
             'KLineCount'    : 0,     K线数量
             'BeginTime'     : '',    起始日期， 目前支持到天
@@ -1048,17 +1054,21 @@ class StrategyConfig(object):
         },
         
         'Money'    : {   #资金设置
-            'UserNo'    : 'ET001',    资金账号
-            'InitFunds' : '1000000'   初始资金
-            'OrderQty'  : {
-                'Type'  : '1'-固定手数, '2'-固定资金，'3'-资金比例
-                'Count' : 设置的值
+            'ET001'  : {    #资金账号
+                'UserNo'    : 'ET001',
+                'InitFunds' : '1000000'   初始资金
+                'ZCE|F|SC|906'  :   {
+                    'OrderQty'  : {
+                        'Type'  : '1'-固定手数, '2'-固定资金，'3'-资金比例
+                        'Count' : 设置的值
+                    }
+                    'Hedge'     : T-投机,B-套保,S-套利,M-做市
+                    'MARGIN'    : {'Type':'F', 'Value':value} 'F'-固定值,'R'-比例
+                    'OpenFee'   : {'Type':'F', 'Value':value} 开仓手续费
+                    'CloseFee'  : {'Type':'F', 'Value':value} 平仓手续费
+                    'CloseTodayFee' : {'Type':'F', 'Value':value} 平今手续费
+                }
             }
-            'Hedge'     : T-投机,B-套保,S-套利,M-做市
-            'MARGIN'    : {'Type':'F', 'Value':value} 'F'-固定值,'R'-比例
-            'OpenFee'   : {'Type':'F', 'Value':value} 开仓手续费
-            'CloseFee'  : {'Type':'F', 'Value':value} 平仓手续费
-            'CloseTodayFee' : {'Type':'F', 'Value':value} 平今手续费
         }
         
         'Limit'   : {   #下单限制
@@ -1076,7 +1086,43 @@ class StrategyConfig(object):
         if ret > 0:
             raise Exception(ret)
 
-        self._metaData = deepcopy(argsDict)
+        self._metaData = self.convertArgsDict(argsDict)
+
+    def convertArgsDict(self, argsDict):
+        metaData = {}
+        contNo = None
+        for key, value in argsDict.items():
+            if key == 'Contract' and len(value) > 0:
+                # argsDict 中的合约信息可以为空
+                contNo = value[0]
+
+            if key == 'Sample' and contNo:
+                sampleDict = {contNo : {}}
+                for sampleKey, sampleValue in value.items():
+                    if sampleKey in ('KLineType', 'KLineSlice'):
+                        sampleDict[contNo][sampleKey] = sampleValue
+                    else:
+                        sampleDict[sampleKey] = sampleValue
+                metaData['Sample'] = deepcopy(sampleDict)
+                continue
+
+            if key == 'Money':
+                moneyDict = {contNo : {}}
+                userNo = None
+                for moneyKey, moneyValue in value.items():
+                    # if moneyKey in ('UserNo', 'InitFunds'):
+                    if moneyKey == 'UserNo':
+                        userNo = moneyValue
+                        moneyDict[moneyKey] = moneyValue
+                    elif moneyKey == 'InitFunds':
+                        moneyDict[userNo] = {moneyKey : moneyValue}
+                    else:
+                        moneyDict[contNo][moneyKey] = moneyValue
+                metaData['Money'] = deepcopy(moneyDict)
+                continue
+
+            metaData[key] = deepcopy(value)
+        return metaData
         
     def _chkConfig(self, argsDict):
         if 'Contract' not in argsDict:
@@ -1142,7 +1188,7 @@ class StrategyConfig(object):
 
     def setUserNo(self, userNo):
         '''设置交易使用的账户'''
-        if not userNo:
+        if userNo:
             self._metaData['Money']['UserNo'] = userNo
             return 0
         return -1
@@ -1155,9 +1201,11 @@ class StrategyConfig(object):
         '''获取触发方式'''
         return self._metaData['Trigger']
         
-    def getSample(self):
+    def getSample(self, contNo=''):
         '''获取样本数据'''
-        return self._metaData['Sample']
+        if not contNo:
+            contNo = self.getBenchmark()
+        return self._metaData['Sample'][contNo]
 
     def getStartTime(self):
         '''获取回测起始时间'''
@@ -1165,13 +1213,21 @@ class StrategyConfig(object):
             return self._metaData['Sample']['BeginTime']
         return 0
 
-    def getKLineType(self):
+    def getKLineType(self, contNo=''):
         '''获取K线类型'''
-        return self._metaData['Sample']['KLineType']
+        if not contNo:
+            contNo = self.getBenchmark()
+        if contNo not in self._metaData['Sample']:
+            return None
+        return self._metaData['Sample'][contNo]['KLineType']
 
-    def getKLineSlice(self):
+    def getKLineSlice(self, contNo=''):
         '''获取K线间隔'''
-        return self._metaData['Sample']['KLineSlice']
+        if not contNo:
+            contNo = self.getBenchmark()
+        if contNo not in self._metaData['Sample']:
+            return 0
+        return self._metaData['Sample'][contNo]['KLineSlice']
 
     def setAllKTrue(self):
         '''使用所有K线回测'''
@@ -1212,88 +1268,140 @@ class StrategyConfig(object):
     def setUseSample(self, isUseSample):
         self._metaData['RunMode']['Simulate']['UseSample'] = isUseSample
 
-    def setBarInterval(self, barType, barInterval):
+    def setBarInterval(self, barType, barInterval, contNo=''):
         '''设置K线类型和K线周期'''
-        if barType:
-            self._metaData['Sample']['KLineType'] = barType
-        if barInterval > 0:
-            self._metaData['Sample']['KLineSlice'] = barInterval
+        if not contNo:
+            contNo = self.getBenchmark()
+        if barType and barInterval > 0:
+            self._metaData['Sample'][contNo] = {'KLineType': barType, 'KLineSlice': barInterval}
 
-    def getInitCapital(self):
+    def getInitCapital(self, userNo=''):
         '''获取初始资金'''
-        return self._metaData['Money']['InitFunds']
+        if not userNo:
+            userNo = self.getUserNo()
+        if userNo not in self._metaData:
+            return 0
+        return self._metaData['Money'][userNo]['InitFunds']
 
-    def setInitCapital(self, capital):
+    def setInitCapital(self, capital, userNo=''):
         '''设置初始资金'''
-        self._metaData['Money']['InitFunds'] = capital
+        if not userNo:
+            userNo = self.getUserNo()
+        if userNo not in self._metaData['Money']:
+            self._metaData['Money'][userNo] = {'InitFunds': capital}
+        else:
+            self._metaData['Money'][userNo]['InitFunds'] = capital
 
     def getRunMode(self):
         '''获取运行模式'''
         return self._metaData['RunMode']
 
-    def getMarginValue(self):
+    def getMarginValue(self, contNo=''):
         '''获取保证金比例值'''
-        return self._metaData['Money']['Margin']['Value']
+        if not contNo:
+            contNo = self.getBenchmark()
 
-    def getMarginType(self):
+        if contNo not in self._metaData['Money']:
+            return 0
+        else:
+            return self._metaData['Money'][contNo]['Margin']['Value']
+
+    def getMarginType(self, contNo=''):
         '''获取保证金类型'''
-        return self._metaData['Money']['Margin']['Type']
+        if not contNo:
+            contNo = self.getBenchmark()
 
-    def setMargin(self, type, value):
+        if contNo not in self._metaData['Money']:
+            return None
+        else:
+            return self._metaData['Money'][contNo]['Margin']['Type']
+
+    def setMargin(self, type, value, contNo=''):
         '''设置保证金的类型及比例/额度'''
         if value < 0 or type not in (EEQU_FEE_TYPE_RATIO, EEQU_FEE_TYPE_FIXED):
             return -1
 
-        self._metaData['Money']['Margin']['Value'] = value
-        self._metaData['Money']['Margin']['Type'] = type
+        if not contNo:
+            contNo = self.getBenchmark()
+        if contNo not in self._metaData['Money']:
+            self._metaData['Money'][contNo] = self.initFeeDict()
+        self._metaData['Money'][contNo]['Margin']['Value'] = value
+        self._metaData['Money'][contNo]['Margin']['Type'] = type
         return 0
 
-    def getRatioOrFixedFee(self, feeType, isRatio):
+    def getRatioOrFixedFee(self, feeType, isRatio, contNo=''):
         '''获取 开仓/平仓/今平 手续费率或固定手续费'''
         if feeType not in ('OpenFee', 'CloseFee', 'CloseTodayFee'):
             return 0
+        if not contNo:
+            contNo = self.getBenchmark()
+        if contNo not in self._metaData['Money']:
+            return 0
+
         openFeeType = EEQU_FEE_TYPE_RATIO if isRatio else EEQU_FEE_TYPE_FIXED
-        return self._metaData['Money'][feeType]['Value'] if self._metaData['Money'][feeType]['Type'] == openFeeType else 0
+        return self._metaData['Money'][contNo][feeType]['Value'] if self._metaData['Money'][contNo][feeType]['Type'] == openFeeType else 0
 
-    def getOpenRatio(self):
+    def getOpenRatio(self, contNo=''):
         '''获取开仓手续费率'''
-        return self.getRatioOrFixedFee('OpenFee', True)
+        return self.getRatioOrFixedFee('OpenFee', True, contNo)
 
-    def getOpenFixed(self):
+    def getOpenFixed(self, contNo=''):
         '''获取开仓固定手续费'''
-        return self.getRatioOrFixedFee('OpenFee', False)
+        return self.getRatioOrFixedFee('OpenFee', False, contNo)
 
-    def getCloseRatio(self):
+    def getCloseRatio(self, contNo=''):
         '''获取平仓手续费率'''
-        return self.getRatioOrFixedFee('CloseFee', True)
+        return self.getRatioOrFixedFee('CloseFee', True, contNo)
 
-    def getCloseFixed(self):
+    def getCloseFixed(self, contNo=''):
         '''获取平仓固定手续费'''
-        return self.getRatioOrFixedFee('CloseFee', False)
+        return self.getRatioOrFixedFee('CloseFee', False, contNo)
 
-    def getCloseTodayRatio(self):
+    def getCloseTodayRatio(self, contNo=''):
         '''获取今平手续费率'''
-        return self.getRatioOrFixedFee('CloseTodayFee', True)
+        return self.getRatioOrFixedFee('CloseTodayFee', True, contNo)
 
-    def getCloseTodayFixed(self):
+    def getCloseTodayFixed(self, contNo=''):
         '''获取今平固定手续费'''
-        return self.getRatioOrFixedFee('CloseTodayFee', False)
+        return self.getRatioOrFixedFee('CloseTodayFee', False, contNo)
 
 
-    def setTradeFee(self, type, feeType, feeValue):
+    def setTradeFee(self, type, feeType, feeValue, contNo=''):
         typeMap = {
-            'A' : {'OpenFee', 'CloseFee', 'CloseTodayFee'},
-            'O' : {'OpenFee'},
-            'C' : {'CloseFee'},
-            'T' : {'CloseTodayFee'},
+            'A' : ('OpenFee', 'CloseFee', 'CloseTodayFee'),
+            'O' : ('OpenFee',),
+            'C' : ('CloseFee',),
+            'T' : ('CloseTodayFee',),
         }
-        money = self._metaData['Money']
-        if type in typeMap:
-            keyDict = typeMap[type]
-            for key in keyDict:
-                moneyDict = money[key]
-                moneyDict['Type'] = feeType
-                moneyDict['Value'] = feeValue
+        if type not in typeMap:
+            return
+
+        if not contNo:
+            contNo = self.getBenchmark()
+        if contNo not in self._metaData['Money']:
+            self._metaData['Money'][contNo] = self.initFeeDict()
+
+        money = self._metaData['Money'][contNo]
+        keyList = typeMap[type]
+        for key in keyList:
+            moneyDict = money[key]
+            moneyDict['Type'] = feeType
+            moneyDict['Value'] = feeValue
+
+    def initFeeDict(self):
+        keys = ('Margin', 'OpenFee', 'CloseFee', 'CloseTodayFee')
+        initDict = {'Type': '', 'Value': 0}
+        feeDict =  {
+            'MinQty': 0,
+            'OrderQty': {
+                'Type': '',
+                'Count': 0
+            },
+            'Hedge': '',
+        }
+        for k in keys:
+            feeDict[k] = deepcopy(initDict)
+        return feeDict
 
     def setTradeMode(self, inActual, sendOrderType, useSample, useReal):
         runMode = self._metaData['RunMode']
@@ -1312,13 +1420,21 @@ class StrategyConfig(object):
         '''设置交易方向'''
         self._metaData["Other"]["TradeDirection"] = tradeDirection
 
-    def setMinQty(self, minQty):
+    def setMinQty(self, minQty, contNo=''):
         '''设置最小下单量'''
+        if not contNo:
+            contNo = self.getBenchmark()
+        if contNo not in self._metaData['Money']:
+            self._metaData['Money'][contNo] = self.initFeeDict()
         self._metaData["Money"]["MinQty"] = minQty
 
-    def setHedge(self, hedge):
+    def setHedge(self, hedge, contNo=''):
         '''设置投保标志'''
-        self._metaData["Money"]["Hedge"] = hedge
+        if not contNo:
+            contNo = self.getBenchmark()
+        if contNo not in self._metaData['Money']:
+            self._metaData['Money'][contNo] = self.initFeeDict()
+        self._metaData["Money"][contNo]["Hedge"] = hedge
 
     def setSlippage(self, slippage):
         '''设置滑点损耗'''
@@ -2044,8 +2160,9 @@ class StrategyHisQuote(object):
             # todo 过滤最后一根k线，不过滤的话，会出现 k线稳定发单在交界处异常。
             # 更新当前Bar
             self._updateCurBar(self._contractNo, data)
-            otherContractDatas = self._getHSOtherContractBar(data["DateTimeStamp"])
+
             # 根据基准合约，更新其他Bar
+            otherContractDatas = self._getHSOtherContractBar(data["DateTimeStamp"])
             self._updateOtherBar(otherContractDatas)
 
             # 填入基准合约bar info
@@ -2055,7 +2172,6 @@ class StrategyHisQuote(object):
                 handle_data(context)
             # 通知当前Bar结束
             self._afterBar(contractList, otherContractDatas)
-
             if i%200==0:
                 self.drawBatchHisKine(baseContractData[beginIndex:i])
                 beginIndex = i
@@ -2183,7 +2299,7 @@ class StrategyHisQuote(object):
         self._updateRealTimeKLine(data)
         self._sendFlushEvent()
         self._afterBar(contractList, otherContractDatas)
-        
+
     def runRealTime(self, context, handle_data, event):
         '''K线实时触发'''
         assert self._strategy.isRealTimeStatus(), "error "
@@ -2196,15 +2312,18 @@ class StrategyHisQuote(object):
         otherContractDatas = self._getRTSOtherContractBar(data["DateTimeStamp"])
         self._updateOtherBar(otherContractDatas)
         otherContractDatas.update({self._contractNo: data})
-        # print("current k line index is", data["KLineIndex"])
-        # print(" data is ", self._curBarDict[contNo]._barList[-5:])
 
+        # print("contractNo is ", contNo)
+        # if contNo == self._contractNo:
+        #     print("current k line index is", data["KLineIndex"])
+        #     lastFive = self._curBarDict[contNo]._barList[-5:]
+        #     lastFiveClose =[barInfo['LastPrice'] for barInfo in lastFive]
+        #     print(" in inner data is ", lastFiveClose)
         # 执行策略函数
         handle_data(context)
         # 通知当前Bar结束
         self._sendFlushEvent()
         self._afterBar(contractList, otherContractDatas)
-
 
     def _updateRealTimeKLine(self, data):
         event = Event({

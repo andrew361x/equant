@@ -177,7 +177,7 @@ class QuantApplication(object):
         """
         self.quant_monitor.updateStatus(strategyId, dataDict)
 
-    def delStrategy(self, strategyId):
+    def delUIStrategy(self, strategyId):
         """
         删除监控列表中的策略
         :param strategyIdList: 待删除的策略列表

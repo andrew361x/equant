@@ -87,7 +87,7 @@ class StrategyMenu(object):
             file_name = newFileWin.nameEntry.get()
             file_type = newFileWin.type_chosen.get()
             if file_name == "":
-                messagebox.showinfo(title=self.language.get_text(8), message=self.language.get_text(16))
+                messagebox.showinfo(title=self.language.get_text(8), message=self.language.get_text(16), parent=newFileWin)
             else:
                 file = file_name + file_type
                 if not os.path.exists(os.path.join(dir_path, file)):
@@ -97,7 +97,7 @@ class StrategyMenu(object):
                     newFileWin.destroy()
                 else:
                     messagebox.showinfo(self.language.get_text(8),
-                                        self.language.get_text(17) + file + self.language.get_text(18))
+                                        self.language.get_text(17) + file + self.language.get_text(18), parent=newFileWin)
 
         def cancel():
             newFileWin.destroy()
@@ -122,7 +122,7 @@ class StrategyMenu(object):
                 dir_path = os.path.dirname(path)
             file_name = newTop.nameEntry.get()
             if file_name == "":
-                messagebox.showinfo(self.language.get_text(8), self.language.get_text(22))
+                messagebox.showinfo(self.language.get_text(8), self.language.get_text(22), parent=newTop)
             else:
                 if not os.path.exists(os.path.join(dir_path, file_name)):
                     filePath = os.path.join(dir_path, file_name)
@@ -132,7 +132,7 @@ class StrategyMenu(object):
                     newTop.destroy()
                 else:
                     messagebox.showinfo(self.language.get_text(8),
-                                        self.language.get_text(23) + file_name + self.language.get_text(24))
+                                        self.language.get_text(23) + file_name + self.language.get_text(24), parent=newTop)
 
         def cancel():
             newTop.destroy()
@@ -162,23 +162,23 @@ class StrategyMenu(object):
             newPath = os.path.join(os.path.dirname(path), renameTop.newEntry.get())
 
             if not os.path.exists(path):
-                messagebox.showinfo("提示", "本地文件不存在或已删除")
+                messagebox.showinfo("提示", "本地文件不存在或已删除", parent=renameTop)
                 return
             else:
                 if os.path.isfile(path):
                     # print(os.path.splitext(renameTop.newEntry.get()))
                     if os.path.splitext(renameTop.newEntry.get())[0] == "" \
                             or os.path.splitext(renameTop.newEntry.get())[0] == ".py":
-                        messagebox.showinfo("提示", "策略文件后缀名不能为空")
+                        messagebox.showinfo("提示", "策略文件后缀名不能为空", parent=renameTop)
                         return
 
                     if os.path.splitext(renameTop.newEntry.get())[1] != ".py":
-                        messagebox.showinfo("提示", "策略文件后缀名为.py")
+                        messagebox.showinfo("提示", "策略文件后缀名为.py", parent=renameTop)
                         return
 
                 if os.path.isdir(path):
                     if renameTop.newEntry.get() == "":
-                        messagebox.showinfo("提示", "文件名不能为空")
+                        messagebox.showinfo("提示", "文件名不能为空", parent=renameTop)
                         return
 
                 if not os.path.exists(newPath):
@@ -199,7 +199,7 @@ class StrategyMenu(object):
                         self.widget.tag_configure(self._lClickSelectedItem, text=text)
                     self.widget.update()
                 else:
-                    messagebox.showinfo("提示", self.language.get_text(32))
+                    messagebox.showinfo("提示", self.language.get_text(32), parent=renameTop)
             renameTop.destroy()
 
         def cancel():
@@ -325,7 +325,8 @@ class RunMenu(object):
 
     def onDelete(self):
         """删除策略"""
-        self._controller.delStrategy(self._strategyId)
+        if messagebox.askokcancel('提示', '删除策略运行数据也将删除，确定删除么'):
+            self._controller.delStrategy(self._strategyId)
 
     def onReport(self):
         """展示报告"""

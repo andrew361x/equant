@@ -68,7 +68,8 @@ class QuantHelper(QuantFrame):
             if not func: continue
             #检查注释
             if func.__doc__:
-                self.control.set_help_text(text, func.__doc__)
+                funcText = (func.__doc__).lstrip("\n")  # 去掉前面空行
+                self.control.set_help_text(text, funcText)
             else:
                 self.control.set_help_text(text, 'None')
         

@@ -945,7 +945,7 @@ class BaseApi(object):
         '''
         return self._dataModel.setBuy(contractNo, share, price)
 
-    def BuyToCover(self, share=0, price=0):
+    def BuyToCover(self, contractNo, share=0, price=0):
         '''
         【说明】
               产生一个空头平仓操作
@@ -973,9 +973,9 @@ class BaseApi(object):
               BuyToCover(5,0) 表示用现价空头买入5张合约)，马上发送委托。
               BuyToCover(0,0) 表示用现价按交易设置中的设置,马上发送委托。
         '''
-        return self._dataModel.setBuyToCover(share, price)
+        return self._dataModel.setBuyToCover(contractNo, share, price)
 
-    def Sell(self, share=0, price=0):
+    def Sell(self, contractNo, share=0, price=0):
         '''
         【说明】
               产生一个多头平仓操作
@@ -1003,9 +1003,9 @@ class BaseApi(object):
               Sell(5,0) 表示用现价卖出5张合约，马上发送委托。
               Sell(0,0) 表示用现价按交易设置中的设置,马上发送委托。
         '''
-        return self._dataModel.setSell(share, price)
+        return self._dataModel.setSell(contractNo, share, price)
 
-    def SellShort(self, share=0, price=0):
+    def SellShort(self, contractNo, share=0, price=0):
         '''
         【说明】
               产生一个空头建仓操作
@@ -1036,7 +1036,7 @@ class BaseApi(object):
               SellShort(10,Close) 表示平掉所有多头仓位，并用当前Bar收盘价空头卖出10张合约，马上发送委托。
 
         '''
-        return self._dataModel.setSellShort(share, price)
+        return self._dataModel.setSellShort(contractNo, share, price)
         
     #/////////////////////////属性函数/////////////////////////////
     def BarInterval(self):
@@ -2710,25 +2710,27 @@ class BaseApi(object):
         '''
         return self._dataModel.setUserNo(userNo)
 
-    def SetBarInterval(self, barType, barInterval):
+    def SetBarInterval(self, barType, barInterval, contNo):
         '''
         【说明】
               设置K线类型和K线周期
 
         【语法】
-              int SetBarInterval(int barType, int barInterval)
+              int SetBarInterval(int barType, int barInterval, string contNo)
 
         【参数】
               barType K线类型 t分时，T分笔，S秒线，M分钟，H小时，D日线，W周线，m月线，Y年线
               barInterval K线周期
+              contNo 合约编号，默认为基础合约
 
         【备注】
               返回整型, 0成功，-1失败
 
         【示例】
-              SetBarInterval(3, 3) 表示3分钟线
+              SetBarInterval(3, 3) 表示对基础合约使用3分钟线
+              SetBarInterval(3, 3, 'ZCE|F|SR|906') 表示对合约ZCE|F|SR|906使用3分钟线
         '''
-        return self._dataModel.setBarInterval(barType, barInterval)
+        return self._dataModel.setBarInterval(barType, barInterval, contNo)
 
     def SetSample(self, sampleType, sampleValue):
         '''
@@ -2815,67 +2817,71 @@ class BaseApi(object):
         '''
         return self._dataModel.setBarCount(count)
         
-    def SetInitCapital(self, capital):
+    def SetInitCapital(self, capital, userNo):
         '''
         【说明】
               设置初始资金，不设置默认100万
 
         【语法】
-              int SetInitCapital(float capital)
+              int SetInitCapital(float capital, string usrNo)
 
         【参数】
               capital 初始资金
+              usrNo 账号名称
 
         【备注】
               返回整型，0成功，-1失败
 
         【示例】
-              SetInitCapital(200*10000), 设置初始资金为200万
+              SetInitCapital(200*10000, 'ET001'), 设置账户ET001的初始资金为200万
         '''
-        return self._dataModel.setInitCapital(capital)
+        return self._dataModel.setInitCapital(capital, userNo)
         
-    def SetMargin(self, type, value):
+    def SetMargin(self, type, value, contNo):
         '''
         【说明】
               设置保证金参数，不设置取交易所公布参数
 
         【语法】
-              int SetMargin(float type, float value)
+              int SetMargin(float type, float value, string contNo)
 
         【参数】
               type 0：按比例收取保证金， 1：按定额收取保证金，
-              value 按比例收取保证金时的比例， 或者按定额收取保证金时的额度。
+              value 按比例收取保证金时的比例， 或者按定额收取保证金时的额度，
+              contNo 合约编号，默认为基础合约。
 
         【备注】
               返回整型，0成功，-1失败
 
         【示例】
-              SetMargin(0, 0.08) 设置保证金按比例收取8%
-              SetMargin(1, 80000) 设置保证金按额度收取80000
+              SetMargin(0, 0.08) 设置基础合约的保证金按比例收取8%
+              SetMargin(1, 80000, 'ZCE|F|SR|906') 设置合约ZCE|F|SR|906的保证金按额度收取80000
         '''
-        return self._dataModel.setMargin(type, value)
+        return self._dataModel.setMargin(type, value, contNo)
         
-    def SetTradeFee(self, type, rateFee, fixFee):
+    def SetTradeFee(self, type, rateFee, fixFee, contNo):
         '''
         【说明】
               设置手续费收取方式，不设置取交易所公布参数
 
         【语法】
-              int SetTradeFee(string type, float rateFee, float fixFee)
+              int SetTradeFee(string type, float rateFee, float fixFee, string contNo)
 
         【参数】
               type 手续费类型，A-全部，O-开仓，C-平仓，T-平今
               rateFee 按比例收取手续费，为0表示按定额收取
               fixFee 按定额收取手续费，为0表示按比例收取
-              rateFee和fixFee都设置，按照fixFee * rateFee收取
+              rateFee和fixFee都设置，按照fixFee * rateFee定额收取
+              contNo 合约编号，默认为基础合约
         【备注】
               返回整型，0成功，-1失败
 
         【示例】
-              SetTradeFee('O', 0, 5) 设置开仓手续费为5元/手
-              SetTradeFee('T', 0, 5) 设置平今手续费为5元/手
+              SetTradeFee('O', 0, 5) 设置基础合约的开仓手续费为5元/手
+              SetTradeFee('O', 0.02, 0) 设置基础合约的开仓手续费为每笔2%
+              SetTradeFee('T', 0, 5, "ZCE|F|SR|906") 设置合约ZCE|F|SR|906的平今手续费为5元/手
         '''
-        return self._dataModel.setTradeFee(type, rateFee, fixFee)
+        return self._dataModel.setTradeFee(type, rateFee, fixFee, contNo)
 
     def SetTradeMode(self, inActual, sendOrderType, useSample, useReal):
         '''
@@ -2941,13 +2947,13 @@ class BaseApi(object):
         '''
         return self._dataModel.setMinTradeQuantity(tradeQty)
 
-    def SetHedge(self, hedge):
+    def SetHedge(self, hedge, contNo):
         '''
         【说明】
              设置投保标志
 
         【语法】
-              int SetHedge(char hedge)
+              int SetHedge(char hedge, string contNo)
 
         【参数】
               hedge 投保标志
@@ -2955,14 +2961,16 @@ class BaseApi(object):
               B : 套保
               S : 套利
               M : 做市
+              contNo 合约编号，默认为基础合约
 
         【备注】
               返回整型，0成功，-1失败
 
         【示例】
-              SetHedge('T') # 设置投保标志为 投机
+              SetHedge('T') # 设置基础合约的投保标志为投机
+              SetHedge('T', 'ZCE|F|SR|906') # 设置合约ZCE|F|SR|906的投保标志为投机
         '''
-        return self._dataModel.setHedge(hedge)
+        return self._dataModel.setHedge(hedge, contNo)
 
     def SetSlippage(self, slippage):
         '''
@@ -3393,17 +3401,17 @@ def A_DeleteOrder(eSession):
     return baseApi.A_DeleteOrder(eSession)
 
 #策略交易
-def Buy(contractNo, share=0, price=0):
+def Buy(share=0, price=0, contractNo=None):
     return baseApi.Buy(contractNo, share, price)
 
-def BuyToCover(share=0, price=0):
-    return baseApi.BuyToCover(share, price)
+def BuyToCover(share=0, price=0, contractNo=None):
+    return baseApi.BuyToCover(contractNo, share, price)
 
-def Sell(share=0, price=0):
-    return baseApi.Sell(share, price)
+def Sell(share=0, price=0, contractNo=None):
+    return baseApi.Sell(contractNo, share, price)
 
-def SellShort(share=0, price=0):
-    return baseApi.SellShort(share, price)
+def SellShort(share=0, price=0, contractNo=None):
+    return baseApi.SellShort(contractNo, share, price)
     
 # 枚举函数
 def Enum_Period_Tick():
@@ -3447,8 +3455,8 @@ def SetBenchmark(*contractNo):
 def SetUserNo(userNo=''):
     return baseApi.SetUserNo(userNo)
 
-def SetBarInterval(barType, barInterval):
-    return baseApi.SetBarInterval(barType, barInterval)
+def SetBarInterval(barType, barInterval, contNo=''):
+    return baseApi.SetBarInterval(barType, barInterval, contNo)
 
 def SetSample(sampleType='C', sampleValue=2000):
     return baseApi.SetSample(sampleType, sampleValue)
@@ -3464,14 +3472,14 @@ def SetBarCount(count):
     return baseApi.SetBarCount(count)
 ################### End ####################
 
-def SetInitCapital(capital=''):
-    return baseApi.SetInitCapital(capital)
+def SetInitCapital(capital='', userNo=''):
+    return baseApi.SetInitCapital(capital, userNo)
 
-def SetMargin(type, value=0):
-    return baseApi.SetMargin(type, value)
+def SetMargin(type, value=0, contNo=''):
+    return baseApi.SetMargin(type, value, contNo)
 
-def SetTradeFee(type, reteFee, fixFee):
-    return baseApi.SetTradeFee(type, reteFee, fixFee)
+def SetTradeFee(type, reteFee, fixFee, contNo=''):
+    return baseApi.SetTradeFee(type, reteFee, fixFee, contNo)
 
 def SetTradeMode(inActual, sendOrderType, useSample, useReal):
     return baseApi.SetTradeMode(inActual, sendOrderType, useSample, useReal)
@@ -3482,8 +3490,8 @@ def SetTradeDirection(tradeDirection):
 def SetMinTradeQuantity(tradeQty=1):
     return baseApi.SetMinTradeQuantity(tradeQty)
 
-def SetHedge(hedge):
-    return baseApi.SetHedge(hedge)
+def SetHedge(hedge, contNo=''):
+    return baseApi.SetHedge(hedge, contNo)
 
 def SetSlippage(slippage):
     return baseApi.SetSlippage(slippage)

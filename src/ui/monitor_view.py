@@ -1,4 +1,6 @@
 import os
+import traceback
+
 from tkinter import *
 from tkinter import ttk, messagebox, Frame
 from utils.utils import *
@@ -87,13 +89,9 @@ class QuantMonitor(object):
         self.sigText.pack(fill=BOTH, expand=YES)
 
     def createExecute(self):
-        # headList = ["编号", "策略名称", "策略状态", "最终权益", "胜率", "净利润", "总盈利", "总亏损", "可用资金",
-        #              "夏普比率", "风险率", "手续费", "最大资产回撤", "最大资产回撤时间", "资产最大值", "资产最小值",
-        #              "最大连续盈利次数", "最大连续亏损次数"]
-        # headList = ["编号", "策略名称", "策略状态", "频率","保证金比例", "手续费",
-        #             "初始资金", "总盈利", "总亏损", "可用资金"]
-        # headList = ["编号", "策略名称", "策略状态", "运行类型", "初始资金", "合约", "开始时间", "结束时间", "权益"]
-        headList = ["编号", "策略名称", "基准合约", "K线类型", "K线周期", "运行状态", "实盘运行"]
+        headList  = ["编号", "策略名称", "基准合约", "频率", "运行状态", "实盘运行",
+                    "初始资金", "年化收益", "最大回撤", "累计收益", "胜率"]
+        widthList = [5, 50, 50, 5, 10, 5, 20, 5, 20, 20, 5]
 
         self.executeBar = ttk.Scrollbar(self.executeList, orient="vertical")
         self.executeBar.pack(side=RIGHT, fill=Y)
@@ -105,8 +103,12 @@ class QuantMonitor(object):
 
         self.executeListTree.bind("<Button-3>", self.createMenu)
 
-        for key in tuple(headList):
-            self.executeListTree.column(key, minwidth=20, width=55, anchor=CENTER)
+        # for key in tuple(headList):
+        #     self.executeListTree.column(key, minwidth=20, width=55, anchor=CENTER)
+        #     self.executeListTree.heading(key, text=key)
+
+        for key, w in zip(headList, widthList):
+            self.executeListTree.column(key, width=w, anchor=CENTER)
             self.executeListTree.heading(key, text=key)
 
     def createMenu(self, event):
@@ -125,9 +127,9 @@ class QuantMonitor(object):
 
     def _initKLineType(self):
         self._kLineTypeDict = {
-            "D": "日线",
-            "M": "分钟线",
-            "S": "秒线",
+            "D": "日",
+            "M": "分钟",
+            "S": "秒",
         }
 
     def _getStrategyStatus(self, key):
@@ -143,31 +145,56 @@ class QuantMonitor(object):
         :return: 需要展示的信息
         """
         try:
-            id = dataDict['StrategyId']
-            stName = dataDict['StrategyName']
-            benchCon = dataDict['Config']['Contract'][0]
+            Id = dataDict['StrategyId']
+            StName = dataDict['StrategyName']
+            BenchCon = dataDict['Config']['Contract'][0]
+
             kLineType = self._getKLineType(dataDict['Config']['Sample']['KLineType'])
             kLineSlice = dataDict['Config']['Sample']['KLineSlice']
-            runType = "是" if dataDict['Config']['RunMode']['Actual']['SendOrder2Actual'] else "否"
-            status = self._getStrategyStatus(dataDict["StrategyState"])
+
+            Frequency = str(kLineSlice) + kLineType
+            RunType = "是" if dataDict['Config']['RunMode']['Actual']['SendOrder2Actual'] else "否"
+            Status = self._getStrategyStatus(dataDict["StrategyState"])
+            InitFund = dataDict['Config']['Money']['InitFunds']
+
+            if 'RunningData' in dataDict:
+                # 年化单利收益率
+                AnnualizedReturns = "{:.2f}".format(dataDict['RunningData']['Detail']['AnnualizedSimple'])
+                MaxRetrace = "{:.2f}".format((dataDict['RunningData']['Detail']['MaxRetrace']))
+                TotalProfit = "{:.2f}".format(dataDict['RunningData']['Detail']['NetProfit'])
+                WinRate = "{:.2f}".format(dataDict['RunningData']['Detail']['WinRate'])
+            else:
+                AnnualizedReturns = 0
+                MaxRetrace = 0
+                TotalProfit = 0
+                WinRate = 0
 
         except KeyError:
+            traceback.print_exc()
             return
 
         values = [
-            id,
-            stName,
-            benchCon,
-            kLineType,
-            kLineSlice,
-            status,
-            runType,
+            Id,
+            StName,
+            BenchCon,
+            Frequency,
+            Status,
+            RunType,
+            InitFund,
+            AnnualizedReturns,
+            MaxRetrace,
+            TotalProfit,
+            WinRate
         ]
 
         return values
 
     def updateSingleExecute(self, dataDict):
         values = self._formatMonitorInfo(dataDict)
+
+        if not values:
+            return
+
         strategyId = dataDict["StrategyId"]
         if self.executeListTree.exists(strategyId):
             self.updateStatus(strategyId, dataDict)

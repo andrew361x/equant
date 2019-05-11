@@ -29,8 +29,6 @@ class TkinterController(object):
         self.top = Tk()
         self.app = QuantApplication(self.top, self)
         self.app.create_window()
-        # 设置日志更新
-        self.update_log()
 
         # 创建模块
         self.model = QuantModel(self.app, self._ui2egQueue, self._eg2uiQueue, self.logger)
@@ -39,8 +37,10 @@ class TkinterController(object):
         # 策略管理器
         self.strategyManager = self.getStManager()
 
-        #TODO: 暂时先这样调用
-        # self.app.setLoadState()
+        # 设置日志更新
+        self.update_log()
+        # 监控信息
+        self.update_monitor()
 
     def get_logger(self):
         return self.logger
@@ -51,6 +51,14 @@ class TkinterController(object):
         self.app.updateErrText()
         #TODO:
         self.top.after(10, self.update_log)
+
+    def update_monitor(self):
+        # 更新监控界面策略信息
+        strategyDict = self.strategyManager.getStrategyDict()
+        for stId in strategyDict:
+            self.app.updateStatus(stId, strategyDict[stId])
+        self.top.after(1000, self.update_monitor)
+
 
     def run(self):
         #启动主界面线程
@@ -156,16 +164,13 @@ class TkinterController(object):
         :param strategyId: 所选策略Id列表
         :return:
         """
-        # for id in strategyIdList:
-        #     self._request.strategyResume(id)
-
         for id in strategyIdList:
             # 策略如果是启动状态，则忽略此次启动请求
             strategyDict = self.strategyManager.getStrategyDict()
             if id in strategyDict:
                 status = self.strategyManager.queryStrategyStatus(id)
                 if status == ST_STATUS_HISTORY or status == ST_STATUS_CONTINUES:
-                    print("ignore!")
+                    self.logger.info("策略重复启动！")
                     continue
             self._request.strategyResume(id)
 
@@ -187,16 +192,7 @@ class TkinterController(object):
     def delStrategy(self, strategyIdList):
         # 获取策略管理器
         for id in strategyIdList:
-            # strategyDict = self.strategyManager.getStrategyDict()
-            # if id in strategyDict:
-            #     self._request.strategyRemove(id)
-            # 通知引擎
             self._request.strategyRemove(id)
-            # # TODO：删除策略需要接到通知之后再进行删除
-            # # 更新界面
-            # self.app.delStrategy(id)
-            # # 将策略管理器中的该策略也删除掉
-            # self.strategyManager.removeStrategy(id)
 
     def signalDisplay(self, strategyIdList):
         # 查看策略的信号及指标图(默认查看一个)

@@ -385,14 +385,12 @@ class RunWin(QuantToplevel, QuantFrame):
           }
         }
 
-        self.bColor = self.bgColor
         self.fColor = self.bgColor
         self.sColor = self.bgColor
         self.rColor = self.bgColorW
 
         self.createNotebook(self.topFrame)
 
-        self.baseFrame = tk.Frame(self.topFrame, bg=rgb_to_hex(255, 255, 255))
         self.fundFrame = tk.Frame(self.topFrame, bg=rgb_to_hex(255, 255, 255))
         self.sampleFrame = tk.Frame(self.topFrame, bg=rgb_to_hex(255, 255, 255))
         self.runFrame = tk.Frame(self.topFrame, bg=rgb_to_hex(255, 255, 255))
@@ -400,18 +398,18 @@ class RunWin(QuantToplevel, QuantFrame):
         self.runFrame.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
 
         self.createRun(self.runFrame)
-        self.createBase(self.baseFrame)
         self.createFund(self.fundFrame)
         self.createSample(self.sampleFrame)
         self.addButton(self.topFrame)
 
         # TODO： 如果将配置文件内容删除会报错
         self.setDefaultConfigure()
-        # 根据内容设置Label文本
-        self.setLabelText()
+        # 根据用户设置内容初始化控件
+        self.initWidget()
 
     def initVariable(self):
         # 变量
+        self.contract = tk.StringVar()  # 基准合约
         self.user = tk.StringVar()  # 用户
         self.initFund = tk.StringVar()  # 初始资金
         self.defaultType = tk.StringVar()  # 默认下单方式
@@ -471,11 +469,6 @@ class RunWin(QuantToplevel, QuantFrame):
                 return configure[key]
         return None
 
-        # if configure:
-        #     if key in configure:
-        #         return configure[key]
-        # return None
-
     def setDefaultConfigure(self):
         conf = self.getTextConfigure()
         if conf:
@@ -493,14 +486,15 @@ class RunWin(QuantToplevel, QuantFrame):
             self.closeFee.set(conf[VCloseFee]),
             self.dir.set(conf[VDirection]),
             self.slippage.set(conf[VSlippage]),
-            # self.contract.set(conf[VContract]),
-            # 合约通过函数设置
-            self.setText(self.contractInfo, conf[VContract])
+
+            self.contract.set(conf[VContract])
+            # self.setText(self.contractInfo, conf[VContract])
 
             self.isCycle.set(conf[VIsCycle]),
             self.cycle.set(conf[VCycle]),
 
             # 定时触发通过函数设置
+            self.timerText.delete(0.0, tk.END)
             self.setText(self.timerText, conf[VTimer])
 
             self.isKLine.set(conf[VIsKLine]),
@@ -590,13 +584,12 @@ class RunWin(QuantToplevel, QuantFrame):
             # 平仓的当前K线不允许开仓
             self.canOpen.set(0)
 
-    def setLabelText(self):
-        """根据配置文件决定所显示的label内容"""
-        # self.openTypeUnitVar.set("") if self.openType.get() == "固定值" else self.openTypeUnitVar.set("%")
-        # self.closeTypeUnitVar.set("") if self.closeType.get() == "固定值" else self.closeTypeUnitVar.set("%")
+    def initWidget(self):
+        """根据用户的配置文件决定控件的状态和内容"""
         self.openTypeUnitSet()
         self.closeTypeUnitSet()
         self.defaultUnitSetting()
+        self.setCycleEntryState()
 
     def getConfig(self):
         """获取用户配置的config"""
@@ -604,22 +597,7 @@ class RunWin(QuantToplevel, QuantFrame):
 
     def getUserContract(self):
         """获取用户所选的数据合约信息"""
-        # TODO:
-        contract = self.contractInfo.get('1.0', tk.END)
-        return contract
-        # return self.contract.get()
-
-    def setUserList(self):
-        pass
-
-    def setExchangeList(self):
-        pass
-
-    def setCommodityList(self):
-        pass
-
-    def setContractList(self):
-        pass
+        return self.contract.get()
 
     def setPos(self):
         # 获取主窗口大小和位置，根据主窗口调整输入框位置
@@ -643,8 +621,6 @@ class RunWin(QuantToplevel, QuantFrame):
         nbFrame.pack_propagate(0)
         nbFrame.pack(side=tk.TOP, fill=tk.X)
 
-        self.baseBtn = tk.Button(nbFrame, text="基础设置", relief=tk.FLAT, padx=14, pady=1.5, bg=self.bColor,
-                                 bd=0, highlightthickness=1, command=self.toBaseFrame)
         self.fundBtn = tk.Button(nbFrame, text="资金设置", relief=tk.FLAT, padx=14, pady=1.5, bg=self.fColor,
                                  bd=0, highlightthickness=1, command=self.toFundFrame)
         self.runBtn = tk.Button(nbFrame, text="运行设置", relief=tk.FLAT, padx=14, pady=1.5, bg=self.rColor,
@@ -653,56 +629,34 @@ class RunWin(QuantToplevel, QuantFrame):
                                    bd=0, highlightthickness=1, command=self.toSampFrame)
 
         self.runBtn.pack(side=tk.LEFT, expand=tk.NO)
-        self.baseBtn.pack(side=tk.LEFT, expand=tk.NO)
         self.fundBtn.pack(side=tk.LEFT, expand=tk.NO)
         self.sampleBtn.pack(side=tk.LEFT, expand=tk.NO)
 
-        for btn in (self.fundBtn, self.baseBtn, self.sampleBtn, self.runBtn):
+        for btn in (self.fundBtn, self.sampleBtn, self.runBtn):
             btn.bind("<Enter>", self.handlerAdaptor(self.onEnter, button=btn))
             btn.bind("<Leave>", self.handlerAdaptor(self.onLeave, button=btn))
 
     def toFundFrame(self):
         self.fundBtn.config(bg="white")
         self.fColor = self.fundBtn['bg']
-        self.bColor = self.bgColor
         self.rColor = self.bgColor
         self.sColor = self.bgColor
-        self.baseBtn.config(bg=self.bColor)
         self.runBtn.config(bg=self.rColor)
         self.sampleBtn.config(bg=self.sColor)
 
-        self.baseFrame.pack_forget()
         self.runFrame.pack_forget()
         self.sampleFrame.pack_forget()
         self.fundFrame.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
-
-    def toBaseFrame(self):
-        self.baseBtn.config(bg="white")
-        self.bColor = self.baseBtn['bg']
-        self.fColor = self.bgColor
-        self.rColor = self.bgColor
-        self.sColor = self.bgColor
-        self.fundBtn.config(bg=self.fColor)
-        self.runBtn.config(bg=self.rColor)
-        self.sampleBtn.config(bg=self.rColor)
-
-        self.fundFrame.pack_forget()
-        self.runFrame.pack_forget()
-        self.sampleFrame.pack_forget()
-        self.baseFrame.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
 
     def toSampFrame(self):
         self.sampleBtn.config(bg="white")
         self.sColor = self.sampleBtn['bg']
         self.rColor = self.bgColor
         self.fColor = self.bgColor
-        self.bColor = self.bgColor
         self.fundBtn.config(bg=self.fColor)
-        self.baseBtn.config(bg=self.bColor)
         self.runBtn.config(bg=self.rColor)
 
         self.fundFrame.pack_forget()
-        self.baseFrame.pack_forget()
         self.runFrame.pack_forget()
         self.sampleFrame.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
 
@@ -710,37 +664,26 @@ class RunWin(QuantToplevel, QuantFrame):
         self.runBtn.config(bg="white")
         self.rColor = self.runBtn['bg']
         self.fColor = self.bgColor
-        self.bColor = self.bgColor
         self.sColor = self.bgColor
         self.fundBtn.config(bg=self.fColor)
-        self.baseBtn.config(bg=self.bColor)
-        self.sampleBtn.config(bg=self.bColor)
+        self.sampleBtn.config(bg=self.sColor)
 
         self.fundFrame.pack_forget()
-        self.baseFrame.pack_forget()
         self.sampleFrame.pack_forget()
         self.runFrame.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
 
     def onEnter(self, event, button):
         if button == self.fundBtn:
             button.config(bg='white')
-            self.baseBtn.config(bg=self.bgColor)
             self.sampleBtn.config(bg=self.bgColor)
             self.runBtn.config(bg=self.bgColor)
-        elif button == self.baseBtn:
-            button.config(bg='white')
-            self.sampleBtn.config(bg=self.bgColor)
-            self.runBtn.config(bg=self.bgColor)
-            self.fundBtn.config(bg=self.bgColor)
         elif button == self.sampleBtn:
             button.config(bg='white')
             self.fundBtn.config(bg=self.bgColor)
-            self.baseBtn.config(bg=self.bgColor)
             self.runBtn.config(bg=self.bgColor)
         else:
             button.config(bg='white')
             self.fundBtn.config(bg=self.bgColor)
-            self.baseBtn.config(bg=self.bgColor)
             self.sampleBtn.config(bg=self.bgColor)
 
     def onLeave(self, event, button):
@@ -748,23 +691,17 @@ class RunWin(QuantToplevel, QuantFrame):
         if button == self.fundBtn:
             button['bg'] = self.fColor
             self.runBtn['bg'] = self.rColor
-            self.baseBtn['bg'] = self.bColor
             self.sampleBtn['bg'] = self.sColor
         elif button == self.runBtn:
             button['bg'] = self.rColor
             self.fundBtn['bg'] = self.fColor
-            self.baseBtn['bg'] = self.bColor
             self.sampleBtn['bg'] = self.sColor
         elif button == self.sampleBtn:
             button['bg'] = self.sColor
             self.fundBtn['bg'] = self.fColor
-            self.baseBtn['bg'] = self.bColor
             self.runBtn['bg'] = self.rColor
         else:
-            button['bg'] = self.bColor
-            self.runBtn['bg'] = self.rColor
-            self.fundBtn['bg'] = self.fColor
-            self.sampleBtn['bg'] = self.sColor
+            pass
 
     def createFund(self, frame):
         self.setInitFunds(frame)
@@ -775,28 +712,25 @@ class RunWin(QuantToplevel, QuantFrame):
         self.setCommision(frame)
         self.setSlippage(frame)
 
-    def createBase(self, frame):
-        self.setContract(frame)
-        self.setUser(frame)
-        self.setKLineType(frame)
-        self.setKLineSlice(frame)
-
     def createSample(self, frame):
         self.setSample(frame)
         self.setSendOrderLimit(frame)
-        #
 
     def createRun(self, frame):
         self.setTrigger(frame)
         self.SendOrderMode(frame)
         self.setRunMode(frame)
 
+        self.setContract(frame)
+        self.setUser(frame)
+        self.setKLineType(frame)
+        self.setKLineSlice(frame)
 
     # 资金设置
     def setUser(self, frame):
         """设置账户"""
         self.userFrame = tk.Frame(frame, relief=tk.RAISED, bg=rgb_to_hex(255, 255, 255))
-        self.userFrame.pack(fill=tk.NONE, anchor=tk.W, padx=15, pady=5)
+        self.userFrame.pack(fill=tk.NONE, anchor=tk.W, padx=5, pady=5)
         userLabel = tk.Label(self.userFrame, text="账户:", bg=rgb_to_hex(255, 255, 255),
                              justif=tk.LEFT, anchor=tk.W, width=10)
         userLabel.pack(side=tk.LEFT, padx=5)
@@ -809,7 +743,7 @@ class RunWin(QuantToplevel, QuantFrame):
         self.userChosen["values"] = userList
         if userList:
             self.userChosen.current(0)
-        self.userChosen.pack(side=tk.LEFT, padx=5)
+        self.userChosen.pack(side=tk.LEFT, padx=10)
 
     def setInitFunds(self, frame):
         """设置初始资金"""
@@ -819,9 +753,8 @@ class RunWin(QuantToplevel, QuantFrame):
         iniFundLabel = tk.Label(initFundFrame, text='初始资金:', bg=rgb_to_hex(255, 255, 255),
                                 justif=tk.LEFT, anchor=tk.W, width=15)
         iniFundLabel.pack(side=tk.LEFT)
-        self.initFundEntry = tk.Entry(initFundFrame, relief=tk.RIDGE, textvariable=self.initFund, validate="key",
+        self.initFundEntry = tk.Entry(initFundFrame, relief=tk.GROOVE, bd=2, textvariable=self.initFund, validate="key",
                                       validatecommand=(self.testContent, "%P"))
-        # self.initFundEntry.insert(tk.END, 10000000)
         self.initFundEntry.pack(side=tk.LEFT, fill=tk.X, padx=5)
         tk.Label(initFundFrame, text='元', bg=rgb_to_hex(255, 255, 255), justif=tk.LEFT, anchor=tk.W, width=2) \
             .pack(side=tk.LEFT, padx=1)
@@ -847,7 +780,7 @@ class RunWin(QuantToplevel, QuantFrame):
         typeChosen.pack(side=tk.LEFT, fill=tk.X, padx=5)
         typeChosen.bind('<<ComboboxSelected>>', self.defaultUnitSetting)
 
-        qtyEntry = tk.Entry(defaultFrame, relief=tk.RIDGE, width=7, textvariable=self.defaultQty,
+        qtyEntry = tk.Entry(defaultFrame, relief=tk.GROOVE, width=7, textvariable=self.defaultQty, bd=2,
                             validate="key", validatecommand=(self.testContent, "%P"))
         # qtyEntry.insert(tk.END, 1)
         qtyEntry.pack(side=tk.LEFT, expand=tk.NO)
@@ -860,13 +793,13 @@ class RunWin(QuantToplevel, QuantFrame):
         minQtyFrame = tk.Frame(frame, relief=tk.RAISED, bg=rgb_to_hex(255, 255, 255))
         minQtyFrame.pack(side=tk.TOP, fill=tk.X, padx=15, pady=5)
         tk.Label(minQtyFrame, text='最小下单量: ', bg=rgb_to_hex(255, 255, 255), justif=tk.LEFT, anchor=tk.W, width=15) \
-            .pack(side=tk.LEFT)
-        minQtyEntry = tk.Entry(minQtyFrame, relief=tk.RIDGE, width=10, textvariable=self.minQty,
+                 .pack(side=tk.LEFT)
+        minQtyEntry = tk.Entry(minQtyFrame, relief=tk.GROOVE, bd=2, width=10, textvariable=self.minQty,
                                validate="key", validatecommand=(self.testContent, "%P"))
         # minQtyEntry.insert(tk.END, 1)
-        minQtyEntry.pack(side=tk.LEFT, expand=tk.NO)
+        minQtyEntry.pack(side=tk.LEFT, expand=tk.NO, padx=4)
         tk.Label(minQtyFrame, text='手(1-{})'.format(MAXSINGLETRADESIZE), bg=rgb_to_hex(255, 255, 255),
-                 justif=tk.LEFT, anchor=tk.W, width=10).pack(side=tk.LEFT, expand=tk.NO, padx=2)
+                 justif=tk.LEFT, anchor=tk.W, width=10).pack(side=tk.LEFT, expand=tk.NO, padx=4)
 
     def defaultUnitSetting(self, event=None):
         """默认下单量checkbutton选中事件"""
@@ -906,10 +839,9 @@ class RunWin(QuantToplevel, QuantFrame):
         marginLabel = tk.Label(marginFrame, text='保证金率:', bg=rgb_to_hex(255, 255, 255),
                                justif=tk.LEFT, anchor=tk.W, width=15)
         marginLabel.pack(side=tk.LEFT)
-        marginEntry = tk.Entry(marginFrame, relief=tk.RIDGE, textvariable=self.margin,
+        marginEntry = tk.Entry(marginFrame, relief=tk.GROOVE, bd=2, textvariable=self.margin,
                                validate="key", validatecommand=(self.testContent, "%P"))
-        # marginEntry.insert(tk.END, 8)
-        marginEntry.pack(side=tk.LEFT, fill=tk.X, padx=1)
+        marginEntry.pack(side=tk.LEFT, fill=tk.X, padx=5)
         tk.Label(marginFrame, text='%', bg=rgb_to_hex(255, 255, 255), justif=tk.LEFT, anchor=tk.W, width=2) \
             .pack(side=tk.LEFT, expand=tk.NO, padx=1)
 
@@ -930,7 +862,7 @@ class RunWin(QuantToplevel, QuantFrame):
         openFeeFrame.pack(fill=tk.X, padx=15, pady=5)
         tk.Label(openFeeFrame, text='开仓手续费(率):', bg=rgb_to_hex(255, 255, 255),
                  justify=tk.LEFT, anchor=tk.W, width=15).pack(side=tk.LEFT)
-        openFeeEntry = tk.Entry(openFeeFrame, relief=tk.RIDGE, textvariable=self.openFee,
+        openFeeEntry = tk.Entry(openFeeFrame, relief=tk.GROOVE, bd=2, textvariable=self.openFee,
                                 validate="key", validatecommand=(self.testContent, "%P"))
         # openFeeEntry.insert(tk.END, 1)
         openFeeEntry.pack(side=tk.LEFT, fill=tk.X, padx=5)
@@ -953,7 +885,7 @@ class RunWin(QuantToplevel, QuantFrame):
         closeFeeFrame.pack(fill=tk.X, padx=15, pady=5)
         tk.Label(closeFeeFrame, text='平仓手续费(率):', bg=rgb_to_hex(255, 255, 255),
                  justify=tk.LEFT, anchor=tk.W, width=15).pack(side=tk.LEFT)
-        closeFeeEntry = tk.Entry(closeFeeFrame, relief=tk.RIDGE, textvariable=self.closeFee,
+        closeFeeEntry = tk.Entry(closeFeeFrame, relief=tk.GROOVE, bd=2, textvariable=self.closeFee,
                                  validate="key", validatecommand=(self.testContent, "%P"))
         # closeFeeEntry.insert(tk.END, 1)
         closeFeeEntry.pack(side=tk.LEFT, fill=tk.X, padx=5)
@@ -1000,46 +932,29 @@ class RunWin(QuantToplevel, QuantFrame):
         slipLabel = tk.Label(slipFrame, text='滑点损耗:', bg=rgb_to_hex(255, 255, 255),
                              justif=tk.LEFT, anchor=tk.W, width=15)
         slipLabel.pack(side=tk.LEFT)
-        slipEntry = tk.Entry(slipFrame, relief=tk.RIDGE, width=23, textvariable=self.slippage,
+        slipEntry = tk.Entry(slipFrame, relief=tk.GROOVE, bd=2, width=23, textvariable=self.slippage,
                              validate="key", validatecommand=(self.testContent, "%P"))
         # slipEntry.insert(tk.END, 1)
         slipEntry.pack(side=tk.LEFT, fill=tk.X, padx=5)
 
-    # 基础设置
-    # TODO: 多合约怎么添加呢？
     def setContract(self, frame):
         contractFrame = tk.Frame(frame, relief=tk.RAISED, bg=rgb_to_hex(255, 255, 255))
-        contractFrame.pack(fill=tk.NONE, anchor=tk.W, padx=15, pady=5)
-        labelFrame = tk.Frame(frame, relief=tk.RAISED, bg=rgb_to_hex(255, 255, 255))
-        labelFrame.pack(fill=tk.NONE, anchor=tk.W, padx=15, pady=5)
-        textFrame = tk.Frame(frame, relief=tk.RAISED, bg=rgb_to_hex(255, 255, 255))
-        textFrame.pack(fill=tk.NONE, anchor=tk.W, padx=15, pady=5)
+        contractFrame.pack(fill=tk.NONE, anchor=tk.W, padx=5, pady=5)
 
-        contractLabel = tk.Label(labelFrame, text="数据合约:", bg=rgb_to_hex(255, 255, 255),
+        contractLabel = tk.Label(contractFrame, text="基准合约:", bg=rgb_to_hex(255, 255, 255),
                                  justify=tk.LEFT, anchor=tk.NW, width=10)
         contractLabel.pack(side=tk.LEFT, padx=5)
 
-        # 设置选择按钮的初始状态
-        # state = self.master.editor
+        self.contractEntry = tk.Entry(contractFrame, bg=rgb_to_hex(255, 255, 255), bd=2, width=35, relief=tk.GROOVE,
+                                      state="disabled", textvariable=self.contract)
+        self.contractEntry.pack(side=tk.LEFT, fill=tk.X, expand=tk.YES, padx=10)
 
-        contractButton = tk.Button(labelFrame, text="选择", relief=tk.FLAT,
+        contractButton = tk.Button(contractFrame, text="选择", relief=tk.FLAT,
                                    activebackground="lightblue",
                                    overrelief="groove",
                                    bg=rgb_to_hex(230, 230, 230),
                                    command=self.selectContract)
         contractButton.pack(side=tk.LEFT, ipadx=5, padx=5)
-        # -------------------------------------------------------------------------------------------------------
-        self.contractInfo = tk.Text(textFrame, bg=rgb_to_hex(255, 255, 255), width=35, height=8, state="disabled")
-        self.contractInfo.pack(side=tk.TOP, anchor=tk.W, padx=5)
-        # self.contractInfo.bind("<Button-1>", self.timerTextEvent)
-        # self.contractInfoScroll = self.addScroll(textFrame, self.contractInfo,)
-        # -------------------------------------------------------------------------------------------------------
-        # self.contractEntry = tk.Entry(contractFrame, bg=rgb_to_hex(255, 255, 255), relief=tk.RIDGE,
-        #                               state="disabled", textvariable=self.contract)
-        # self.contractEntry.pack(side=tk.LEFT, fill=tk.X, expand=tk.YES, padx=5)
-        # contractButton = tk.Button(contractFrame, text="...", relief=tk.FLAT,
-        #                            command=self.selectContract, bg=rgb_to_hex(255, 255, 255))
-        # contractButton.pack(side=tk.LEFT, ipadx=5, padx=5)
 
     def selectContract(self):
         """选择合约"""
@@ -1051,41 +966,52 @@ class RunWin(QuantToplevel, QuantFrame):
         triggerFrame = tk.LabelFrame(frame, text="触发方式", bg=rgb_to_hex(255, 255, 255), padx=5)
         triggerFrame.pack(side=tk.TOP, fill=tk.X, anchor=tk.W, padx=15, pady=5)
 
-        cycleFrame = tk.Frame(triggerFrame, bg=rgb_to_hex(255, 255, 255), padx=5)
-        timerFrame = tk.Frame(triggerFrame, bg=rgb_to_hex(255, 255, 255), padx=5)
-        kLineFrame = tk.Frame(triggerFrame, bg=rgb_to_hex(255, 255, 255), padx=5)
+        tLeftFrame = tk.Frame(triggerFrame, bg=rgb_to_hex(255, 255, 255), padx=5)
+        tRightFrame = tk.Frame(triggerFrame, bg=rgb_to_hex(255, 255, 255), padx=5)
+        tLeftFrame.pack(fill=tk.Y, side=tk.LEFT, pady=2)
+        tRightFrame.pack(fill=tk.Y, side=tk.RIGHT, pady=2)
 
-        for f in [kLineFrame, cycleFrame, timerFrame]:
+        kLineFrame = tk.Frame(tLeftFrame, bg=rgb_to_hex(255, 255, 255), padx=5, pady=5)
+        marketFrame = tk.Frame(tLeftFrame, bg=rgb_to_hex(255, 255, 255), padx=5, pady=5)
+        tradeFrame = tk.Frame(tLeftFrame, bg=rgb_to_hex(255, 255, 255), padx=5, pady=5)
+        cycleFrame = tk.Frame(tLeftFrame, bg=rgb_to_hex(255, 255, 255), padx=5, pady=5)
+
+        for f in [kLineFrame, marketFrame, tradeFrame, cycleFrame]:
             f.pack(fill=tk.X, pady=2)
         # 周期
-        cycleCheck = tk.Checkbutton(cycleFrame, text="每间隔", bg=rgb_to_hex(255, 255, 255),
+        cycleCheck = tk.Checkbutton(cycleFrame, text="每间隔", bg=rgb_to_hex(255, 255, 255), bd=2,
                                     anchor=tk.W, variable=self.isCycle, command=self.cycleCheckEvent)
         cycleCheck.pack(side=tk.LEFT, padx=5)
 
-        self.cycleEntry = tk.Entry(cycleFrame, relief=tk.RIDGE, width=8, bg=rgb_to_hex(245, 245, 245),
+        self.cycleEntry = tk.Entry(cycleFrame, relief=tk.GROOVE, width=8, bd=2,
                                    textvariable=self.cycle, validate="key", validatecommand=(self.testContent, "%P"))
-        # self.cycleEntry.insert(tk.END, 200)
-        self.cycleEntry.config(state="disabled")
+        # self.cycleEntry.config(state="disabled")
         self.cycleEntry.pack(side=tk.LEFT, fill=tk.X, padx=1)
         tk.Label(cycleFrame, text="毫秒执行代码（100的整数倍）", bg=rgb_to_hex(255, 255, 255),
                  anchor=tk.W, width=25).pack(side=tk.LEFT, expand=tk.NO, padx=1)
 
         # 定时
-        # TODO: 定时触发方式未实现（还没设置变量）
-        tk.Label(timerFrame, text="指定时刻", bg=rgb_to_hex(255, 255, 255),
+        tk.Label(tRightFrame, text="指定时刻", bg=rgb_to_hex(255, 255, 255),
                  anchor=tk.W, width=10).pack(side=tk.TOP, anchor=tk.W, expand=tk.NO, padx=5)
-        self.timerText = tk.Text(timerFrame, bg=rgb_to_hex(255, 255, 255), width=30, height=8, state="disabled")
-        self.timerText.pack(side=tk.TOP, anchor=tk.W, padx=5)
+        timerFrame = tk.Frame(tRightFrame, bg=rgb_to_hex(255, 255, 255), padx=5, pady=5)
+        timerFrame.pack(fill=tk.X, expand=tk.YES)
+        self.timerText = tk.Text(timerFrame, bg=rgb_to_hex(255, 255, 255), bd=2, relief=tk.GROOVE,
+                                 height=8, state="disabled")
+        self.addScroll(timerFrame, self.timerText, xscroll=False)
+        # self.timerText.pack(fill=tk.BOTH, expand=tk.YES, side=tk.LEFT, anchor=tk.W, padx=5)
+        self.timerText.pack(fill=tk.BOTH, expand=tk.YES)
+
+
         self.timerText.bind("<Button-1>", self.timerTextEvent)
 
-        tFrame = tk.Frame(timerFrame, bg=rgb_to_hex(255, 255, 255), padx=5)
+        tFrame = tk.Frame(tRightFrame, bg=rgb_to_hex(255, 255, 255), padx=5)
         tFrame.pack(fill=tk.X, pady=2)
         #TODO: DateEntry 控件创建很耗时
         # timer = DateEntry(tFrame, width=15, anchor=tk.W, background='darkblue', foreground="white", borderwidth=2,
         #         #                   year=2019)
         #         # timer.pack(side=tk.LEFT, pady=5)
         self.t = tk.StringVar()
-        timer = tk.Entry(tFrame, relief=tk.RIDGE, width=12, bg=rgb_to_hex(245, 245, 245), textvariable=self.t)
+        timer = tk.Entry(tFrame, relief=tk.GROOVE, width=12, bd=2, textvariable=self.t)
         timer.pack(side=tk.LEFT, fill=tk.X, padx=1)
         addBtn = tk.Button(tFrame, text="增加", relief=tk.FLAT, padx=2, bd=0, highlightthickness=1,
                            activebackground="lightblue", overrelief="groove", bg=rgb_to_hex(230, 230, 230),
@@ -1099,47 +1025,53 @@ class RunWin(QuantToplevel, QuantFrame):
         # K线触发
         self.kLineCheck = tk.Checkbutton(kLineFrame, text="K线触发", bg=rgb_to_hex(255, 255, 255),
                                          anchor=tk.W, variable=self.isKLine)
-        # self.isKLine.set(1)
         self.kLineCheck.pack(side=tk.LEFT, padx=5)
 
         # 即时行情触发
-        self.marketCheck = tk.Checkbutton(kLineFrame, text="即时行情触发", bg=rgb_to_hex(255, 255, 255),
+        self.marketCheck = tk.Checkbutton(marketFrame, text="即时行情触发", bg=rgb_to_hex(255, 255, 255),
                                           anchor=tk.W, variable=self.isMarket)
         self.marketCheck.pack(side=tk.LEFT, padx=5)
-        # self.isMarket.set(1)
 
         # 交易数据触发
-        self.tradeCheck = tk.Checkbutton(kLineFrame, text="交易数据触发", bg=rgb_to_hex(255, 255, 255),
+        self.tradeCheck = tk.Checkbutton(tradeFrame, text="交易数据触发", bg=rgb_to_hex(255, 255, 255),
                                          anchor=tk.W, variable=self.isTrade)
         self.tradeCheck.pack(side=tk.LEFT, padx=5)
+
+    def setCycleEntryState(self):
+        if self.isCycle.get() == 0:
+            self.cycleEntry.config(state="disabled", bg=rgb_to_hex(245, 245, 245))
+        else:
+            self.cycleEntry.config(state="normal", bg=rgb_to_hex(255, 255, 255))
 
     def addBtnEvent(self):
         """增加按钮回调事件"""
         timer = self.t.get()
         timers = (self.timerText.get('1.0', "end")).strip("\n")
+
         # pattern = re.compile(r'^(0?[0-9]|1[0-9]|2[0-3]):(0?[0-9]|[1-5][0-9]):(0?[0-9]|[1-5][0-9])$')
         pattern = re.compile(r'^([0-1][0-9]|2[0-3])([0-5][0-9])([0-5][0-9])$')
         if pattern.search(timer):
             if timer in timers:
-                messagebox.showinfo("极星量化", "该时间点已经存在")
+                messagebox.showinfo("极星量化", "该时间点已经存在", parent=self)
                 return
-            self.setText(self.timerText, timer)
+            self.setText(self.timerText, timer+'\n')
         else:
-            messagebox.showinfo("极星量化", "时间格式为hhmmss")
+            messagebox.showinfo("极星量化", "时间格式为hhmmss", parent=self)
 
     def setText(self, widget, text):
+        # TODO: Text控件中本身就含有"\n"字符
         widget.config(state="normal")
-        widget.insert("end", text + "\n")
+        widget.insert("end", text)
         widget.config(state="disabled")
+        widget.see("end")
         widget.update()
-
 
     def delBtnEvent(self):
         """删除按钮回调事件"""
         line = self.timerText.index('insert').split(".")[0]
         tex = self.timerText.get(str(line)+'.0', str(line)+'.end')
         if not tex:
-            if messagebox.showinfo(title="极星量化", message="请选择一个时间点"):
+            if messagebox.showinfo(title="极星量化", message="请选择一个时间点", parent=self):
                 return
         self.timerText.config(state="normal")
         self.timerText.delete(str(line)+'.0', str(line)+'.end+1c')
@@ -1188,7 +1120,7 @@ class RunWin(QuantToplevel, QuantFrame):
         #                   year=year, textvariable=self.beginDate)
         # date_.pack(side=tk.LEFT, pady=5)
         # date_.bind("<ButtonRelease-1>", self.dateSelectEvent)
-        date_ = tk.Entry(beginFrame, relief=tk.RIDGE, width=10, bg=rgb_to_hex(255, 255, 255),
+        date_ = tk.Entry(beginFrame, relief=tk.GROOVE, bd=2, width=10,
                          textvariable=self.beginDate, validate="key", validatecommand=(self.testContent, "%P"))
         date_.pack(side=tk.LEFT, fill=tk.X, padx=1)
         date_.bind("<ButtonRelease-1>", self.dateSelectEvent)
@@ -1235,23 +1167,11 @@ class RunWin(QuantToplevel, QuantFrame):
         # 实时发单
         self.RealTimeRadio = tk.Radiobutton(modeFrame, text="实时发单", bg=rgb_to_hex(255, 255, 255),
                                             anchor=tk.W, value=0, variable=self.sendOrderMode)
-        self.RealTimeRadio.pack(side=tk.LEFT, padx=10, pady=10)
+        self.RealTimeRadio.pack(side=tk.LEFT, padx=10)
         # K线稳定后发单
         self.steadyRadio = tk.Radiobutton(modeFrame, text="K线稳定后发单", bg=rgb_to_hex(255, 255, 255),
                                           anchor=tk.W, value=1, variable=self.sendOrderMode)
-        self.steadyRadio.pack(side=tk.LEFT, padx=50, pady=10)
-
-
-    def setSendOrderLimit(self, frame):
-        sendModeFrame = tk.LabelFrame(frame, text="发单设置", bg=rgb_to_hex(255, 255, 255), padx=5)
-        sendModeFrame.pack(side=tk.TOP, fill=tk.X, anchor=tk.W, padx=15, pady=15)
-
-        self.setContinueOpenTimes(sendModeFrame)
-        self.setOpenTimes(sendModeFrame)
-        self.setCanClose(sendModeFrame)
-        self.setCanOpen(sendModeFrame)
-        # self.setHelp(setFrame)
-        # self.bindEvent()
+        self.steadyRadio.pack(side=tk.LEFT, padx=50)
 
     def setRunMode(self, frame):
         """是否实盘运行"""
@@ -1269,21 +1189,32 @@ class RunWin(QuantToplevel, QuantFrame):
         #                                     anchor=tk.W, variable=self.isContinue)
         # self.continueCheck.pack(side=tk.LEFT, padx=5)
 
+    def setSendOrderLimit(self, frame):
+        sendModeFrame = tk.LabelFrame(frame, text="发单设置", bg=rgb_to_hex(255, 255, 255), padx=5)
+        sendModeFrame.pack(side=tk.TOP, fill=tk.X, anchor=tk.W, padx=15, pady=15)
+
+        self.setContinueOpenTimes(sendModeFrame)
+        self.setOpenTimes(sendModeFrame)
+        self.setCanClose(sendModeFrame)
+        self.setCanOpen(sendModeFrame)
+        # self.setHelp(setFrame)
+        # self.bindEvent()
+
     def setKLineType(self, frame):
         kLineTypeFrame = tk.Frame(frame, relief=tk.RAISED, bg=rgb_to_hex(255, 255, 255))
-        kLineTypeFrame.pack(fill=tk.X, padx=15, pady=5)
+        kLineTypeFrame.pack(fill=tk.NONE, anchor=tk.W, padx=5, pady=5)
         kLineTypeLabel = tk.Label(kLineTypeFrame, text='K线类型:', bg=rgb_to_hex(255, 255, 255),
                                   justify=tk.LEFT, anchor=tk.W, width=10)
         kLineTypeLabel.pack(side=tk.LEFT, padx=5)
 
-        self.kLineTypeChosen = ttk.Combobox(kLineTypeFrame, width=20, state="readonly", textvariable=self.kLineType)
+        self.kLineTypeChosen = ttk.Combobox(kLineTypeFrame, state="readonly", textvariable=self.kLineType)
         self.kLineTypeChosen['values'] = ['日', '分钟', '秒']
         # self.kLineTypeChosen.current(0)
-        self.kLineTypeChosen.pack(side=tk.LEFT, fill=tk.X, padx=5)
+        self.kLineTypeChosen.pack(side=tk.LEFT, fill=tk.X, padx=10)
 
     def setKLineSlice(self, frame):
         self.klineSliceFrame = tk.Frame(frame, relief=tk.RAISED, bg=rgb_to_hex(255, 255, 255))
-        self.klineSliceFrame.pack(fill=tk.X, padx=15, pady=5)
+        self.klineSliceFrame.pack(fill=tk.X, padx=5, pady=5)
         klineSliceLabel = tk.Label(self.klineSliceFrame, text="K线周期:", bg=rgb_to_hex(255, 255, 255),
                                    justify=tk.LEFT, anchor=tk.W, width=10)
         klineSliceLabel.pack(side=tk.LEFT, padx=5)
@@ -1291,7 +1222,7 @@ class RunWin(QuantToplevel, QuantFrame):
         self.klineSliceChosen = ttk.Combobox(self.klineSliceFrame, state="readonly", textvariable=self.kLineSlice)
         self.klineSliceChosen["values"] = ['1', '2', '3', '5', '10', '15', '30']
         # self.klineSliceChosen.current(0)
-        self.klineSliceChosen.pack(side=tk.LEFT, fill=tk.X, padx=5)
+        self.klineSliceChosen.pack(side=tk.LEFT, fill=tk.X, padx=10)
 
     # 运行设置
     def setOpenTimes(self, frame):
@@ -1303,7 +1234,7 @@ class RunWin(QuantToplevel, QuantFrame):
                                       anchor=tk.W, variable=self.isOpenTimes)
         self.otCheck.pack(side=tk.LEFT, padx=10)
 
-        self.timesEntry = tk.Entry(self.openTimesFrame, relief=tk.RIDGE, width=8, textvariable=self.openTimes,
+        self.timesEntry = tk.Entry(self.openTimesFrame, relief=tk.GROOVE, bd=2, width=8, textvariable=self.openTimes,
                                    validate="key", validatecommand=(self.testContent, "%P"))
         # self.timesEntry.insert(tk.END, 1)
         self.timesEntry.pack(side=tk.LEFT, fill=tk.X, padx=1)
@@ -1321,7 +1252,7 @@ class RunWin(QuantToplevel, QuantFrame):
                                        anchor=tk.W, variable=self.isConOpenTimes)
         self.conCheck.pack(side=tk.LEFT, padx=10)
 
-        self.conTimesEntry = tk.Entry(self.conTimesFrame, relief=tk.RIDGE, width=8, textvariable=self.conOpenTimes,
+        self.conTimesEntry = tk.Entry(self.conTimesFrame, relief=tk.GROOVE, bd=2, width=8, textvariable=self.conOpenTimes,
                                       validate="key", validatecommand=(self.testContent, "%P"))
         # self.conTimesEntry.insert(tk.END, 1)
         self.conTimesEntry.pack(side=tk.LEFT, fill=tk.X, padx=1)
@@ -1413,18 +1344,18 @@ class RunWin(QuantToplevel, QuantFrame):
         :return:
         """
         if len(date) > 8 or len(date) < 8:
-            messagebox.showinfo("极星量化", "日期应为8位长度")
+            messagebox.showinfo("极星量化", "日期应为8位长度", parent=self)
             return
         else:
             # TODO: 还需要判断日期是否是合法日期
             try:
                 time = parse(date)
             except ValueError:
-                messagebox.showinfo("极星量化", "日期为非法日期")
+                messagebox.showinfo("极星量化", "日期为非法日期", parent=self)
                 return
             else:
                 if time > datetime.now():
-                    messagebox.showinfo("极星量化", "日期不能大于今天")
+                    messagebox.showinfo("极星量化", "日期不能大于今天", parent=self)
                     return
                 else:
                     return  date
@@ -1447,8 +1378,8 @@ class RunWin(QuantToplevel, QuantFrame):
         tradeDirection = self.dir.get()
         slippage = self.slippage.get()
         #TODO: contract
-        contractInfo = self.contractInfo.get('1.0', "end")
-        contract = (contractInfo.rstrip("\n")).split("\n")
+        contractInfo = self.contract.get()
+        # contract = (contractInfo.rstrip("\n")).split("\n")
 
         # if len(contract) == 0:
         #     messagebox.showinfo("提示", "未选择合约")
@@ -1456,7 +1387,7 @@ class RunWin(QuantToplevel, QuantFrame):
         # else:
         #     contractInfo = (contract.rstrip(", ")).split(", ")
 
-        timer = self.timerText.get('1.0', "end")   # 时间
+        timer = self.timerText.get('1.0', "end-1c")   # 时间
 
         isCycle = self.isCycle.get()
         cycle = self.cycle.get()
@@ -1491,22 +1422,32 @@ class RunWin(QuantToplevel, QuantFrame):
                 tempT = parseTime(t)
                 timerFormatter.append(tempT)
 
+        if cycle =="":
+            messagebox.showinfo("极星量化", "定时触发周期不能为空", parent=self)
+            return
+        elif int(cycle) % 100 != 0:
+            messagebox.showinfo("极星量化", "定时触发周期为100的整数倍", parent=self)
+        else:
+            pass
+
         if minQty == "":
-            messagebox.showinfo("极星量化", "最小下单量不能为空")
+            messagebox.showinfo("极星量化", "最小下单量不能为空", parent=self)
             return
         elif int(minQty) > MAXSINGLETRADESIZE:
-            messagebox.showinfo("极星量化", "最小下单量不能大于1000")
+            messagebox.showinfo("极星量化", "最小下单量不能大于1000", parent=self)
             return
+        else:
+            pass
 
         if isOpenTimes and (int(openTimes) < 1 or int(openTimes) > 100):
-            messagebox.showinfo("极星量化", "每根K线同向开仓次数必须介于1-100之间")
+            messagebox.showinfo("极星量化", "每根K线同向开仓次数必须介于1-100之间", parent=self)
             return
         if isConOpenTimes and (int(conOpenTimes) < 1 or int(conOpenTimes) > 100):
-            messagebox.showinfo("极星量化", "最大连续同向开仓次数必须介于1-100之间")
+            messagebox.showinfo("极星量化", "最大连续同向开仓次数必须介于1-100之间", parent=self)
             return
 
-        # self.config["Contract"] = (contract,)
-        self.config["Contract"] = tuple(contract)
+        self.config["Contract"] = (contractInfo,)
+        # self.config["Contract"] = tuple(contractInfo)
         self.config["Trigger"]["Cycle"] = int(cycle) if isCycle else None
         self.config["Trigger"]["Timer"] = timerFormatter if timer else None
         self.config["Trigger"]["KLine"] = True if isKLine else False
@@ -1538,7 +1479,7 @@ class RunWin(QuantToplevel, QuantFrame):
             self.config["RunMode"]["Simulate"]["UseSample"] = True
         elif sampleVar == 2:
             if not fixQty or int(fixQty) == 0:
-                messagebox.showinfo("极星量化", "K线数量大于零且不能为空")
+                messagebox.showinfo("极星量化", "K线数量大于零且不能为空", parent=self)
                 return
             # elif int(fixQty) == 0:
             #     messagebox.showinfo("极星量化", "K线数量大于零且不能为空")
@@ -1823,11 +1764,11 @@ class SelectContractWin(QuantToplevel, QuantFrame):
         enterButton.pack(side=tk.RIGHT, ipadx=20, padx=5, pady=5)
 
     def enter(self):
-        self._master.contractInfo.config(state="normal")
-        self._master.contractInfo.delete('1.0', tk.END)
+        self._master.contractEntry.config(state="normal")
+        self._master.contractEntry.delete('0', tk.END)
         for con in self._selectCon:
-            self._master.contractInfo.insert(tk.END, con + '\n')
-        self._master.contractInfo.config(state="disabled")
+            self._master.contractEntry.insert(tk.END, con)
+        self._master.contractEntry.config(state="disabled")
 
         self.destroy()
 
@@ -1853,12 +1794,13 @@ class SelectContractWin(QuantToplevel, QuantFrame):
 
     def addSelectedContract(self, event):
         select = event.widget.selection()
-        cont = self.contractText.get_text()
+        # cont = self.contractText.get_text()
         # contList = (self.contractText.get_text()).strip("\n")
-        contList = ((self.contractText.get_text()).strip("\n")).split("\n")
+        # contList = ((self.contractText.get_text()).strip("\n")).split("\n")
+        contList = ((self.contractText.get_text()).strip("\n")).split()
 
-        if len(contList) > 3:
-            messagebox.showinfo("提示", "选择合约数量不能超过四个")
+        if len(contList) > 0:
+            messagebox.showinfo("提示", "选择合约数量不能超过1个", parent=self)
             return
 
         for idx in select:

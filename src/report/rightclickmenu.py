@@ -7,8 +7,9 @@ import tkinter.messagebox
 
 
 class RightClickMenu(object):
-    def __init__(self, parent=None):
-        self.widget = parent
+    def __init__(self, parent=None, win=None):
+        self.win = win        # 父窗口
+        self.widget = parent  # 父控件
         self.menu = tk.Menu(parent, tearoff=0)
 
         self.menu.add_command(label="删除", command=self.on_delete)
@@ -31,14 +32,14 @@ class RightClickMenu(object):
             path = os.path.join(path, file_name)
             if os.path.exists(path):
                 # TODO:是不是应该改用模态窗口呢？？？
-                if tkinter.messagebox.askokcancel('提示', '回测文件将被删除'):
+                if tkinter.messagebox.askokcancel('提示', '回测文件将被删除', parent=self.win):
                     os.remove(path)
                     self.widget.delete(selected_item)
         else:
             directory_name = self.widget.item(selected_item)['text']
             path = os.path.join(file_path, directory_name)
             if os.path.exists(path):
-                if tkinter.messagebox.askokcancel('提示', '整个文件夹将被删除'):
+                if tkinter.messagebox.askokcancel('提示', '整个文件夹将被删除', parent=self.win):
                     os.removedirs(path)
                     self.widget.delete(selected_item)
 
