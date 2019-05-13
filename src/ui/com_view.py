@@ -718,13 +718,15 @@ class RunWin(QuantToplevel, QuantFrame):
 
     def createRun(self, frame):
         self.setTrigger(frame)
-        self.SendOrderMode(frame)
-        self.setRunMode(frame)
+        baseFrame = tk.LabelFrame(frame, text="基础设置", bg=rgb_to_hex(255, 255, 255), padx=5)
+        baseFrame.pack(side=tk.TOP, fill=tk.X, anchor=tk.W, padx=15, pady=5)
 
-        self.setContract(frame)
-        self.setUser(frame)
-        self.setKLineType(frame)
-        self.setKLineSlice(frame)
+        self.SendOrderMode(baseFrame)
+        self.setRunMode(baseFrame)
+        self.setContract(baseFrame)
+        self.setUser(baseFrame)
+        self.setKLineType(baseFrame)
+        self.setKLineSlice(baseFrame)
 
     # 资金设置
     def setUser(self, frame):

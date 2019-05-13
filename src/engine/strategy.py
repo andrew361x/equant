@@ -303,7 +303,6 @@ class Strategy:
             EEQU_SRVEVENT_TRADE_FUNDQRY     : self._onTradeFundRsp      ,
 
             EV_UI2EG_STRATEGY_QUIT          : self._onStrategyQuit,
-            EV_UI2EG_STRATEGY_RESUME        : self._onStrategyResume,
             EV_UI2EG_EQUANT_EXIT            : self._onEquantExit,
             EV_UI2EG_STRATEGY_FIGURE        : self._switchStrategy,
         }
@@ -546,19 +545,6 @@ class Strategy:
 
         self.sendEvent2Engine(quitEvent)
 
-    def _onStrategyResume(self, event):
-        pass
-        # self._strategyState = StrategyStatusRunning
-        # status = ST_STATUS_CONTINUES if self.isRealTimeStatus() else ST_STATUS_HISTORY
-        # responseEvent = Event({
-        #     "EventCode": EV_EG2UI_STRATEGY_STATUS,
-        #     "StrategyId": self._strategyId,
-        #     "Data": {
-        #         "Status": status
-        #     }
-        # })
-        # self.sendEvent2Engine(responseEvent)
-
     def _onEquantExit(self, event):
         self._strategyState = StrategyStatusExit
         responseEvent = Event({
@@ -569,6 +555,7 @@ class Strategy:
                 "Config": self._dataModel.getConfigData(),
                 "Pid": os.getpid(),
                 "Path": self._filePath,
+                "StrategyName":self._strategyName,
             }
         })
         self.sendEvent2Engine(responseEvent)

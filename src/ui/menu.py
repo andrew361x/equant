@@ -23,7 +23,7 @@ class StrategyMenu(object):
     def add_event(self):
         new_menu = Menu(self.menu, tearoff=0)
         if len(self._lClickSelectedItem) == 1 and self.widget.parent(self._lClickSelectedItem):  # 保证只选中一个
-            # self.menu.add_command(label="运行", command=self.runStrategy)
+            # self.menu.add_command(label="运行", command=self.runStrategy, state=DISABLED)
             pass
         self.menu.add_cascade(label="新建", menu=new_menu)
         new_menu.add_command(label=self.language.get_text(41), command=self.newStrategy)
@@ -32,6 +32,14 @@ class StrategyMenu(object):
             self.menu.add_command(label="修改名称", command=self.rename)
         # self.menu.add_command(label="移动分组", command=self.move_strategy)
         self.menu.add_command(label="删除", command=self.delete_)
+        self.menu.add_command(label="test", command=self.test)
+
+    def test(self):
+        if self.menu.entrycget(0, "state")=="disabled":
+            self.menu.entryconfigure(0, state=NORMAL, background='red')
+            self.menu.delete(0)
+            print(self.menu.entrycget(0, "state"))
+            self.menu.update()
 
     def popupmenu(self, event):
         rSelectItem = self.widget.identify_row(event.y)

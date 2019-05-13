@@ -59,7 +59,6 @@ class TkinterController(object):
             self.app.updateStatus(stId, strategyDict[stId])
         self.top.after(1000, self.update_monitor)
 
-
     def run(self):
         #启动主界面线程
         self.app.mainloop()
@@ -193,6 +192,11 @@ class TkinterController(object):
         # 获取策略管理器
         for id in strategyIdList:
             self._request.strategyRemove(id)
+            strategyDict = self.strategyManager.getStrategyDict()
+            if id in strategyDict:
+                self._request.strategyRemove(id)
+            else:  # 策略已经停止， 直接删除
+                self.app.delUIStrategy(id)
 
     def signalDisplay(self, strategyIdList):
         # 查看策略的信号及指标图(默认查看一个)

@@ -2716,7 +2716,7 @@ class BaseApi(object):
               设置K线类型和K线周期
 
         【语法】
-              int SetBarInterval(int barType, int barInterval, string contNo)
+              int SetBarInterval(char barType, int barInterval, string contNo)
 
         【参数】
               barType K线类型 t分时，T分笔，S秒线，M分钟，H小时，D日线，W周线，m月线，Y年线
@@ -2727,18 +2727,18 @@ class BaseApi(object):
               返回整型, 0成功，-1失败
 
         【示例】
-              SetBarInterval(3, 3) 表示对基础合约使用3分钟线
-              SetBarInterval(3, 3, 'ZCE|F|SR|906') 表示对合约ZCE|F|SR|906使用3分钟线
+              SetBarInterval('M', 3) 表示对基础合约使用3分钟线
+              SetBarInterval('M', 3, 'ZCE|F|SR|906') 表示对合约ZCE|F|SR|906使用3分钟线
         '''
         return self._dataModel.setBarInterval(barType, barInterval, contNo)
 
-    def SetSample(self, sampleType, sampleValue):
+    def SetSample(self, sampleType, sampleValue, contNo):
         '''
         【说明】
               设置策略历史回测的样本数量，默认为使用2000根K线进行回测。
 
         【语法】
-              int SetSample(char sampleType, int|string sampleValue)
+              int SetSample(char sampleType, int|string sampleValue, string contNo)
 
         【参数】
               sampleType 历史回测起始点类型
@@ -2750,72 +2750,15 @@ class BaseApi(object):
                 当sampleType为A或N时，sampleValue的值不设置；
                 当sampleType为D时，sampleValue为形如'20190430'的string型触发指定日期；
                 当sampleType为C时，sampleValue为int型历史回测使用的K线根数。
+              contNo 合约编号，不填表示是对默认历史回测的样本参数做修改。
 
         【备注】
               返回整型，0成功，-1失败
 
         【示例】
-              SetSample(sampleType, sampleValue)
-        '''
-        return self._dataModel.setSample(sampleType, sampleValue)
-
-    def SetAllKTrue(self):
-        '''
-        【说明】
-              使用所有历史K线进行历史回测
-
-        【语法】
-              int SetAllKTrue()
-
-        【参数】
               无
-
-        【备注】
-              返回整型，0成功，-1失败
-
-        【示例】
-              SetAllKTrue()
         '''
-        return self._dataModel.setAllKTrue()
-
-    def SetBarPeriod(self, beginDate):
-        '''
-        【说明】
-              设置K线范围，不设置年线、月线、周线、日线全部，分钟线1年，秒线1月，tick2天
-
-        【语法】
-              int SetBarPeriod(string beginDate)
-
-        【参数】
-              beginDate 起始日期
-
-        【备注】
-              返回整型，0成功，-1失败
-
-        【示例】
-              SetBarPeriod('20180327')
-        '''
-        return self._dataModel.setBarPeriod(beginDate)
-
-    def SetBarCount(self, count):
-        '''
-        【说明】
-              设置K线数量
-
-        【语法】
-              int SetBarCount(int count)
-
-        【参数】
-              count K线数量
-
-        【备注】
-              返回整型，0成功，-1失败
-
-        【示例】
-              SetBarCount(1000)
-            
-        '''
-        return self._dataModel.setBarCount(count)
+        return self._dataModel.setSample(sampleType, sampleValue, contNo)
         
     def SetInitCapital(self, capital, userNo):
         '''
@@ -2990,6 +2933,101 @@ class BaseApi(object):
               无
         '''
         return self._dataModel.setSlippage(slippage)
+
+    def SetTriggerMode(self, type, interval, timeList):
+        '''
+        【说明】
+             设置滑点损耗
+
+        【语法】
+              int SetTriggerMode(int type, int interval, list timeList)
+
+        【参数】
+              type 触发方式，可使用的值为：
+                1 : K线触发
+                2 : 即时行情触发
+                3 : 交易数据触发
+                4 : 每隔固定时间触发
+              interval 当触发方式是为每隔固定时间触发(type=4)时，触发间隔，单位为毫秒，必须为100的整数倍，当type为其他值时，该值无效
+              timeList 触发时刻列表，时间的格式为'20190511121314'
+
+        【备注】
+              返回整型，0成功，-1失败
+
+        【示例】
+              SetTriggerMode(1, 0) # 使用K线触发
+              SetTriggerMode(2, 0，['20190511121314', '20190511121315', '20190511121316']) # 使用即时行情触发，并指定特定时刻列表
+              SetTriggerMode(4, 1000，['20190511121314']) # 每隔1000毫秒触发一次，并指定特定时刻列表
+        '''
+        return self._dataModel.setTriggerMode(type, interval, timeList)
+
+    # //////////////////////套利函数////////////////////
+    def S_SetSpread(self, contractNo):
+        '''
+        【说明】
+              设置套利合约列表
+
+        【语法】
+              int S_SetSpread(contractNo1, contractNo2, contractNo3, ...)
+
+        【参数】
+              contractNo 合约编号，不能为空
+
+        【备注】
+              返回整型, 0成功，-1失败
+
+        【示例】
+              S_SetSpread('ZCE|F|SR|905')
+              S_SetSpread('ZCE|F|SR|905', 'ZCE|F|SR|912', 'ZCE|F|SR|001')
+        '''
+        return self._dataModel.setSpread(contractNo)
+
+    def S_SetSample(self, sampleType, sampleValue):
+        '''
+        【说明】
+              设置套利合约历史回测的样本数量，默认为使用2000根K线进行回测。
+
+        【语法】
+              int S_SetSample(char sampleType, int|string sampleValue)
+
+        【参数】
+              sampleType 历史回测起始点类型
+                A : 使用所有K线
+                D : 指定日期开始触发
+                C : 使用固定根数
+                N : 不执行历史K线
+              sampleValue 可选，设置历史回测起始点使用的数值
+                当sampleType为A或N时，sampleValue的值不设置；
+                当sampleType为D时，sampleValue为形如'20190430'的string型触发指定日期；
+                当sampleType为C时，sampleValue为int型历史回测使用的K线根数。
+
+        【备注】
+              返回整型，0成功，-1失败
+
+        【示例】
+              无
+        '''
+        return self._dataModel.setSpreadSample(sampleType, sampleValue)
+
+    def S_SetBarInterval(self, barType, barInterval):
+        '''
+        【说明】
+              设置套利合约的K线类型和K线周期
+
+        【语法】
+              int S_SetBarInterval(char barType, int barInterval)
+
+        【参数】
+              barType K线类型 t分时，T分笔，S秒线，M分钟，H小时，D日线，W周线，m月线，Y年线
+              barInterval K线周期
+
+        【备注】
+              返回整型, 0成功，-1失败
+
+        【示例】
+              S_SetBarInterval('M', 3) 表示对套利合约使用3分钟线
+        '''
+        return self._dataModel.setSpreadBarInterval(barType, barInterval)
 
     # //////////////////////其他函数////////////////////
 
@@ -3458,19 +3496,8 @@ def SetUserNo(userNo=''):
 def SetBarInterval(barType, barInterval, contNo=''):
     return baseApi.SetBarInterval(barType, barInterval, contNo)
 
-def SetSample(sampleType='C', sampleValue=2000):
-    return baseApi.SetSample(sampleType, sampleValue)
-
-################### Begin ####################
-def SetAllKTrue():
-    return baseApi.SetAllKTrue()
-
-def SetBarPeriod(beginDate):
-    return baseApi.SetBarPeriod(beginDate)
-    
-def SetBarCount(count):
-    return baseApi.SetBarCount(count)
-################### End ####################
+def SetSample(sampleType='C', sampleValue=2000, contNo=''):
+    return baseApi.SetSample(sampleType, sampleValue, contNo)
 
 def SetInitCapital(capital='', userNo=''):
     return baseApi.SetInitCapital(capital, userNo)
@@ -3495,6 +3522,19 @@ def SetHedge(hedge, contNo=''):
 
 def SetSlippage(slippage):
     return baseApi.SetSlippage(slippage)
+
+def SetTriggerMode(type, interval, timeList=None):
+    return baseApi.SetTriggerMode(type, interval, timeList)
+
+# 套利函数
+def S_SetSpread(*contNo):
+    return baseApi.S_SetSpread(contNo)
+
+def S_SetSample(sampleType='C', sampleValue=2000):
+    return baseApi.S_SetSample(sampleType, sampleValue)
+
+def S_SetBarInterval(barType, barInterval):
+    return baseApi.S_SetBarInterval(barType, barInterval)
 
 # 属性函数
 def BarInterval():

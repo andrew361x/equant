@@ -1,8 +1,5 @@
 import os
 
-import importlib
-import traceback
-
 from tkinter import *
 from tkinter import ttk, messagebox, Frame
 import tkinter.font as tkFont
@@ -299,22 +296,18 @@ class QuantEditor(StrategyTree):
 
     def create_editor(self):
         editor_frame = Frame(self.parent_pane, bg=rgb_to_hex(255, 255, 255), width=self.parent_pane['width'])
-        editor_frame.pack_propagate(0)
 
         editor_head = Frame(editor_frame, bg=rgb_to_hex(255, 255, 255), height=40)
-        editor_head.pack_propagate(0)
         self.insertEditorHead(editor_head)
         editor_head.pack(fill=X)
 
         editor_pane = PanedWindow(editor_frame, opaqueresize=True, orient=VERTICAL, sashrelief=GROOVE, sashwidth=4)
-        editor_pane.pack_propagate(0)
         editor_pane.pack(fill=BOTH, expand=YES)
 
-        self.editor_text_frame = Frame(editor_pane, background=rgb_to_hex(255, 255, 255))  #
-        self.editor_text_frame.pack_propagate(0)
+        self.editor_text_frame = Frame(editor_pane, background=rgb_to_hex(255, 255, 255))
         editor_pane.add(self.editor_text_frame)
 
-        self.insert_editor_text("")
+        self.insertEditorWidget("")
         self.parent_pane.add(editor_frame, stretch='always')
         
     def saveEditor(self, event=None):
@@ -344,15 +337,11 @@ class QuantEditor(StrategyTree):
         self.loadingBtn = Button(frame, text="运行", relief=FLAT, padx=10, bg=rgb_to_hex(255, 255, 255),
                             activebackground=rgb_to_hex(103, 150, 236), bd=0, state="disabled", command=self.load)
 
-        # reportBtn = Button(frame, text="报告", relief=FLAT, padx=10, bg=rgb_to_hex(255, 255, 255),
-        #                    activebackground=rgb_to_hex(103, 150, 236), bd=0, command=self.reportDisplay)
-
         saveBtn = Button(frame, text="保存", relief=FLAT, padx=10, bg=rgb_to_hex(255, 255, 255),
                          activebackground=rgb_to_hex(103, 150, 236), bd=0, command=self.saveEditor)
 
         self.titleLabel.pack(side=LEFT)
         saveBtn.pack(side=RIGHT)
-        # reportBtn.pack(side=RIGHT)
         self.loadingBtn.pack(side=RIGHT)
 
     def setLoadBtnState(self):
@@ -391,12 +380,7 @@ class QuantEditor(StrategyTree):
         if float(self.start) > float(self.stop):
             self.start, self.stop = self.stop, self.start
 
-    def insert_editor_text(self, data):
-        if self.editor_text:
-            self.editor_text.destroy()
-        if self.editor_text_scroll:
-            self.editor_text_scroll[0].destroy()
-            self.editor_text_scroll[1].destroy()
+    def insertEditorWidget(self, data):
 
         self.editor_text = EditorText(self.editor_text_frame, self, relief=FLAT, borderwidth=10,
                                       background=rgb_to_hex(255, 255, 255), wrap='none')
@@ -424,6 +408,3 @@ class QuantEditor(StrategyTree):
             self.control.load(path)
             return
         messagebox.showinfo("提示", "未选择加载的策略")
-
-    # def reportDisplay(self):
-    #     self.control.generateReportReq()
