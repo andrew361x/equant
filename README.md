@@ -8,7 +8,7 @@
 
 #### 安装教程
 1. 安装极星9.5客户端  
-    a. 单击[极星9.5客户端](https://epolestar95-1255628687.cos.ap-beijing.myqcloud.com/epolestar_0511.zip)，下载极星9.5客户端  
+    a. 单击[极星9.5客户端](https://epolestar95-1255628687.cos.ap-beijing.myqcloud.com/epolestar.zip)，下载极星9.5客户端  
     b. 极星9.5客户端安装包移动到任意目录，例如:D:\equant，并解压
 
 2. 安装极星量化  
