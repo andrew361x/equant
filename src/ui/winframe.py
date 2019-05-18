@@ -120,7 +120,7 @@ class ViewRoot(tk.Tk):
         self.bind("<Unmap>", self.onRootIconify)
         self.bind("<Map>", self.onRootDeiconify)
         # 图标
-        self.iconbitmap(bitmap=r"./icon/epolestar ix1.ico")
+        self.iconbitmap(bitmap=r"./icon/epolestar ix2.ico")
         self.top_state = None
 
     def get_top_handler(self):

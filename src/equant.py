@@ -11,9 +11,6 @@ sys.path.append("./ui")
 def run_log_process(logger):
     logger.run()
 
-def run_capi_process(capi):
-    capi.run()
-
 def run_engine_process(engine):
     engine.run()
 
@@ -41,7 +38,7 @@ def main():
     # 等待界面事件
     app.run()
 
-    time.sleep(5)
+    time.sleep(1)
     import atexit
     def exitHandler():
         # 1. 先关闭策略进程, 现在策略进程会成为僵尸进程
@@ -51,4 +48,5 @@ def main():
         engine_process.join()
         log_process.terminate()
         log_process.join()
+        
     atexit.register(exitHandler)

@@ -116,9 +116,6 @@ EV_EG2ST_DEPTH_NOTICE             = 0x322            #深度行情推送
 EV_EG2ST_HISQUOTE_RSP             = 0x323            #历史K线查询应答
 EV_EG2ST_HISQUOTE_NOTICE          = 0x324            #历史行情推送
 
-EV_EG2ST_ACTUAL_ORDER_ENGINE_RESPONSE = 0x325        # 引擎生成了订单号
-EV_EG2ST_ACTUAL_ORDER_SESSION_MAP = 0x326            # 两个session id 的映射
-
 EV_EG2ST_LOGINNO_RSP              = 0x330           #请求登录账号
 EV_EG2ST_USERNO_RSP               = 0x331           #请求资金账号
 
@@ -191,13 +188,15 @@ ST_STATUS_PAUSE                   = 'P'             #暂停状态
 ST_STATUS_QUIT                    = 'Q'             #停止状态
 ST_STATUS_REMOVE                  = 'R'             #移除状态
 
-#策略触发事件定义
+# 策略触发事件定义
 ST_TRIGGER_TIMER                  = 1               #定时触发
 ST_TRIGGER_CYCLE                  = 2               #周期性触发
 ST_TRIGGER_KLINE                  = 3               #K线触发
 ST_TRIGGER_SANPSHOT               = 4               #即时行情触发
 ST_TRIGGER_TRADE                  = 5               #交易触发
 ST_TRIGGER_FILL_DATA              = 6
+ST_TRIGGER_NONE                   = 7
+ST_TRIGGER_HIS_KLINE              = 8
 
 #策略触发操作定义
 ST_EVENT_TRIGGER                  = 0               #触发操作
@@ -277,6 +276,7 @@ EEQU_KLINE_DAY                   = 'D'			     # 日线
 EEQU_KLINE_WEEK                  = 'W'			     # 周线
 EEQU_KLINE_MONTH                 = 'm'			     # 月线
 EEQU_KLINE_YEAR                  = 'Y'			     # 年线
+EEQU_KLINE_DayX                  = 'X'			     # 多日
                                                      
 EEQU_NOTICE_NOTNEED              = '0'			     #不需要后续刷新推送
 EEQU_NOTICE_NEED                 = '1'		         #需要后续推送
@@ -357,6 +357,28 @@ hSpeculate                      = 'T'
 hHedge                          = 'B'
 hSpread                         = 'S'
 hMarket                         = 'M'
+
+# 委托状态
+osNone                          = 'N' # 无
+osSended                        = '0' # 已发送
+osAccept                        = '1' # 已受理
+osTriggering                    = '2' # 待触发
+osActive                        = '3' # 已生效
+osQueued                        = '4' # 已排队
+osFillPart                      = '5' # 部分成交
+osFilled                        = '6' # 完全成交
+osCanceling                     = '7' # 待撤
+osModifying                     = '8' # 待改
+osCanceled                      = '9' # 已撤单
+osPartCanceled                  = 'A' # 已撤余单
+osFail                          = 'B' # 指令失败
+osAuditing                      = 'C' # 待审核
+osSuspended                     = 'D' # 已挂起
+osApply                         = 'E' # 已申请
+osInvalid                       = 'F' # 无效单
+osTriggerPart                   = 'G' # 部分触发
+osTriggered                     = 'H' # 完全触发
+osPartFailed                    = 'I' # 余单失败
 
 # 触发模式
 tmNone = 'N'
@@ -472,6 +494,26 @@ VConOpenTimes                = "31"     # 最大连续同向开仓次数
 VCanClose                    = "32"     # 开仓的当前K线不允许平仓
 VCanOpen                     = "33"     # 平仓的当前K线不允许开仓
 
+#
+OrderSuccess                 = 0
+OrderFail                    = 1
+
+# 资金限制
+OrderLimitFromFund          = 1000
+# 最大持仓限制
+OrderLimitFromMaxTotalPosition = 1001
+# 最大连续开仓限制
+# 最大连续平仓限制
+# 当前k线最大开仓限制
+# 当前k线最大平仓限制
+
+# 最新价来源
+LastPriceFromQuote          = 10000
+LastPriceFromKLine          = 10001
+
+#
+KLineFromHis                = 20000
+KLineFromRealTime           = 20001
 
 class EEquExchangeReq(Structure):
     """交易所信息查询请求"""

@@ -68,42 +68,41 @@ class StrategyEngine(object):
         # 量化退出时，在文件中保存策略的配置信息
         self._onEquantExitData = {}
 
-        self._onStrategyRemoveData = {}
         #
         # 恢复上次推出时保存的结构
-        self._resumeStrategy()
+        # self._resumeStrategy()
         self.logger.debug('Initialize strategy engine ok!')
 
-    def _resumeStrategy(self):
-        if not os.path.exists('config/StrategyContext.json'):
-            return
-        with open("config/StrategyContext.json", 'r') as resumeFile:
-            pythonDict = json.load(resumeFile)
-            for k,v in pythonDict.items():
-                if k == "MaxStrategyId":
-                    self._maxStrategyId = int(v)
-                else:
-                    strategyId = int(k)
-                    revent = Event({
-                        "EventCode": EV_EG2UI_LOADSTRATEGY_RESPONSE,
-                        "StrategyId": strategyId,
-                        "ErrorCode": 0,
-                        "ErrorText": "",
-                        "Data": {
-                            "StrategyId": strategyId,
-                            "StrategyName": v["StrategyName"],
-                            "StrategyState": ST_STATUS_QUIT,
-                            "Config": v["Config"],
-                        }
-                    })
-                    curStragegyInfo = {
-                        "Path": v["Path"],
-                        "Config": v["Config"],
-                        "StrategyName": v["StrategyName"]
-                    }
-                    self._onStrategyQuitData[strategyId] = curStragegyInfo
-                    self._onEquantExitData[strategyId] = curStragegyInfo
-                    self._eg2uiQueue.put(revent)
+    # def _resumeStrategy(self):
+    #     if not os.path.exists('config/StrategyContext.json'):
+    #         return
+    #     with open("config/StrategyContext.json", 'r') as resumeFile:
+    #         pythonDict = json.load(resumeFile)
+    #         for k,v in pythonDict.items():
+    #             if k == "MaxStrategyId":
+    #                 self._maxStrategyId = int(v)
+    #             else:
+    #                 strategyId = int(k)
+    #                 revent = Event({
+    #                     "EventCode": EV_EG2UI_LOADSTRATEGY_RESPONSE,
+    #                     "StrategyId": strategyId,
+    #                     "ErrorCode": 0,
+    #                     "ErrorText": "",
+    #                     "Data": {
+    #                         "StrategyId": strategyId,
+    #                         "StrategyName": v["StrategyName"],
+    #                         "StrategyState": ST_STATUS_QUIT,
+    #                         "Config": v["Config"],
+    #                     }
+    #                 })
+    #                 curStragegyInfo = {
+    #                     "Path": v["Path"],
+    #                     "Config": v["Config"],
+    #                     "StrategyName": v["StrategyName"]
+    #                 }
+    #                 self._onStrategyQuitData[strategyId] = curStragegyInfo
+    #                 self._onEquantExitData[strategyId] = curStragegyInfo
+    #                 self._eg2uiQueue.put(revent)
         
     def _regApiCallback(self):
         self._apiCallbackDict = {
@@ -127,7 +126,6 @@ class StrategyEngine(object):
             EEQU_SRVEVENT_TRADE_POSITQRY    : self._onApiPosDataQry            ,
             EEQU_SRVEVENT_TRADE_POSITION    : self._onApiPosData               ,
             EEQU_SRVEVENT_TRADE_FUNDQRY     : self._onApiMoney                 ,
-            EV_EG2ST_ACTUAL_ORDER_SESSION_MAP: self._onOrderSessionMap,
         }
         
     def _regMainWorkFunc(self):
@@ -157,7 +155,6 @@ class StrategyEngine(object):
             EV_UI2EG_STRATEGY_QUIT          : self._onStrategyQuit,
             EV_UI2EG_STRATEGY_RESUME        : self._onStrategyResume,
             EV_UI2EG_EQUANT_EXIT            : self._onEquantExit,
-            EV_UI2EG_STRATEGY_REMOVE        : self._onStrategyRemove,
             EV_UI2EG_STRATEGY_FIGURE        : self._switchStrategy,
 
             EV_ST2EG_UPDATE_STRATEGYDATA    : self._reqStrategyDataUpdateNotice,
@@ -181,6 +178,7 @@ class StrategyEngine(object):
         
         while True:
             self._handleUIData()
+            time.sleep(0.1)
             
     def _sendEvent2Strategy(self, strategyId, event):
         if strategyId not in self._eg2stQueueDict or not self._isEffective[strategyId]:
@@ -218,28 +216,24 @@ class StrategyEngine(object):
             
     # //////////////////////UI事件处理函数/////////////////////
     def _handleUIData(self):
-        try:
-            event = self._ui2egQueue.get()
-            if type(event) is dict:
-                event = Event(event)
-            code  = event.getEventCode()
-            if code == EV_UI2EG_LOADSTRATEGY:
-                # 加载策略事件
-                self._loadStrategy(event)
-            elif code == EV_UI2EG_REPORT:
-                self._noticeStrategyReport(event)
-            elif code == EV_UI2EG_STRATEGY_QUIT:
-                self._onStrategyQuit(event)
-            elif code == EV_UI2EG_STRATEGY_RESUME:
-                self._onStrategyResume(event)
-            elif code == EV_UI2EG_EQUANT_EXIT:
-                self._onEquantExit(event)
-            elif code == EV_UI2EG_STRATEGY_REMOVE:
-                self._onStrategyRemove(event)
-            elif code == EV_UI2EG_STRATEGY_FIGURE:
-                self._switchStrategy(event)
-        except queue.Empty as e:
-            pass
+        event = self._ui2egQueue.get()
+        code  = event.getEventCode()
+
+        if code == EV_UI2EG_LOADSTRATEGY:
+            # 加载策略事件
+            self._loadStrategy(event)
+        elif code == EV_UI2EG_REPORT:
+            self._noticeStrategyReport(event)
+        elif code == EV_UI2EG_STRATEGY_QUIT:
+            self._onStrategyQuit(event)
+        elif code == EV_UI2EG_STRATEGY_RESUME:
+            self._onStrategyResume(event)
+        elif code == EV_UI2EG_EQUANT_EXIT:
+            self._onEquantExit(event)
+        elif code == EV_UI2EG_STRATEGY_REMOVE:
+            self._onStrategyRemove(event)
+        elif code == EV_UI2EG_STRATEGY_FIGURE:
+            self._switchStrategy(event)
 
     #
     def _noticeStrategyReport(self, event):
@@ -254,7 +248,7 @@ class StrategyEngine(object):
         id = self._getStrategyId() if strategyId is None else strategyId
         eg2stQueue = Queue(2000)
         self._eg2stQueueDict[id] = eg2stQueue
-        self._strategyMgr.create(id, eg2stQueue, event)
+        self._strategyMgr.create(id, eg2stQueue, self._eg2uiQueue, self._st2egQueue, event)
         # broken pip error 修复
         self._isEffective[id] = True
         # =================
@@ -273,14 +267,7 @@ class StrategyEngine(object):
             # 暂存当前策略的配置，
             self._onStrategyQuitData[event.getStrategyId()] = curStragegyInfo
             self._onEquantExitData[event.getStrategyId()] = curStragegyInfo
-            try:
-                # todo 删除订阅关系
-                strategyProcess = psutil.Process(event.getData()["Pid"])
-                strategyProcess.terminate()
-                strategyProcess.wait(timeout=0.1)
-                # print("策略进程已经退出", strategyProcess.name)
-            except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-                self.logger.info("pid %d exit fail" % event.getData()["Pid"])
+            self.destroyProcess(event.getData()["Pid"])
             self._eg2uiQueue.put(event)
         elif event.getData()["Status"] == EV_UI2EG_EQUANT_EXIT:
             curStragegyInfo = {
@@ -294,12 +281,15 @@ class StrategyEngine(object):
                 if strategyId not in self._onEquantExitData:
                     isAllStrategyExit = False
 
-            print("333333333333333", isAllStrategyExit)
+            # print("is all strategy exit: ", isAllStrategyExit)
             if isAllStrategyExit:
                 self.saveStrategyContext2File()
-
         elif event.getData()["Status"] == ST_STATUS_CONTINUES:
             self._eg2uiQueue.put(event)
+        elif event.getData()["Status"] == ST_STATUS_REMOVE:
+            self._onEquantExitData[event.getStrategyId()] = None
+            self._eg2uiQueue.put(event)
+            self.destroyProcess(event.getData()["Pid"])
 
     # ////////////////api回调及策略请求事件处理//////////////////
     def _handleApiData(self):
@@ -310,29 +300,34 @@ class StrategyEngine(object):
             if code not in self._apiCallbackDict:
                 return
             self._apiCallbackDict[code](apiEvent)
+
+            self.maxContinuousIdleTimes = 0
         except queue.Empty as e:
+            self.maxContinuousIdleTimes += 1
             pass
             
-    def _handelStData(self):
+    def _handleStData(self):
         try:
             event = self._st2egQueue.get_nowait()
             code  = event.getEventCode()
             if code not in self._mainWorkFuncDict:
                 self.logger.debug('Event %d not register in _mainWorkFuncDict'%code)
-                #print("未处理的event code =",code)
+                # print("未处理的event code =",code)
                 return
             self._mainWorkFuncDict[code](event)
-        except (queue.Empty, KeyError) as e:
-            if e is KeyError:
-                event.printTool()
-                print(" now code is ", code)
+            self.maxContinuousIdleTimes = 0
+        except queue.Empty as e:
+            self.maxContinuousIdleTimes += 1
             pass
-            
+
+    maxContinuousIdleTimes = 0
     def _mainThreadFunc(self):
         while True:
             self._handleApiData()
-            self._handelStData()
-            #time.sleep(0.01)
+            self._handleStData()
+            if self.maxContinuousIdleTimes >= 1000:
+                time.sleep(0.1)
+            self.maxContinuousIdleTimes %= 1000
             
     def _startMainThread(self):
         '''从api队列及策略队列中接收数据'''
@@ -577,9 +572,6 @@ class StrategyEngine(object):
         self._trdModel.updateMoney(apiEvent)
         # print("++++++ 资金信息 引擎 ++++++", apiEvent.getData())
         self._sendEvent2AllStrategy(apiEvent)
-
-    def _onOrderSessionMap(self, event):
-        self._sendEvent2Strategy(event.getStrategyId(), event)
 
     def _reqTradeInfo(self, event):
         '''
@@ -863,8 +855,8 @@ class StrategyEngine(object):
 
         self._loadStrategy(loadStrategyEvent, strategyId=event.getStrategyId())
         # 删除信息
-        del self._onStrategyQuitData[event.getStrategyId()]
-        # del self._onEquantExitData[event.getStrategyId()]
+        self._onStrategyQuitData[event.getStrategyId()] = None
+        # self._onEquantExitData[event.getStrategyId()] = None
 
     #  当量化退出时，发事件给所有的策略
     def _onEquantExit(self, event):
@@ -875,10 +867,16 @@ class StrategyEngine(object):
             self._sendEvent2AllStrategy(event)
 
     def _onStrategyRemove(self, event):
-        if event.getStrategyId() not in self._onStrategyQuitData:
-            self.logger.info("策略 %d 没有停止，删除无效" % event.getStrategyId())
-            return
-        self._onStrategyRemoveData[event.getStrategyId()] = True
+        strategyId = event.getStrategyId()
+        # 如果已经停止
+        if strategyId in self._onStrategyQuitData and self._onStrategyQuitData[strategyId] is not None:
+            self._onEquantExitData[event.getStrategyId()] = None
+
+        # 如果还在运行中
+        else:
+            self._isEffective[event.getStrategyId()] = False
+            eg2stQueue = self._eg2stQueueDict[event.getStrategyId()]
+            eg2stQueue.put(event)
 
     def _switchStrategy(self, event):
         self._sendEvent2Strategy(event.getStrategyId(), event)
@@ -886,8 +884,21 @@ class StrategyEngine(object):
     def saveStrategyContext2File(self):
         jsonFile = open('config/StrategyContext.json', 'w', encoding='utf-8')
         self._onEquantExitData.update({"MaxStrategyId": self._maxStrategyId})
-        tmpOrderedDict = OrderedDict(sorted(self._onEquantExitData.items(), key=lambda obj: str(obj[0])))
+        tmpOrderedDict = {}
+        for k, v in self._onEquantExitData.items():
+            if v is not None:
+                tmpOrderedDict[k] = v
+        tmpOrderedDict = OrderedDict(sorted(tmpOrderedDict.items(), key=lambda obj: str(obj[0])))
         json.dump(tmpOrderedDict, jsonFile, ensure_ascii=False, indent=4)
         for child in multiprocessing.active_children():
             child.terminate()
             child.join()
+
+    def destroyProcess(self, pid):
+        try:
+            strategyProcess = psutil.Process(pid)
+            strategyProcess.terminate()
+            strategyProcess.wait(timeout=0.1)
+            # print("策略进程已经退出", strategyProcess.name)
+        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+            self.logger.info("pid %d exit fail" % pid)

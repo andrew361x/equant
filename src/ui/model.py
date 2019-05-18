@@ -1,8 +1,8 @@
 import os
 
-import multiprocessing
 import threading
-import queue
+import copy
+
 import traceback
 from utils.utils import load_file
 from capi.com_types import *
@@ -23,12 +23,6 @@ class QuantModel(object):
         self._editor = {"path": "", "code": ""}
         self._strategyId = []   # 策略ID
         self._top = top
-        self.createReceiveThread()
-
-    def createReceiveThread(self):
-        receive_th = threading.Thread(target=self.receiveEgEvent)
-        receive_th.daemon = True
-        receive_th.start()
 
     def receiveEgEvent(self):
         """处理engine事件"""
@@ -37,9 +31,6 @@ class QuantModel(object):
     def getCurStId(self):
         """获取当前运行的策略ID"""
         return self._receive.getCurStId()
-
-    def getReportData(self):
-        return self._receive.getReportData()
 
     def getEditorText(self):
         return self._editor
@@ -51,19 +42,6 @@ class QuantModel(object):
             self._editor["code"] = load_file(path)
         else:
             self._editor["code"] = ""
-
-    # TODO:弃用
-    def getExecute(self):
-        """
-        获取运行策略列表
-        :return: 运行列表
-        """
-        executeList = self._stManager.getStrategyDict()
-        # tempList = []
-        # for id, value in executeList.items():
-        #     tempList.append(value)
-        # self._executeList = tempList
-        return executeList
 
     def getExchange(self):
         return self._receive.getExchange()
@@ -174,7 +152,6 @@ class SendRequest(object):
 
         event = Event(msg)
         self._ui2egQueue.put(event)
-        # print("恢复事件已发送")
 
     def strategyQuit(self, strategyId):
         """策略停止运行"""
@@ -188,7 +165,6 @@ class SendRequest(object):
 
         event = Event(msg)
         self._ui2egQueue.put(event)
-        # print("停止事件已发送")
 
     def strategySignal(self, strategyId):
         """策略信号和指标图"""
@@ -202,7 +178,6 @@ class SendRequest(object):
 
         event = Event(msg)
         self._ui2egQueue.put(event)
-        # print("图表事件已发送")
 
     def strategyRemove(self, strategyId):
         """移除策略"""
@@ -294,11 +269,7 @@ class GetEgData(object):
         data = event.getData()
         id = event.getStrategyId()
 
-
-        # 更新result中的开始时间和结束时间
         tempResult = data["Result"]
-        # tempResult["Detail"]["StartTime"] = data["BeginTradeDate"]
-        # tempResult["Detail"]["EndTime"] = data["EndTradeDate"]
 
         self._reportData = tempResult
         # 取到报告数据弹出报告
@@ -318,11 +289,7 @@ class GetEgData(object):
         stId = event.getStrategyId()
         data = event.getData()
         # 实时更新监控界面信息
-        # print("MonitorData: ", data)
         self._stManager.addStrategyData(stId, data)
-        # dataDict = self._stManager.getSingleStrategy(stId)
-        # #TODO：updateStatus名字要改一下
-        # self._app.updateStatus(stId, dataDict)
 
     def _onEgExchangeInfo(self, event):
         """获取引擎推送交易所信息"""
@@ -358,29 +325,32 @@ class GetEgData(object):
             }
             self._stManager.add_(dataDict)
         else:
-            # TODO：策略状态改变后要通知监控界面
+            # 策略状态改变后要通知监控界面
             self._stManager.updateStrategyStatus(id, sStatus)
             # TODO：直接将dataDict传进去？
             dataDict = self._stManager.getSingleStrategy(id)
 
             self._app.updateStatus(id, dataDict)
-            if sStatus == ST_STATUS_QUIT:
-                self._stManager.removeStrategy(id)
+            # if sStatus == ST_STATUS_QUIT:
+            #     self._stManager.removeStrategy(id)
             if sStatus == ST_STATUS_REMOVE:
-                # TODO：删除策略需要接到通知之后再进行删除
-                # 更新界面
-                self._app.delUIStrategy(id)
+                # 删除策略需要接到通知之后再进行删除
                 # 将策略管理器中的该策略也删除掉
                 self._stManager.removeStrategy(id)
+                # 更新界面
+                self._app.delUIStrategy(id)
 
     def handlerEgEvent(self):
-        while True:
-            event = self._eg2uiQueue.get()
+        try:
+            # 如果不给出超时则会导致线程退出时阻塞
+            event = self._eg2uiQueue.get(timeout=0.1)
             eventCode = event.getEventCode()
             if eventCode not in self._egAskCallbackDict:
-                self._logger.error("Unknown engine event(%d)"%eventCode)
-                continue
-            self._egAskCallbackDict[eventCode](event)
+                self._logger.error("Unknown engine event(%d)" % (eventCode))
+            else:
+                self._egAskCallbackDict[eventCode](event)
+        except:
+            pass
 
     def getReportData(self):
         if self._reportData:
@@ -451,7 +421,7 @@ class StrategyManager(object):
 
     def getStrategyDict(self):
         """获取全部运行策略"""
-        return self._strategyDict
+        return copy.deepcopy(self._strategyDict)
 
     def getSingleStrategy(self, id):
         """获取某个运行策略"""

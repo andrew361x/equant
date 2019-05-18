@@ -1039,19 +1039,19 @@ class BaseApi(object):
         return self._dataModel.setSellShort(contractNo, share, price)
         
     #/////////////////////////属性函数/////////////////////////////
-    def BarInterval(self):
+    def BarInterval(self, contNo):
         '''
         【说明】
               合约图表周期数值
 
         【语法】
-              int BarInterval()
+              list BarInterval(string contNo)
 
         【参数】
-              无
+              contNo 合约编号，为空时取的时设置界面设置的周期数值
 
         【备注】
-              返回整型，通常和BarType一起使用进行数据周期的判别
+              返回周期数值列表，通常和BarType一起使用进行数据周期的判别
 
         【示例】
               当前数据周期为1日线，BarInterval等于1；
@@ -1059,9 +1059,9 @@ class BaseApi(object):
               当前数据周期为60分钟线，BarInterval等于60；
               当前数据周期为1TICK线，BarInterval等于1；br> 当前数据周期为5000量线，BarInterval等于5000。
         '''
-        return self._dataModel.getBarInterval()
+        return self._dataModel.getBarInterval(contNo)
         
-    def BarType(self):
+    def BarType(self, contNo):
         '''
         【说明】
               合约图表周期类型值
@@ -1070,7 +1070,7 @@ class BaseApi(object):
               int BarType()
 
         【参数】
-              无
+              contNo 合约编号，为空时取的时设置界面设置的周期数值
 
         【备注】
               返回值为整型，通常和BarInterval一起使用进行数据周期的判别
@@ -1092,7 +1092,7 @@ class BaseApi(object):
               当前数据周期为1TICK线，BarType等于1；
               当前数据周期为3秒线，BarType等于2。
         '''
-        return self._dataModel.getBarType()
+        return self._dataModel.getBarType(contNo)
         
     def BidAskSize(self, contNo):
         '''
@@ -1113,27 +1113,6 @@ class BaseApi(object):
               郑商所棉花的买卖盘个数为1个，因此其BidAskSize等于1。 
         '''
         return self._dataModel.getBidAskSize(contNo)
-        
-    def BigPointValue(self, contNo):
-        '''
-        【说明】
-              合约一个整数点的价值
-
-        【语法】
-              float BigPointValue(contNo)
-
-        【参数】
-              contNo: 合约编号，为空时，取基准合约。
-
-        【备注】
-              返回浮点数，1个整数点的价值，默认为1
-
-        【示例】
-              郑商所期货品种一个点的价值为1人民币，因此其BigPointValue等于1；
-              港交所恒指期货一个点的价值为50港币，因此其BigPointValue等于50；
-              CME E-MINI一个点的价值为50美元，因此其BigPointValue等于50； 
-        '''
-        return self._dataModel.getBigPointValue(contNo)
 
     def CanTrade(self, contNo):
         '''
@@ -1329,25 +1308,25 @@ class BaseApi(object):
               无
         '''
         return self._dataModel.getMaxSingleTradeSize()
-        
-    def MinMove(self, contNo):
+
+    def PriceTick(self, contNo):
         '''
         【说明】
-              合约最小变动量
+              合约最小变动价
 
         【语法】
-              int MinMove(contNo)
+              int PriceTick(contNo)
 
         【参数】
               contNo 合约编号，为空时，取基准合约。
 
         【备注】
-              返回整型，MinMove = 最小变动价/ PriceScale
+              无
 
         【示例】
-              沪铝的最小变动价为5，其PriceScale =1，因此其MinMove等于5
+              沪铝的最小变动价为5，因此其PriceTick等于5
         '''
-        return self._dataModel.getMinMove(contNo)
+        return self._dataModel.getPriceTick(contNo)
         
     def OptionStyle(self, contNo):
         '''
@@ -1402,7 +1381,7 @@ class BaseApi(object):
               返回浮点数
 
         【示例】
-              上期沪金的报价精确到小数点2位，则PriceScale为1/100
+              上期沪金的报价精确到小数点2位，则PriceScale为1/100，PriceScale的返回值为0.01
         '''
         return self._dataModel.getPriceScale(contNo)
         
@@ -1517,7 +1496,72 @@ class BaseApi(object):
               "ZCE|F|SR|001"的品种编号为"ZCE|F|SR"
         '''
         return self._dataModel.getSymbolType(contNo)
-        
+
+    # //////////////////////策略状态////////////////////
+    def AvgEntryPrice(self, contNo):
+        '''
+        【说明】
+              获得当前持仓指定合约的平均建仓价格。
+
+        【语法】
+              float AvgEntryPrice(string contNo)
+
+        【参数】
+              contNo 合约编号，为空时获得当前持仓全部合约的平均建仓价格。
+
+        【备注】
+              无
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getAvgEntryPrice(contNo)
+
+    def BarsSinceEntry(self, contNo):
+        '''
+        【说明】
+              获得当前持仓中指定合约的第一个建仓位置到当前位置的Bar计数。
+
+        【语法】
+              int BarsSinceEntry(string contNo)
+
+        【参数】
+              contNo 合约编号，默认为基础合约。
+
+        【备注】
+              获得当前持仓指定合约的第一个建仓位置到当前位置的Bar计数，返回值为整型。
+              只有当MarketPosition != 0时，即有持仓的状况下，该函数才有意义，否则返回0。
+              注意：在开仓Bar上为0。
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getBarsSinceEntry(contNo)
+
+    def MarketPosition(self, contNo):
+        '''
+        【说明】
+               获得当前持仓状态 。
+
+        【语法】
+              int MarketPosition(string contNo)
+
+        【参数】
+              contNo 合约编号，默认为基础合约。
+
+        【备注】
+              获得当前持仓状态，返回值为整型。
+              返回值定义如下：
+                -1 当前位置为持空仓
+                0 当前位置为持平
+                1 当前位置为持多仓
+
+        【示例】
+              if(MarketPosition("ZCE|F|SR|905")==1)判断合约ZCE|F|SR|905当前是否持多仓
+              if(MarketPosition("ZCE|F|SR|905")!=0)判断合约ZCE|F|SR|905当前是否有持仓，无论持空仓或多仓
+        '''
+        return self._dataModel.getMarketPosition(contNo)
+
     #////////////////////////////策略性能/////////////////
     def Available(self):
         '''
@@ -2464,32 +2508,393 @@ class BaseApi(object):
               返回买卖状态的买入枚举值
 
         【语法】
-              int Enum_Buy()
+              char Enum_Buy()
 
         【参数】
               无
 
         【备注】
-              返回整型
+              返回字符
 
         【示例】
               无
         '''
         return self._dataModel.getEnumBuy()
-        
+
+    def Enum_Sell(self):
+        '''
+        【说明】
+              返回买卖状态的卖出枚举值
+
+        【语法】
+              char Enum_Sell()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumSell()
+
+    def Enum_Entry(self):
+        '''
+        【说明】
+              返回开平状态的开仓枚举值
+
+        【语法】
+              char Enum_Entry()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumEntry()
+
+    def Enum_Exit(self):
+        '''
+        【说明】
+              返回开平状态的平仓枚举值
+
+        【语法】
+              char Enum_Exit()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumExit()
+
+    def Enum_ExitToday(self):
+        '''
+        【说明】
+              返回开平状态的平今枚举值
+
+        【语法】
+              char Enum_ExitToday()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumExitToday()
+
+    def Enum_EntryExitIgnore(self):
+        '''
+        【说明】
+              返回开平状态不区分开平的枚举值
+
+        【语法】
+              char Enum_EntryExitIgnore()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumEntryExitIgnore()
+
+    def Enum_Sended(self):
+        '''
+        【说明】
+              返回委托状态为已发送的枚举值
+
+        【语法】
+              char Enum_Sended()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumSended()
+
+    def Enum_Accept(self):
+        '''
+        【说明】
+              返回委托状态为已受理的枚举值
+
+        【语法】
+              char Enum_Accept()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumAccept()
+
+    def Enum_Triggering(self):
+        '''
+        【说明】
+              返回委托状态为待触发的枚举值
+
+        【语法】
+              char Enum_Triggering()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumTriggering()
+
+    def Enum_Active(self):
+        '''
+        【说明】
+              返回委托状态为已生效的枚举值
+
+        【语法】
+              char Enum_Active()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumActive()
+
+    def Enum_Queued(self):
+        '''
+        【说明】
+              返回委托状态为已排队的枚举值
+
+        【语法】
+              char Enum_Queued()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumQueued()
+
+    def Enum_FillPart(self):
+        '''
+        【说明】
+              返回委托状态为部分成交的枚举值
+
+        【语法】
+              char Enum_FillPart()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumFillPart()
+
+    def Enum_Filled(self):
+        '''
+        【说明】
+              返回委托状态为全部成交的枚举值
+
+        【语法】
+              char Enum_Filled()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumFilled()
+
+    def Enum_Canceling(self):
+        '''
+        【说明】
+              返回委托状态为待撤的枚举值
+
+        【语法】
+              char Enum_Canceling()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumCanceling()
+
+    def Enum_Modifying(self):
+        '''
+        【说明】
+              返回委托状态为待改的枚举值
+
+        【语法】
+              char Enum_Modifying()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumModifying()
+
+    def Enum_Canceled(self):
+        '''
+        【说明】
+              返回委托状态为已撤单的枚举值
+
+        【语法】
+              char Enum_Canceled()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumCanceled()
+
+    def Enum_PartCanceled(self):
+        '''
+        【说明】
+              返回委托状态为已撤余单的枚举值
+
+        【语法】
+              char Enum_PartCanceled()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumPartCanceled()
+
+    def Enum_Fail(self):
+        '''
+        【说明】
+              返回委托状态为指令失败的枚举值
+
+        【语法】
+              char Enum_Fail()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumFail()
+
+    def Enum_Suspended(self):
+        '''
+        【说明】
+              返回委托状态为已挂起的枚举值
+
+        【语法】
+              char Enum_Suspended()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumSuspended()
+
+    def Enum_Apply(self):
+        '''
+        【说明】
+              返回委托状态为已申请的枚举值
+
+        【语法】
+              char Enum_Apply()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumApply()
+
     def Enum_Period_Tick(self):
         '''
         【说明】
               返回周期类型成交明细的枚举值
 
         【语法】
-              int Enum_Period_Tick()
+              char Enum_Period_Tick()
 
         【参数】
               无
 
         【备注】
-              返回整型
+              返回字符
 
         【示例】
               无
@@ -2502,13 +2907,13 @@ class BaseApi(object):
               返回周期类型分时图枚举值
 
         【语法】
-              int Enum_Period_Dyna()
+              char Enum_Period_Dyna()
 
         【参数】
               无
 
         【备注】
-              返回整型
+              返回字符
 
         【示例】
               无
@@ -2521,13 +2926,13 @@ class BaseApi(object):
               返回周期类型秒线的枚举值
 
         【语法】
-              int Enum_Period_Second()
+              char Enum_Period_Second()
 
         【参数】
               无
 
         【备注】
-              返回整型
+              返回字符
 
         【示例】
               无
@@ -2540,13 +2945,13 @@ class BaseApi(object):
               返回周期类型分钟线的枚举值
 
         【语法】
-              int Enum_Period_Min()
+              char Enum_Period_Min()
 
         【参数】
               无
 
         【备注】
-              返回整型
+              返回字符
 
         【示例】
               无
@@ -2559,13 +2964,13 @@ class BaseApi(object):
               返回周期类型小时线的枚举值
 
         【语法】
-              int Enum_Period_Hour()
+              char Enum_Period_Hour()
 
         【参数】
               无
 
         【备注】
-              返回整型
+              返回字符
 
         【示例】
               无
@@ -2578,13 +2983,13 @@ class BaseApi(object):
               返回周期类型日线的枚举值
 
         【语法】
-              int Enum_Period_Day()
+              char Enum_Period_Day()
 
         【参数】
               无
 
         【备注】
-              返回整型
+              返回字符
 
         【示例】
               无
@@ -2597,13 +3002,13 @@ class BaseApi(object):
               返回周期类型周线的枚举值
 
         【语法】
-              int Enum_Period_Week()
+              char Enum_Period_Week()
 
         【参数】
               无
 
         【备注】
-              返回整型
+              返回字符
 
         【示例】
               无
@@ -2616,13 +3021,13 @@ class BaseApi(object):
               返回周期类型月线的枚举值
 
         【语法】
-              int Enum_Period_Month()
+              char Enum_Period_Month()
 
         【参数】
               无
 
         【备注】
-              返回整型
+              返回字符
 
         【示例】
               无
@@ -2635,13 +3040,13 @@ class BaseApi(object):
               返回周期类型年线的枚举值
 
         【语法】
-              int Enum_Period_Year()
+              char Enum_Period_Year()
 
         【参数】
               无
 
         【备注】
-              返回整型
+              返回字符
 
         【示例】
               无
@@ -2654,18 +3059,588 @@ class BaseApi(object):
               返回周期类型多日线的枚举值
 
         【语法】
-              int Enum_Period_DayX()
+              char Enum_Period_DayX()
 
         【参数】
               无
 
         【备注】
-              返回整型
+              返回字符
 
         【示例】
               无
         '''
-        return self._dataModel.getEnumPeriodDayX()   
+        return self._dataModel.getEnumPeriodDayX()
+
+    def Enum_Color_Red(self):
+        '''
+        【说明】
+             返回颜色类型红色的枚举值
+
+        【语法】
+              int Enum_Color_Red()
+
+        【参数】
+              无
+
+        【备注】
+              返回16进制颜色代码
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumColorRed()
+
+    def Enum_Color_Green(self):
+        '''
+        【说明】
+              返回颜色类型绿色的枚举值
+
+        【语法】
+              int Enum_Color_Green()
+
+        【参数】
+              无
+
+        【备注】
+              返回16进制颜色代码
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumColorGreen()
+
+    def Enum_Color_Blue(self):
+        '''
+        【说明】
+              返回颜色类型蓝色的枚举值
+
+        【语法】
+              int Enum_Color_Blue()
+
+        【参数】
+              无
+
+        【备注】
+              返回16进制颜色代码
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumColorBlue()
+
+    def Enum_Color_Purple(self):
+        '''
+        【说明】
+              返回颜色类型紫色的枚举值
+
+        【语法】
+              int Enum_Color_Purple()
+
+        【参数】
+              无
+
+        【备注】
+              返回16进制颜色代码
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumColorPurple()
+
+    def Enum_Color_Gray(self):
+        '''
+        【说明】
+              返回颜色类型灰色的枚举值
+
+        【语法】
+              int Enum_Color_Gray()
+
+        【参数】
+              无
+
+        【备注】
+              返回16进制颜色代码
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumColorGray()
+
+    def Enum_Order_Market(self):
+        '''
+        【说明】
+              返回订单类型市价单的枚举值
+
+        【语法】
+              char Enum_Order_Market()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderMarket()
+
+    def Enum_Order_Limit(self):
+        '''
+        【说明】
+              返回订单类型限价单的枚举值
+
+        【语法】
+              char Enum_Order_Limit()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderLimit()
+
+    def Enum_Order_MarketStop(self):
+        '''
+        【说明】
+              返回订单类型市价止损单的枚举值
+
+        【语法】
+              char Enum_Order_MarketStop()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderMarketStop()
+
+    def Enum_Order_LimitStop(self):
+        '''
+        【说明】
+              返回订单类型限价止损单的枚举值
+
+        【语法】
+              char Enum_Order_LimitStop()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderLimitStop()
+
+    def Enum_Order_Execute(self):
+        '''
+        【说明】
+              返回订单类型行权单的枚举值
+
+        【语法】
+              char Enum_Order_Execute()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderExecute()
+
+    def Enum_Order_Abandon(self):
+        '''
+        【说明】
+              返回订单类型弃权单的枚举值
+
+        【语法】
+              char Enum_Order_Abandon()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderAbandon()
+
+    def Enum_Order_Enquiry(self):
+        '''
+        【说明】
+              返回订单类型询价单的枚举值
+
+        【语法】
+              char Enum_Order_Enquiry()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderEnquiry()
+
+    def Enum_Order_Offer(self):
+        '''
+        【说明】
+              返回订单类型应价单的枚举值
+
+        【语法】
+              char Enum_Order_Offer()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderOffer()
+
+    def Enum_Order_Iceberg(self):
+        '''
+        【说明】
+              返回订单类型冰山单的枚举值
+
+        【语法】
+              char Enum_Order_Iceberg()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderIceberg()
+
+    def Enum_Order_Ghost(self):
+        '''
+        【说明】
+              返回订单类型影子单的枚举值
+
+        【语法】
+              char Enum_Order_Ghost()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderGhost()
+
+    def Enum_Order_Swap(self):
+        '''
+        【说明】
+              返回订单类型互换单的枚举值
+
+        【语法】
+              char Enum_Order_Swap()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderSwap()
+
+    def Enum_Order_SpreadApply(self):
+        '''
+        【说明】
+              返回订单类型套利申请的枚举值
+
+        【语法】
+              char Enum_Order_SpreadApply()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderSpreadApply()
+
+    def Enum_Order_HedgApply(self):
+        '''
+        【说明】
+              返回订单类型套保申请的枚举值
+
+        【语法】
+              char Enum_Order_HedgApply()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderHedgApply()
+
+    def Enum_Order_OptionAutoClose(self):
+        '''
+        【说明】
+              返回订单类型行权前期权自对冲申请的枚举值
+
+        【语法】
+              char Enum_Order_OptionAutoClose()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderOptionAutoClose()
+
+    def Enum_Order_FutureAutoClose(self):
+        '''
+        【说明】
+              返回订单类型履约期货自对冲申请的枚举值
+
+        【语法】
+              char Enum_Order_FutureAutoClose()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderFutureAutoClose()
+
+    def Enum_Order_MarketOptionKeep(self):
+        '''
+        【说明】
+              返回订单类型做市商留仓的枚举值
+
+        【语法】
+              char Enum_Order_MarketOptionKeep()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumOrderMarketOptionKeep()
+
+    def Enum_GFD(self):
+        '''
+        【说明】
+              返回订单有效类型当日有效的枚举值
+
+        【语法】
+              char Enum_GFD()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumGFD()
+
+    def Enum_GTC(self):
+        '''
+        【说明】
+              返回订单有效类型当日有效的枚举值
+
+        【语法】
+              char Enum_GTC()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumGTC()
+
+    def Enum_GTD(self):
+        '''
+        【说明】
+              返回订单有效类型限期有效的枚举值
+
+        【语法】
+              char Enum_GTD()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumGTD()
+
+    def Enum_IOC(self):
+        '''
+        【说明】
+              返回订单有效类型即时部分有效的枚举值
+
+        【语法】
+              char Enum_IOC()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumIOC()
+
+    def Enum_FOK(self):
+        '''
+        【说明】
+              返回订单有效类型即时全部有效的枚举值
+
+        【语法】
+              char Enum_FOK()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumFOK()
+
+    def Enum_Speculate(self):
+        '''
+        【说明】
+              返回订单投保标记投机的枚举值
+
+        【语法】
+              char Enum_Speculate()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumSpeculate()
+
+    def Enum_Hedge(self):
+        '''
+        【说明】
+              返回订单投保标记套保的枚举值
+
+        【语法】
+              char Enum_Hedge()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumHedge()
+
+    def Enum_Spread(self):
+        '''
+        【说明】
+              返回订单投保标记套利的枚举值
+
+        【语法】
+              char Enum_Spread()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumSpread()
+
+    def Enum_Market(self):
+        '''
+        【说明】
+              返回订单投保标记做市的枚举值
+
+        【语法】
+              char Enum_Market()
+
+        【参数】
+              无
+
+        【备注】
+              返回字符
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getEnumMarket()
 
     #//////////////////////设置函数////////////////////
     def GetConfig(self):
@@ -2677,13 +3652,15 @@ class BaseApi(object):
               设置基准合约及相关联的合约列表
 
         【语法】
-              int SetBenchmark(contractNo1, contractNo2, contractNo3, ...)
+              int SetBenchmark(string contractNo1, string contractNo2, string contractNo3, ...)
 
         【参数】
-              contractNo 合约编号，第一个元素为基准合约
+              contractNo 合约编号，第一个合约编号为基准合约
 
         【备注】
               返回整型, 0成功，-1失败
+              如果使用合约的即时行情、K线、交易数据触发策略，则必须在策略代码中使用该函数设置合约
+              如果使用K线触发，则需要使用SetBarInterval函数设置类型和周期，否则设置界面选中的K线类型和周期
 
         【示例】
               SetBenchmark('ZCE|F|SR|905')
@@ -2710,35 +3687,36 @@ class BaseApi(object):
         '''
         return self._dataModel.setUserNo(userNo)
 
-    def SetBarInterval(self, barType, barInterval, contNo):
+    def SetBarInterval(self, type, interval, contNo):
         '''
         【说明】
-              设置K线类型和K线周期
+              设置指定合约的K线类型和K线周期
 
         【语法】
-              int SetBarInterval(char barType, int barInterval, string contNo)
+              int SetBarInterval(char type, int interval, string contNo)
 
         【参数】
-              barType K线类型 t分时，T分笔，S秒线，M分钟，H小时，D日线，W周线，m月线，Y年线
-              barInterval K线周期
+              type K线类型 t分时，T分笔，S秒线，M分钟，H小时，D日线，W周线，m月线，Y年线
+              interval K线周期
               contNo 合约编号，默认为基础合约
 
         【备注】
               返回整型, 0成功，-1失败
+              如果对于相同的合约，如果使用该函数设置不同的K线类型和周期，则系统会同时订阅指定的K线类型和周期的行情数据
 
         【示例】
               SetBarInterval('M', 3) 表示对基础合约使用3分钟线
               SetBarInterval('M', 3, 'ZCE|F|SR|906') 表示对合约ZCE|F|SR|906使用3分钟线
         '''
-        return self._dataModel.setBarInterval(barType, barInterval, contNo)
+        return self._dataModel.setBarInterval(type, interval, contNo)
 
-    def SetSample(self, sampleType, sampleValue, contNo):
+    def SetSample(self, sampleType, sampleValue):
         '''
         【说明】
               设置策略历史回测的样本数量，默认为使用2000根K线进行回测。
 
         【语法】
-              int SetSample(char sampleType, int|string sampleValue, string contNo)
+              int SetSample(char sampleType, int|string sampleValue)
 
         【参数】
               sampleType 历史回测起始点类型
@@ -2750,7 +3728,6 @@ class BaseApi(object):
                 当sampleType为A或N时，sampleValue的值不设置；
                 当sampleType为D时，sampleValue为形如'20190430'的string型触发指定日期；
                 当sampleType为C时，sampleValue为int型历史回测使用的K线根数。
-              contNo 合约编号，不填表示是对默认历史回测的样本参数做修改。
 
         【备注】
               返回整型，0成功，-1失败
@@ -2758,7 +3735,7 @@ class BaseApi(object):
         【示例】
               无
         '''
-        return self._dataModel.setSample(sampleType, sampleValue, contNo)
+        return self._dataModel.setSample(sampleType, sampleValue)
         
     def SetInitCapital(self, capital, userNo):
         '''
@@ -2802,52 +3779,111 @@ class BaseApi(object):
         '''
         return self._dataModel.setMargin(type, value, contNo)
         
-    def SetTradeFee(self, type, rateFee, fixFee, contNo):
+    def SetTradeFee(self, type, feeType, feeValue, contNo):
         '''
         【说明】
               设置手续费收取方式，不设置取交易所公布参数
 
         【语法】
-              int SetTradeFee(string type, float rateFee, float fixFee, string contNo)
+              int SetTradeFee(string type, int feeType, float feeValue, string contNo)
 
         【参数】
               type 手续费类型，A-全部，O-开仓，C-平仓，T-平今
-              rateFee 按比例收取手续费，为0表示按定额收取
-              fixFee 按定额收取手续费，为0表示按比例收取
-              rateFee和fixFee都设置，按照fixFee * rateFee定额收取
+              feeType 手续费收取方式，1-按比例收取，2-按定额收取
+              feeValue 按比例收取手续费时，feeValue为收取比例；按定额收取手续费时，feeValue为收取额度
               contNo 合约编号，默认为基础合约
         【备注】
               返回整型，0成功，-1失败
 
         【示例】
-              SetTradeFee('O', 0, 5) 设置基础合约的开仓手续费为5元/手
-              SetTradeFee('O', 0.02, 0) 设置基础合约的开仓手续费为每笔2%
-              SetTradeFee('T', 0, 5, "ZCE|F|SR|906") 设置合约ZCE|F|SR|906的平今手续费为5元/手
+              SetTradeFee('O', 2， 5) 设置基础合约的开仓手续费为5元/手
+              SetTradeFee('O', 1， 0.02) 设置基础合约的开仓手续费为每笔2%
+              SetTradeFee('T', 2， 5, "ZCE|F|SR|906") 设置合约ZCE|F|SR|906的平今手续费为5元/手
         '''
-        return self._dataModel.setTradeFee(type, rateFee, fixFee, contNo)
+        return self._dataModel.setTradeFee(type, feeType, feeValue, contNo)
 
-    def SetTradeMode(self, inActual, sendOrderType, useSample, useReal):
+    def SetTriggerCont(self, contractNo):
         '''
         【说明】
-             设置运行方式
+              设置触发合约
 
         【语法】
-              int SetTradeMode(bool inActual, int sendOrderType, bool useSample, bool useReal)
+              int SetTriggerCont(contractNo1, contractNo2, contractNo3, ...)
 
         【参数】
-              inActual      True 表示在实盘上运行，False 表示在模拟盘上运行
-              sendOrderType 在实盘上的发单方式，1 表示实时发单,2 表示K线完成后发单
-              useSample     在模拟盘上是否使用历史数据进行回测
-              useReal       在模拟盘上是否使用实时数据运行策略
+              contractNo 合约编号，最多设置4个
+
+        【备注】
+              返回整型, 0成功，-1失败
+              不调用此函数，默认以基准合约触发
+
+
+        【示例】
+              SetTriggerCont('ZCE|F|SR|905')
+              SetTriggerCont('ZCE|F|SR|905', 'ZCE|F|SR|912', 'ZCE|F|SR|001')
+        '''
+        return self._dataModel.setTriggerCont(contractNo)
+
+    # def SetTradeMode(self, inActual, useSample, useReal):
+    #     '''
+    #     【说明】
+    #          设置运行方式
+    #
+    #     【语法】
+    #           int SetTradeMode(bool inActual, bool useSample, bool useReal)
+    #
+    #     【参数】
+    #           inActual      True 表示在实盘上运行，False 表示在模拟盘上运行
+    #           useSample     在模拟盘上是否使用历史数据进行回测
+    #           useReal       在模拟盘上是否使用实时数据运行策略
+    #
+    #     【备注】
+    #           返回整型，0成功，-1失败
+    #
+    #     【示例】
+    #           SetTradeMode(False, True, True)    # 在模拟盘上使用历史数据回测，并使用实时数据继续运行策略
+    #           SetTradeMode(True, True, True)     # 在模拟盘上使用历史数据回测，并使用实时数据继续运行策略；在实盘上使用实时数据运行策略
+    #     '''
+    #     return self._dataModel.setTradeMode(inActual, useSample, useReal)
+
+    def SetActual(self):
+        '''
+        【说明】
+             设置策略在实盘上运行
+
+        【语法】
+              int SetActual()
+
+        【参数】
+              无
 
         【备注】
               返回整型，0成功，-1失败
 
         【示例】
-              SetTradeMode(False, 0, True, True)    # 在模拟盘上使用历史数据回测，并使用实时数据继续运行策略
-              SetTradeMode(True, 2, True, True)     # 在模拟盘上使用历史数据回测，并使用实时数据继续运行策略；在实盘上使用实时数据运行策略，并在K线稳定后发单
+              无
         '''
-        return self._dataModel.setTradeMode(inActual, sendOrderType, useSample, useReal)
+        return self._dataModel.setActual()
+
+    def SetOrderWay(self, type):
+        '''
+        【说明】
+             设置发单方式
+
+        【语法】
+              int SetOrderWay(int type)
+
+        【参数】
+              type 在实盘上的发单方式，1 表示实时发单,2 表示K线完成后发单
+
+        【备注】
+              返回整型，0成功，-1失败
+
+        【示例】
+              SetOrderWay(1)    # 在实盘上使用实时数据运行策略，实时发单
+              SetOrderWay(2)     # 在实盘上使用实时数据运行策略，在K线稳定后发单
+        '''
+        return self._dataModel.setOrderWay(type)
 
     def SetTradeDirection(self, tradeDirection):
         '''
@@ -2934,13 +3970,13 @@ class BaseApi(object):
         '''
         return self._dataModel.setSlippage(slippage)
 
-    def SetTriggerMode(self, type, interval, timeList):
+    def SetTriggerType(self, type, value):
         '''
         【说明】
-             设置滑点损耗
+             设置触发方式
 
         【语法】
-              int SetTriggerMode(int type, int interval, list timeList)
+              int SetTriggerType(int type, int|list value)
 
         【参数】
               type 触发方式，可使用的值为：
@@ -2948,86 +3984,20 @@ class BaseApi(object):
                 2 : 即时行情触发
                 3 : 交易数据触发
                 4 : 每隔固定时间触发
-              interval 当触发方式是为每隔固定时间触发(type=4)时，触发间隔，单位为毫秒，必须为100的整数倍，当type为其他值时，该值无效
-              timeList 触发时刻列表，时间的格式为'20190511121314'
+                5 : 指定时刻触发
+              value 当触发方式是为每隔固定时间触发(type=4)时，value为触发间隔，单位为毫秒，必须为100的整数倍，
+              当触发方式为指定时刻触发(type=5)时，value为触发时刻列表，时间的格式为'20190511121314'
+              当type为其他值时，该值无效
 
         【备注】
               返回整型，0成功，-1失败
 
         【示例】
-              SetTriggerMode(1, 0) # 使用K线触发
-              SetTriggerMode(2, 0，['20190511121314', '20190511121315', '20190511121316']) # 使用即时行情触发，并指定特定时刻列表
-              SetTriggerMode(4, 1000，['20190511121314']) # 每隔1000毫秒触发一次，并指定特定时刻列表
+              SetTriggerType(1, 0) # 使用K线触发
+              SetTriggerType(2, ['20190511121314', '20190511121315', '20190511121316']) # 指定时刻触发
+              SetTriggerType(4, 1000) # 每隔1000毫秒触发一次
         '''
-        return self._dataModel.setTriggerMode(type, interval, timeList)
-
-    # //////////////////////套利函数////////////////////
-    def S_SetSpread(self, contractNo):
-        '''
-        【说明】
-              设置套利合约列表
-
-        【语法】
-              int S_SetSpread(contractNo1, contractNo2, contractNo3, ...)
-
-        【参数】
-              contractNo 合约编号，不能为空
-
-        【备注】
-              返回整型, 0成功，-1失败
-
-        【示例】
-              S_SetSpread('ZCE|F|SR|905')
-              S_SetSpread('ZCE|F|SR|905', 'ZCE|F|SR|912', 'ZCE|F|SR|001')
-        '''
-        return self._dataModel.setSpread(contractNo)
-
-    def S_SetSample(self, sampleType, sampleValue):
-        '''
-        【说明】
-              设置套利合约历史回测的样本数量，默认为使用2000根K线进行回测。
-
-        【语法】
-              int S_SetSample(char sampleType, int|string sampleValue)
-
-        【参数】
-              sampleType 历史回测起始点类型
-                A : 使用所有K线
-                D : 指定日期开始触发
-                C : 使用固定根数
-                N : 不执行历史K线
-              sampleValue 可选，设置历史回测起始点使用的数值
-                当sampleType为A或N时，sampleValue的值不设置；
-                当sampleType为D时，sampleValue为形如'20190430'的string型触发指定日期；
-                当sampleType为C时，sampleValue为int型历史回测使用的K线根数。
-
-        【备注】
-              返回整型，0成功，-1失败
-
-        【示例】
-              无
-        '''
-        return self._dataModel.setSpreadSample(sampleType, sampleValue)
-
-    def S_SetBarInterval(self, barType, barInterval):
-        '''
-        【说明】
-              设置套利合约的K线类型和K线周期
-
-        【语法】
-              int S_SetBarInterval(char barType, int barInterval)
-
-        【参数】
-              barType K线类型 t分时，T分笔，S秒线，M分钟，H小时，D日线，W周线，m月线，Y年线
-              barInterval K线周期
-
-        【备注】
-              返回整型, 0成功，-1失败
-
-        【示例】
-              S_SetBarInterval('M', 3) 表示对套利合约使用3分钟线
-        '''
-        return self._dataModel.setSpreadBarInterval(barType, barInterval)
+        return self._dataModel.setTriggerMode(type, value)
 
     # //////////////////////其他函数////////////////////
 
@@ -3307,6 +4277,15 @@ def Q_UpperLimit(symbol=''):
 def QuoteDataExist(symbol=''):
     return baseApi.QuoteDataExist(symbol)
 
+#策略状态
+def AvgEntryPrice(contNo=''):
+    return baseApi.AvgEntryPrice(contNo)
+
+def BarsSinceEntry(contNo=''):
+    return baseApi.BarsSinceEntry(contNo)
+
+def MarketPosition(contNo=''):
+    return baseApi.MarketPosition(contNo)
 # 策略性能
 def Available():
     return baseApi.Available()
@@ -3452,6 +4431,66 @@ def SellShort(share=0, price=0, contractNo=None):
     return baseApi.SellShort(contractNo, share, price)
     
 # 枚举函数
+def Enum_Buy():
+    return baseApi.Enum_Buy()
+
+def Enum_Sell():
+    return baseApi.Enum_Sell()
+
+def Enum_Entry():
+    return baseApi.Enum_Entry()
+
+def Enum_Exit():
+    return baseApi.Enum_Exit()
+
+def Enum_ExitToday():
+    return baseApi.Enum_ExitToday()
+
+def Enum_EntryExitIgnore():
+    return baseApi.Enum_EntryExitIgnore()
+
+def Enum_Sended():
+    return baseApi.Enum_Sended()
+
+def Enum_Accept():
+    return baseApi.Enum_Accept()
+
+def Enum_Triggering():
+    return baseApi.Enum_Triggering()
+
+def Enum_Active():
+    return baseApi.Enum_Active()
+
+def Enum_Queued():
+    return baseApi.Enum_Queued()
+
+def Enum_FillPart():
+    return baseApi.Enum_FillPart()
+
+def Enum_Filled():
+    return baseApi.Enum_Filled()
+
+def Enum_Canceling():
+    return baseApi.Enum_Canceling()
+
+def Enum_Modifying():
+    return baseApi.Enum_Modifying()
+
+def Enum_Canceled():
+    return baseApi.Enum_Canceled()
+
+def Enum_PartCanceled():
+    return baseApi.Enum_PartCanceled()
+
+def Enum_Fail():
+    return baseApi.Enum_Fail()
+
+def Enum_Suspended():
+    return baseApi.Enum_Suspended()
+
+def Enum_Apply():
+    return baseApi.Enum_Apply()
+
 def Enum_Period_Tick():
     return baseApi.Enum_Period_Tick()
     
@@ -3482,6 +4521,95 @@ def Enum_Period_Year():
 def Enum_Period_DayX():
     return baseApi.Enum_Period_DayX()
 
+def Enum_Color_Red():
+    return baseApi.Enum_Color_Red()
+
+def Enum_Color_Green():
+    return baseApi.Enum_Color_Green()
+
+def Enum_Color_Blue():
+    return baseApi.Enum_Color_Blue()
+
+def Enum_Color_Purple():
+    return baseApi.Enum_Color_Purple()
+
+def Enum_Color_Gray():
+    return baseApi.Enum_Color_Gray()
+
+def Enum_Order_Market():
+    return baseApi.Enum_Order_Market()
+
+def Enum_Order_Limit():
+    return baseApi.Enum_Order_Limit()
+
+def Enum_Order_MarketStop():
+    return baseApi.Enum_Order_MarketStop()
+
+def Enum_Order_LimitStop():
+    return baseApi.Enum_Order_LimitStop()
+
+def Enum_Order_Execute():
+    return baseApi.Enum_Order_Execute()
+
+def Enum_Order_Abandon():
+    return baseApi.Enum_Order_Abandon()
+
+def Enum_Order_Enquiry():
+    return baseApi.Enum_Order_Enquiry()
+
+def Enum_Order_Offer():
+    return baseApi.Enum_Order_Offer()
+
+def Enum_Order_Iceberg():
+    return baseApi.Enum_Order_Iceberg()
+
+def Enum_Order_Ghost():
+    return baseApi.Enum_Order_Ghost()
+
+def Enum_Order_Swap():
+    return baseApi.Enum_Order_Swap()
+
+def Enum_Order_SpreadApply():
+    return baseApi.Enum_Order_SpreadApply()
+
+def Enum_Order_HedgApply():
+    return baseApi.Enum_Order_HedgApply()
+
+def Enum_Order_OptionAutoClose():
+    return baseApi.Enum_Order_OptionAutoClose()
+
+def Enum_Order_FutureAutoClose():
+    return baseApi.Enum_Order_FutureAutoClose()
+
+def Enum_Order_MarketOptionKeep():
+    return baseApi.Enum_Order_MarketOptionKeep()
+
+def Enum_GFD():
+    return baseApi.Enum_GFD()
+
+def Enum_GTC():
+    return baseApi.Enum_GTC()
+
+def Enum_GTD():
+    return baseApi.Enum_GTD()
+
+def Enum_IOC():
+    return baseApi.Enum_IOC()
+
+def Enum_FOK():
+    return baseApi.Enum_FOK()
+
+def Enum_Speculate():
+    return baseApi.Enum_Speculate()
+
+def Enum_Hedge():
+    return baseApi.Enum_Hedge()
+
+def Enum_Spread():
+    return baseApi.Enum_Spread()
+
+def Enum_Market():
+    return baseApi.Enum_Market()
 
 # 设置函数
 def GetConfig():
@@ -3496,8 +4624,8 @@ def SetUserNo(userNo=''):
 def SetBarInterval(barType, barInterval, contNo=''):
     return baseApi.SetBarInterval(barType, barInterval, contNo)
 
-def SetSample(sampleType='C', sampleValue=2000, contNo=''):
-    return baseApi.SetSample(sampleType, sampleValue, contNo)
+def SetSample(sampleType='C', sampleValue=2000):
+    return baseApi.SetSample(sampleType, sampleValue)
 
 def SetInitCapital(capital='', userNo=''):
     return baseApi.SetInitCapital(capital, userNo)
@@ -3505,11 +4633,17 @@ def SetInitCapital(capital='', userNo=''):
 def SetMargin(type, value=0, contNo=''):
     return baseApi.SetMargin(type, value, contNo)
 
-def SetTradeFee(type, reteFee, fixFee, contNo=''):
-    return baseApi.SetTradeFee(type, reteFee, fixFee, contNo)
+def SetTradeFee(type, feeType, feeValue, contNo=''):
+    return baseApi.SetTradeFee(type, feeType, feeValue, contNo)
 
-def SetTradeMode(inActual, sendOrderType, useSample, useReal):
-    return baseApi.SetTradeMode(inActual, sendOrderType, useSample, useReal)
+# def SetTradeMode(inActual, useSample, useReal):
+# #     return baseApi.SetTradeMode(inActual, useSample, useReal)
+
+def SetActual():
+    return baseApi.SetActual()
+
+def SetOrderWay(type):
+    return baseApi.SetOrderWay(type)
 
 def SetTradeDirection(tradeDirection):
     return baseApi.SetTradeDirection(tradeDirection)
@@ -3523,31 +4657,21 @@ def SetHedge(hedge, contNo=''):
 def SetSlippage(slippage):
     return baseApi.SetSlippage(slippage)
 
-def SetTriggerMode(type, interval, timeList=None):
-    return baseApi.SetTriggerMode(type, interval, timeList)
+def SetTriggerCont(*contractNo):
+    return baseApi.SetTriggerCont(contractNo)
 
-# 套利函数
-def S_SetSpread(*contNo):
-    return baseApi.S_SetSpread(contNo)
-
-def S_SetSample(sampleType='C', sampleValue=2000):
-    return baseApi.S_SetSample(sampleType, sampleValue)
-
-def S_SetBarInterval(barType, barInterval):
-    return baseApi.S_SetBarInterval(barType, barInterval)
+def SetTriggerType(type, value):
+    return baseApi.SetTriggerType(type, value)
 
 # 属性函数
-def BarInterval():
-    return baseApi.BarInterval()
+def BarInterval(contNo=''):
+    return baseApi.BarInterval(contNo)
 
-def BarType():
-    return baseApi.BarType()
+def BarType(contNo=''):
+    return baseApi.BarType(contNo)
 
 def BidAskSize(contNo=''):
     return baseApi.BidAskSize(contNo)
-
-def BigPointValue(contNo=''):
-    return baseApi.BigPointValue(contNo)
 
 def CanTrade(contNo=''):
     return baseApi.CanTrade(contNo)
@@ -3579,8 +4703,8 @@ def MaxBarsBack():
 def MaxSingleTradeSize():
     return baseApi.MaxSingleTradeSize()
 
-def MinMove(contNo=''):
-    return baseApi.MinMove(contNo)
+def PriceTick(contNo=''):
+    return baseApi.PriceTick(contNo)
 
 def OptionStyle(contNo=''):
     return baseApi.OptionStyle(contNo)

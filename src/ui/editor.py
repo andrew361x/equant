@@ -74,7 +74,7 @@ def color_config(text, fontSize=12):
     text.config(
         foreground="#000000",
         background="#ffffff",
-        font=('monospace', fontSize),
+        font=('Consolas', fontSize),
         spacing1="6",
         spacing2="6",
         insertbackground="black",
@@ -83,18 +83,19 @@ def color_config(text, fontSize=12):
         inactiveselectbackground="gray",
     )
 
+
 tagdefs = {
-    "COMMENT": {"foreground":"#00aa00", "background":"#ffffff"},      #注释：绿色
-    "KEYWORD": {"foreground":"#032aff", "background":"#ffffff"},      #关键字：蓝色
-    "BUILTIN": {"foreground": "#032aff", "background": "#ffffff"},    #系统函数：蓝色
-    "STRING": {"foreground":"#818181", "background":"#ffffff"},       #字符串：灰色
-    "DEFINITION": {"foreground":"#ff00ff", "background":"#ffffff"},   #用户函数：淡紫色
-    "SYNC": {"foreground":None, "background":None},
-    "TODO": {"foreground":None, "background":None},
-    "ERROR": {"foreground":"#000000", "background":"#ff7777"},
+    "COMMENT"	: {"foreground":"#008000", "background":"#ffffff"},    #绿色 注释
+    "KEYWORD"	: {"foreground":"#0000ff", "background":"#ffffff"},    #蓝色 关键字
+    "BUILTIN"	: {"foreground":"#0000ff", "background":"#ffffff"},    #蓝色 系统函数
+    "STRING" 	: {"foreground":"#818181", "background":"#ffffff"},    #铁红 字符串
+    "DEFINITION": {"foreground":"#ff00ff", "background":"#ffffff"},    #紫色 用户函数
+    "SYNC"   	: {"foreground":None	 , "background":None	 },
+    "TODO"   	: {"foreground":None	 , "background":None	 },
+    "ERROR"  	: {"foreground":"#000000", "background":"#ff7777"},
     # The following is used by ReplaceDialog:
-    "hit": {"foreground":"#ffffff", "background":"#000000"},     #白色
-    "ESUNNY": {"foreground":"#dd0000", "background":"#ffffff"}, #红色
+    "hit"    	: {"foreground":"#ffffff", "background":"#000000"},    #白色
+    "ESUNNY" 	: {"foreground":"#AE2525", "background":"#ffffff"},    #深蓝 程序化函数
 }
 
 
@@ -175,9 +176,7 @@ class ModifiedMixin(object):
         self._resettingModifiedFlag = True
 
         try:
-
             self.tk.call(self._w, 'edit', 'modified', 0)
-
         finally:
             self._resettingModifiedFlag = False
 
@@ -196,16 +195,30 @@ class EditorText(ParentText, ModifiedMixin):
         self.config_colors()
         self.percolator = Percolator(self)
         self.bind("<Button-3>", self.create_menu)
+
+        # TODO: 捕获modified需要修改
+        self.edit_modified(False)
+        self.bind("<<Modified>>", self.beenModified)
+
         self.config(state="normal")
 
-
     def beenModified(self, event=None):
+        # print("--------modified------")
         # 获取选中的策略名
+        # if not self._view.doubleClickFlag():
+        #     strategyPath = self._controller.getEditorText()["path"]
+        #     text = os.path.basename(strategyPath)
+        #     self._view.updateEditorHead(text+"*")
+        # return
+
         if not self._view.doubleClickFlag():
-            strategyPath = self._controller.getEditorText()["path"]
-            text = os.path.basename(strategyPath)
-            self._view.updateEditorHead(text+"*")
-        return
+
+            if self.edit_modified():
+                if not self._view.doubleClickFlag():
+                    strategyPath = self._controller.getEditorText()["path"]
+                    text = os.path.basename(strategyPath)
+                    self._view.updateEditorHead(text+"*")
+                return
 
     def insert(self, index, chars, tags=None):
         self.percolator.insert(index, chars, tags=None)
@@ -242,13 +255,15 @@ class EditorText(ParentText, ModifiedMixin):
         start_index = 0
         for i, pos in enumerate(range1):
             posit = pos.string.split(".")
-            if int(index1[0]) == int(posit[0]) and int(index1[1]) <= int(posit[1]):
+            # if int(index1[0]) == int(posit[0]) and int(index1[1]) <= int(posit[1]):
+            if int(index1[0]) == int(posit[0]) and int(index1[1]) < int(posit[1]):
                 start_index = i
                 posit = pos.string
                 break
         funcName = self.get(range1[start_index-1].string, range1[start_index].string)
-        func = globals()['BaseApi'].__dict__[funcName]
-        self._controller.set_help_text(funcName, func.__doc__)
+        if funcName:
+            func = globals()['BaseApi'].__dict__[funcName]
+            self._controller.set_help_text(funcName, func.__doc__)
 
     def recolorize_main(self):
         next = "1.0"
@@ -292,7 +307,7 @@ class EditorText(ParentText, ModifiedMixin):
                                          head + "+%dc" % b)
                             if key == "ESUNNY":
                                 # self.tag_bind(key, "<Button-1>", self.esunny_event)
-                                self.tag_config(key, underline=True)
+                                # self.tag_config(key, underline=True)
                                 self.tag_bind(key, '<Enter>', self.show_arrow_cursor)
                                 self.tag_bind(key, '<Leave>', self.show_xterm_cursor)
                                 self.tag_bind(key, '<ButtonRelease-1>', self.click)
@@ -302,9 +317,8 @@ class EditorText(ParentText, ModifiedMixin):
                                 m1 = self.idprog.match(chars, b)
                                 if m1:
                                     a, b = m1.span(1)
-                                    self.tag_add("DEFINITION",
-                                                 head + "+%dc" % a,
-                                                 head + "+%dc" % b)
+                                    self.tag_add("DEFINITION", head + "+%dc" % a, head + "+%dc" % b)
+
                     m = self.prog.search(chars, m.end())
                 if "SYNC" in self.tag_names(next + "-1c"):
                     head = next

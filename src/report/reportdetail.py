@@ -1,6 +1,7 @@
 import numpy as np
 
 from capi.com_types import *
+from report.fieldConfigure import FrequencyDict
 
 
 class ReportDetail(object):
@@ -26,17 +27,16 @@ class ReportDetail(object):
 
     @property
     def period(self):  # 周期
-        # TODO：周期应该是k线频率和间隔
-        return self._expert_setting['KLineType']
+        klineType = FrequencyDict[self._expert_setting['KLineType']]
+        kLineSlice = str(self._expert_setting['KLineSlice'])
+        return kLineSlice + klineType
 
     @property
     def start_time(self):  # 计算开始时间
-        # return self._expert_setting['StartTime']
         return self._beginDate
 
     @property
     def end_time(self):  # 计算结束时间
-        # return self._expert_setting['EndTime']
         return self._endDate
 
     @property

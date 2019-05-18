@@ -3,13 +3,14 @@ from capi.com_types import *
 from .engine_model import *
 from copy import deepcopy
 import talib
-import time
+import time, sys
 import datetime
-from report.calc import CalcCenter
 import copy
+import math
 
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+from engine.calc import CalcCenter
 
 class StrategyModel(object):
     def __init__(self, strategy):
@@ -28,9 +29,6 @@ class StrategyModel(object):
         self._hisModel = StrategyHisQuote(strategy, self._cfgModel, self._calcCenter)
         self._trdModel = StrategyTrade(strategy, self._cfgModel)
 
-        #
-        self._runBarInfo = BarInfo(self.logger)
-
     def setRunStatus(self, status):
         self._runStatus = status
 
@@ -45,6 +43,12 @@ class StrategyModel(object):
 
     def getHisQuoteModel(self):
         return self._hisModel
+        
+    def getMonResult(self):
+        return self._calcCenter.getMonResult()
+
+    def getQuoteModel(self):
+        return self._qteModel
 
     # +++++++++++++++++++++++内部接口++++++++++++++++++++++++++++
     def getCalcCenter(self):
@@ -85,22 +89,32 @@ class StrategyModel(object):
         
     def runRealTime(self, context, handle_data, event):
         code = event.getEventCode()
-        if code == ST_TRIGGER_KLINE:
-            self._hisModel.runRealTime(context, handle_data, event)
-        elif code == ST_TRIGGER_FILL_DATA:
+        if code == ST_TRIGGER_FILL_DATA:
+            self._strategy.setTriggerType(ST_TRIGGER_FILL_DATA)
             self._hisModel.runReportRealTime(context, handle_data, event)
-        elif code == ST_TRIGGER_CYCLE or code == ST_TRIGGER_TIMER:
-            if not self._strategy.isRealTimeStatus():
-                return
-            else:
-                self._hisModel.runOtherTrigger(context, handle_data, event)
-        elif code == ST_TRIGGER_TRADE:
-            # print("交易触发===================")
-            if not self._strategy.isRealTimeStatus():
-                return
-            else:
-                self.logger.info("交易触发")
-                self._hisModel.runOtherTrigger(context, handle_data, event)
+        else:
+            self._hisModel.runRealTime(context, handle_data, event)
+        # if code == ST_TRIGGER_KLINE:
+        #     self._strategy.setTriggerType(ST_TRIGGER_KLINE)
+        #     self._hisModel.runRealTime(context, handle_data, event)
+        #
+        # elif code == ST_TRIGGER_CYCLE or code == ST_TRIGGER_TIMER:
+        #     if not self._strategy.isRealTimeStatus():
+        #         return
+        #     else:
+        #         self._hisModel.runOtherTrigger(context, handle_data, event)
+        # elif code == ST_TRIGGER_TRADE:
+        #     self._strategy.setTriggerType(ST_TRIGGER_FILL_DATA)
+        #
+        #     # print("交易触发===================")
+        #     if not self._strategy.isRealTimeStatus():
+        #         return
+        #     else:
+        #         self.logger.info("交易触发")
+        #         self._hisModel.runOtherTrigger(context, handle_data, event)
+        # elif code == ST_TRIGGER_SANPSHOT:
+        #      self._strategy.setTriggerType(ST_TRIGGER_SANPSHOT)
+        #      self._hisModel.runSnapShotTrigger(context, handle_data, event)
 
     def reqHisQuote(self):
         self._hisModel.reqAndSubQuote()
@@ -288,43 +302,58 @@ class StrategyModel(object):
 
     # ////////////////////////策略函数////////////////////////////
     def setBuy(self, contractNo, share, price):
-        contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
-
-        # 基准合约的cur bar
-        curBar = self._hisModel.getCurBar()
-
-        # 交易计算、生成回测报告
-        # 产生信号
+        contNo = contractNo if contractNo else self._cfgModel.getBenchmark()
+        
+        # 非K线触发的策略，不使用Bar
+        curBar = None
+        # 账户
         userNo = self._cfgModel.getUserNo() if self._cfgModel.isActualRun() else "Default"
-        self.sendOrder(userNo, contNo, otMarket, vtNone, dBuy, oOpen, hSpeculate, price, share, curBar, 'Buy')
+
+        # 对于开仓，需要平掉反向持仓
+        qty = self._calcCenter.needCover(userNo, contNo, dBuy, share, price)
+        if qty > 0:
+            eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtNone, dBuy, oCover, hSpeculate, price, qty, curBar, 'BuyToCover', False)
+            if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
+            
+        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtNone, dBuy, oOpen, hSpeculate, price, share, curBar, 'Buy')
+        if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
 
     def setBuyToCover(self, contractNo, share, price):
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
-        curBar = self._hisModel.getCurBar()
+        curBar = None
 
         # 交易计算、生成回测报告
         # 产生信号
         userNo = self._cfgModel.getUserNo() if self._cfgModel.isActualRun() else "Default"
-        self.sendOrder(userNo, contNo, otMarket, vtNone, dBuy, oCover, hSpeculate, price, share, curBar, 'BuyToCover')
+        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtNone, dBuy, oCover, hSpeculate, price, share, curBar, 'BuyToCover')
+        if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
     def setSell(self, contractNo, share, price):
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
-        curBar = self._hisModel.getCurBar()
+        curBar = None
 
         # 交易计算、生成回测报告
         # 产生信号
         userNo = self._cfgModel.getUserNo() if self._cfgModel.isActualRun() else "Default"
-        self.sendOrder(userNo, contNo, otMarket, vtNone, dSell, oCover, hSpeculate, price, share, curBar, 'Sell')
+        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtNone, dSell, oCover, hSpeculate, price, share, curBar, 'Sell')
+        if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
     def setSellShort(self, contractNo, share, price):
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
-        curBar = self._hisModel.getCurBar()
+        curBar = None
+        
+        userNo = self._cfgModel.getUserNo() if self._cfgModel.isActualRun() else "Default"
+        qty = self._calcCenter.needCover(userNo, contNo, dSell, share, price)
+        if qty > 0:
+            eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtNone, dSell, oCover, hSpeculate, price, qty, curBar, 'Sell', False)
+            if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
         #交易计算、生成回测报告
         #产生信号
         userNo = self._cfgModel.getUserNo() if self._cfgModel.isActualRun() else "Default"
-        self.sendOrder(userNo, contNo, otMarket, vtNone, dSell, oOpen, hSpeculate, price, share, curBar, 'SellShort')
+        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtNone, dSell, oOpen, hSpeculate, price, share, curBar, 'SellShort')
+        if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
     def sendFlushEvent(self):
         flushEvent = Event({
@@ -375,8 +404,8 @@ class StrategyModel(object):
     def setBarInterval(self, barType, barInterval, contNo):
         self._cfgModel.setBarInterval(barType, barInterval, contNo)
 
-    def setSample(self, sampleType, sampleValue, contNo):
-        return self._cfgModel.setSample(sampleType, sampleValue, contNo)
+    def setSample(self, sampleType, sampleValue):
+        return self._cfgModel.setSample(sampleType, sampleValue)
 
     def setInitCapital(self, capital, userNo):
         initFund = capital if capital else 1000000
@@ -402,38 +431,33 @@ class StrategyModel(object):
                 return -1
             return self._cfgModel.setMargin(EEQU_FEE_TYPE_FIXED, value, contNo)
 
-    def setTradeFee(self, type, rateFee, fixFee, contNo):
-        '''
-        :param type: 手续费类型，A-全部，O-开仓，C-平仓，T-平今
-        :param rateFee: 按比例收取手续费，为0表示按定额收取
-        :param fixFee: 按定额收取手续费，为0表示按比例收取，rateFee和fixFee都设置，按照fixFee * rateFee收取
-        :return: 返回整型，0成功，-1失败
-        '''
+    def setTradeFee(self, type, feeType, feeValue, contNo):
         if type not in ('A', 'O', 'C', 'T'):
             return -1
 
-        if rateFee == 0 and fixFee == 0:
+        if feeType not in (1, 2):
             return -1
 
-        if rateFee < 0 or fixFee < 0:
+        feeType = EEQU_FEE_TYPE_RATIO if feeType == 1 else EEQU_FEE_TYPE_FIXED
+        return self._cfgModel.setTradeFee(type, feeType, feeValue, contNo)
+
+    def setTriggerCont(self, contNoTuple):
+        if not contNoTuple or len(contNoTuple) == 0:
             return -1
+        if len(contNoTuple) > 4:
+            contNoTuple = contNoTuple[:4]
+        return self._cfgModel.setTriggerCont(contNoTuple)
 
-        if rateFee == 0:
-            self._cfgModel.setTradeFee(type, EEQU_FEE_TYPE_FIXED, fixFee, contNo)
-            return 0
+    # def setTradeMode(self, inActual, useSample, useReal):
+    #     return self._cfgModel.setTradeMode(inActual, useSample, useReal)
 
-        if fixFee == 0:
-            self._cfgModel.setTradeFee(type, EEQU_FEE_TYPE_RATIO, rateFee, contNo)
-            return 0
+    def setActual(self):
+        return self._cfgModel.setActual()
 
-        self._cfgModel.setTradeFee(type, EEQU_FEE_TYPE_FIXED, rateFee*fixFee, contNo)
-        return 0
-
-    def setTradeMode(self, inActual, sendOrderType, useSample, useReal):
-        if sendOrderType not in (0, 1, 2):
+    def setOrderWay(self, type):
+        if type not in (1, 2):
             return -1
-
-        self._cfgModel.setTradeMode(inActual, sendOrderType, useSample, useReal)
+        self._cfgModel.setOrderWay(type)
         return 0
 
     def setTradeDirection(self, tradeDirection):
@@ -461,18 +485,8 @@ class StrategyModel(object):
         self._cfgModel.setSlippage(slippage)
         return 0
 
-    def setTriggerMode(self, type, interval, timeList):
-        return self._cfgModel.setTrigger(type, interval, timeList)
-
-    # ///////////////////////套利函数///////////////////////////
-    def setSpread(self, contNo):
-        return self._cfgModel.setSpread(contNo)
-
-    def setSpreadSample(self, sampleType, sampleValue):
-        return self._cfgModel.setSpreadSample(sampleType, sampleValue)
-
-    def setSpreadBarInterval(self, barType, barInterval):
-        return self._cfgModel.setSpreadBarInterval(barType, barInterval)
+    def setTriggerMode(self, type, value):
+        return self._cfgModel.setTrigger(type, value)
 
     # ///////////////////////账户函数///////////////////////////
     def getAccountId(self):
@@ -552,30 +566,67 @@ class StrategyModel(object):
 
     def deleteOrder(self, eSession):
         return self._trdModel.deleteOrder(eSession)
-
-    def sendOrder(self, userNo, contNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty, curBar=None, singnalName='sendOrder'):
-        self.addOrder2CalcCenter(userNo, contNo, orderDirct, entryOrExit, orderPrice, orderQty, curBar)
-        self.sendSignalEvent(singnalName, contNo, orderDirct, entryOrExit, orderPrice, orderQty, curBar)
-
-        if not self._cfgModel.isActualRun():
-            # 用户未选定实盘运行
+        
+    def buySellOrder(self, userNo, contNo, orderType, validType, orderDirct, \
+        entryOrExit, hedge, orderPrice, orderQty, curBar, singnalName, signal=True):
+        '''
+            1. buySell下单，经过calc模块，会判断虚拟资金，会产生平仓单
+            2. 如果支持K线触发，会产生下单信号
+            3. 对于即时行情和委托触发，在日志中分析下单信号
+        '''
+        curTriggerType = self._strategy.getTriggerType()
+        if curTriggerType in [ST_TRIGGER_NONE, ST_TRIGGER_KLINE, ST_TRIGGER_HIS_KLINE] and not self._cfgModel.hasKLineTrigger():
             return
+        datetime = '20190517090001001'
+        tradeDate = '20190517'
+        
+        triggerDict = self._cfgModel.getTrigger()
+        kilneTrigger = True if 'KLine' in triggerDict else False
+        #K线触发
+        if not curBar and kilneTrigger:
+            curBar = self._hisModel.getCurBar()
+            datetime = curBar['DateTimeStamp']
+            tradeDate = curBar['TradeDate']
+        
+        orderParam = {
+            "UserNo"         : userNo,                   # 账户编号
+            "OrderType"      : orderType,                 # 定单类型
+            "ValidType"      : validType,                   # 有效类型
+            "ValidTime"      : '0',                      # 有效日期时间(GTD情况下使用)
+            "Cont"           : contNo,                   # 合约
+            "Direct"         : orderDirct,                   # 买卖方向：买、卖
+            "Offset"         : entryOrExit,                   # 开仓、平仓、平今
+            "Hedge"          : hedge,               # 投机套保
+            "OrderPrice"     : orderPrice,                    # 委托价格 或 期权应价买入价格
+            "OrderQty"       : orderQty,                    # 委托数量 或 期权应价数量
+            "DateTimeStamp"  : datetime,                 # 时间戳（基准合约）
+            "TradeDate"      : tradeDate,                # 交易日（基准合约）
+        }
 
+        # K线触发，发送信号
+        if signal and kilneTrigger:
+            self.sendSignalEvent(singnalName, contNo, orderDirct, entryOrExit, orderPrice, orderQty, curBar)
+        self._calcCenter.addOrder(orderParam)
+        return self.sendOrder(userNo, contNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty)
+        
+    def sendOrder(self, userNo, contNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty):
+        '''A账户下单函数，不经过calc模块，不产生信号，直接发单'''
+        #发送下单信号,K线触发、即时行情触发
+        # 未选择实盘运行
+        if not self._cfgModel.isActualRun():
+            return ""
+            
         if not self._strategy.isRealTimeStatus():
             return
-
-        if not userNo or not contNo or not orderType or not validType or not orderDirct or not entryOrExit or not hedge or not orderPrice or not orderQty:
-            return -1
-
-        if userNo not in self._trdModel._userInfo:
-            return -1
-
-        # 获取资金账号
-        userInfoModel = self._trdModel._userInfo[userNo]
-        sign = userInfoModel._metaData['Sign']
+               
+        # 账户错误
+        if not userNo or userNo == 'Default':
+            return ""
+        
+        # 发送定单到实盘
         aOrder = {
             'UserNo': userNo,
-            'Sign': sign,
+            'Sign': self._trdModel.getSign(userNo),
             'Cont': contNo,
             'OrderType': orderType,
             'ValidType': validType,
@@ -607,6 +658,7 @@ class StrategyModel(object):
         self._strategy.updateLocalOrder(eId, aOrder)
         return eId
 
+
     def addOrder2CalcCenter(self, userNo, contNo, direct, offset, price, share, curBar):
         if not curBar:
             return
@@ -627,6 +679,187 @@ class StrategyModel(object):
             "CurrentBarIndex": curBar['KLineIndex'],  # 当前K线索引
         }
         self._calcCenter.addOrder(orderParam)
+
+    # ///////////////////////枚举函数///////////////////////////
+    def getEnumBuy(self):
+        return dBuy
+
+    def getEnumSell(self):
+        return dSell
+
+    def getEnumEntry(self):
+        return oOpen
+
+    def getEnumExit(self):
+        return oCover
+
+    def getEnumExitToday(self):
+        return oCoverT
+
+    def getEnumEntryExitIgnore(self):
+        return oNone
+
+    def getEnumSended(self):
+        return osSended
+
+    def getEnumAccept(self):
+        return osAccept
+
+    def getEnumTriggering(self):
+        return osTriggering
+
+    def getEnumActive(self):
+        return osActive
+
+    def getEnumQueued(self):
+        return osQueued
+
+    def getEnumFillPart(self):
+        return osFillPart
+
+    def getEnumFilled(self):
+        return osFilled
+
+    def getEnumCanceling(self):
+        return osCanceling
+
+    def getEnumModifying(self):
+        return osModifying
+
+    def getEnumCanceled(self):
+        return osCanceled
+
+    def getEnumPartCanceled(self):
+        return osPartCanceled
+
+    def getEnumFail(self):
+        return osFail
+
+    def getEnumSuspended(self):
+        return osSuspended
+
+    def getEnumApply(self):
+        return osApply
+
+    def getEnumPeriodTick(self):
+        return EEQU_KLINE_TICK
+
+    def getEnumPeriodDyna(self):
+        return EEQU_KLINE_TIMEDIVISION
+
+    def getEnumPeriodSecond(self):
+        return EEQU_KLINE_SECOND
+
+    def getEnumPeriodMin(self):
+        return EEQU_KLINE_MINUTE
+
+    def getEnumPeriodHour(self):
+        return EEQU_KLINE_HOUR
+
+    def getEnumPeriodDay(self):
+        return EEQU_KLINE_DAY
+
+    def getEnumPeriodWeek(self):
+        return EEQU_KLINE_WEEK
+
+    def getEnumPeriodMonth(self):
+        return EEQU_KLINE_MONTH
+
+    def getEnumPeriodYear(self):
+        return EEQU_KLINE_YEAR
+
+    def getEnumPeriodDayX(self):
+        return EEQU_KLINE_DayX
+
+    def getEnumOrderMarket(self):
+        return otMarket
+
+    def getEnumOrderLimit(self):
+        return otLimit
+
+    def getEnumOrderMarketStop(self):
+        return otMarketStop
+
+    def getEnumOrderLimitStop(self):
+        return otLimitStop
+
+    def getEnumOrderExecute(self):
+        return otExecute
+
+    def getEnumOrderAbandon(self):
+        return otAbandon
+
+    def getEnumOrderEnquiry(self):
+        return otEnquiry
+
+    def getEnumOrderOffer(self):
+        return otOffer
+
+    def getEnumOrderIceberg(self):
+        return otIceberg
+
+    def getEnumOrderGhost(self):
+        return otGhost
+
+    def getEnumOrderSwap(self):
+        return otSwap
+
+    def getEnumOrderSpreadApply(self):
+        return otSpreadApply
+
+    def getEnumOrderHedgApply(self):
+        return otHedgApply
+
+    def getEnumOrderOptionAutoClose(self):
+        return otOptionAutoClose
+
+    def getEnumOrderFutureAutoClose(self):
+        return otFutureAutoClose
+
+    def getEnumOrderMarketOptionKeep(self):
+        return otMarketOptionKeep
+
+    def getEnumGFD(self):
+        return vtGFD
+
+    def getEnumGTC(self):
+        return vtGTC
+
+    def getEnumGTD(self):
+        return vtGTD
+
+    def getEnumIOC(self):
+        return vtIOC
+
+    def getEnumFOK(self):
+        return vtFOK
+
+    def getEnumSpeculate(self):
+        return hSpeculate
+
+    def getEnumHedge(self):
+        return hHedge
+
+    def getEnumSpread(self):
+        return hSpread
+
+    def getEnumMarket(self):
+        return hMarket
+
+    def getEnumColorRed(self):
+        return 0xFF0000
+
+    def getEnumColorGreen(self):
+        return 0x00AA00
+
+    def getEnumColorBlue(self):
+        return 0x0000FF
+
+    def getEnumColorPurple(self):
+        return 0x9900FF
+
+    def getEnumColorGray(self):
+        return 0x999999
 
     #///////////////////////其他函数///////////////////////////
     def _addSeries(self, name, value, locator, color, barsback):
@@ -689,9 +922,9 @@ class StrategyModel(object):
         argStr = ""
         for arg in args:
             if isinstance(arg, str):
-                argStr += arg
+                argStr = argStr + ' ' + arg
             else:
-                argStr += str(arg)
+                argStr = argStr + ' ' + str(arg)
 
         return '[User]%s' % argStr
 
@@ -712,22 +945,25 @@ class StrategyModel(object):
         self.logger.error(logInfo)
 
     # ///////////////////////属性函数///////////////////////////
-    def getBarInterval(self):
+    def getBarInterval(self, contNo):
         if len(self._cfgModel._metaData) == 0 or 'Sample' not in self._cfgModel._metaData:
             return None
 
         sample = self._cfgModel.getSample()
-        return sample['KLineSlice'] if 'KLineSlice' in sample else None
+        if not contNo:
+            return sample['KLineSlice']
+        barInfo = sample[contNo][-1]
+        return barInfo['KLineSlice']
 
-    def getBarType(self):
+    def getBarType(self,contNo):
         if len(self._cfgModel._metaData) == 0 or 'Sample' not in self._cfgModel._metaData:
             return None
 
         sample = self._cfgModel.getSample()
-        if 'KLineType' not in sample:
-            return None
-
-        return sample['KLineType']
+        if not contNo:
+            return sample['KLineType']
+        barInfo = sample[contNo][-1]
+        return barInfo['KLineType']
 
     def getBidAskSize(self, contNo):
         contractNo = contNo
@@ -774,16 +1010,6 @@ class StrategyModel(object):
         ret['CommodityCode'] = '|'.join(contList[:-1])
         ret['CommodityNo'] = contList[-1]
         return ret
-
-    def getBigPointValue(self, contNo):
-        commodityNo = self.getCommodityInfoFromContNo(contNo)['CommodityCode']
-
-
-        if commodityNo not in self._qteModel._commodityData:
-            return 0
-
-        commodityModel = self._qteModel._commodityData[commodityNo]
-        return commodityModel._metaData['PricePrec']
 
     def getCanTrade(self, contNo):
         return 0
@@ -854,15 +1080,14 @@ class StrategyModel(object):
     def getMaxSingleTradeSize(self):
         return MAXSINGLETRADESIZE
 
-    def getMinMove(self, contNo):
+    def getPriceTick(self, contNo):
         commodityNo = self.getCommodityInfoFromContNo(contNo)['CommodityCode']
         if commodityNo not in self._qteModel._commodityData:
             return 0
 
         commodityModel = self._qteModel._commodityData[commodityNo]
         priceTick = commodityModel._metaData['PriceTick']
-        priceScale = commodityModel._metaData['PricePrec']
-        return  priceTick/priceScale if priceScale != 0 else 0
+        return priceTick
 
     def getOptionStyle(self, contNo):
         return 0
@@ -893,7 +1118,9 @@ class StrategyModel(object):
             return 0
 
         commodityModel = self._qteModel._commodityData[commodityNo]
-        return commodityModel._metaData['PricePrec']
+        pricePrec = commodityModel._metaData['PricePrec']
+
+        return math.pow(0.1, pricePrec)
 
     def getRelativeSymbol(self):
         return 0
@@ -916,6 +1143,52 @@ class StrategyModel(object):
 
     def getSymbolType(self, contNo):
         return self.getCommodityInfoFromContNo(contNo)['CommodityCode']
+
+    # ///////////////////////策略状态///////////////////////////
+    def getAvgEntryPrice(self, contNo):
+        '''当前持仓的平均建仓价格'''
+        posInfo = self._calcCenter.getPositionInfo(contNo)
+        totalPrice = 0
+        totalQty = 0
+        if not contNo:
+            for posDic in posInfo.values():
+                totalPrice += posDic['BuyPrice'] * posDic['TotalBuy'] + posDic['SellPrice'] * posDic['TotalSell']
+                totalQty += posDic['TotalBuy'] + posDic['TotalSell']
+        else :
+            totalPrice += posInfo['BuyPrice'] * posInfo['TotalBuy'] + posInfo['SellPrice'] * posInfo['TotalSell']
+            totalQty += posInfo['TotalBuy'] + posInfo['TotalSell']
+
+        return totalPrice/totalQty if totalQty > 0 else 0
+
+    def getBarsSinceEntry(self, contNo):
+        '''获得当前持仓中指定合约的第一个建仓位置到当前位置的Bar计数'''
+        if not contNo:
+            contNo = self._cfgModel.getBenchmark()
+
+        barInfo = None
+        for eSessionId in self._strategy._eSessionIdList:
+            tradeRecord = self._strategy._localOrder[eSessionId]
+            # if contNo == tradeRecord._contNo and tradeRecord._offset == oOpen:
+            if contNo == tradeRecord._contNo and tradeRecord._offset == 'N':
+                barInfo = tradeRecord.getBarInfo()
+                break
+
+        if not barInfo:
+            return 0
+
+        curBar = self._hisModel.getCurBar()
+        return (curBar['KLineIndex'] - barInfo['KLineIndex'])
+
+    def getMarketPosition(self, contNo):
+        if not contNo:
+            contNo = self._cfgModel.getBenchmark()
+
+        positionInfo = self._calcCenter.getPositionInfo(contNo)
+        buy = positionInfo['TotalBuy']
+        sell = positionInfo['TotalSell']
+        if buy == sell:
+            return 0
+        return 1 if buy > sell else -1
 
     # ///////////////////////策略性能///////////////////////////
     def getAvailable(self):
@@ -1081,7 +1354,7 @@ class StrategyConfig(object):
             return 6
             
         return 0
-        
+
     def continues(self):
         runModeDict = self.getRunMode()
         
@@ -1100,6 +1373,9 @@ class StrategyConfig(object):
     def getBenchmark(self):
         '''获取基准合约'''
         return self._metaData['Contract'][0]
+
+    def getTriggerContract(self):
+        return self._metaData['Contract']
 
     def setBenchmark(self, benchmark):
         '''设置基准合约'''
@@ -1120,8 +1396,9 @@ class StrategyConfig(object):
     def setContract(self, contTuple):
         '''设置合约列表'''
         if not contTuple or not isinstance(contTuple, tuple):
-            return 0
+            return -1
         self._metaData['Contract'] = contTuple
+        return 0
 
     def setUserNo(self, userNo):
         '''设置交易使用的账户'''
@@ -1138,43 +1415,36 @@ class StrategyConfig(object):
         '''获取触发方式'''
         return self._metaData['Trigger']
 
-    def setTrigger(self, type, interval, timeList):
+    def setTrigger(self, type, value):
         '''设置触发方式'''
-        if type not in (1, 2, 3, 4):
+        if type not in (1, 2, 3, 4, 5):
             return -1
-        if interval%100 != 0:
+        if type == 4 and value%100 != 0:
             return -1
-        if timeList:
-            for timeStr in timeList:
+        if type == 5 and isinstance(value, list):
+            for timeStr in value:
                 if len(timeStr) != 14 or not self.isVaildDate(timeStr, "%Y%m%d%H%M%S"):
                     return -1
 
         trigger = self._metaData['Trigger']
-        if timeList:
-            trigger['Timer'] = timeList
         if type == 1:
             trigger['KLine'] = True
         elif type == 2:
             trigger['SnapShot'] = True
         elif type == 3:
             trigger['Trade'] = True
-        else:
-            trigger['Cycle'] = interval
+        elif type == 4:
+            trigger['Cycle'] = value
+        elif value:
+            trigger['Timer'] = value
         return 0
 
-    def setSample(self, sampleType, sampleValue, contNo=''):
+    def setSample(self, sampleType, sampleValue):
         '''设置样本数据'''
         if sampleType not in ('A', 'D', 'C', 'N'):
             return -1
 
-        sample = None
-        if not contNo:
-            sample = self._metaData['Sample']
-        elif contNo not in self._metaData['Sample']:
-            self._metaData['Sample'][contNo] = self.initSampleDict()
-            sample = self._metaData['Sample'][contNo]
-        else:
-            sample = self._metaData['Sample'][contNo]
+        sample = self._metaData['Sample']
 
         # 使用所有K线
         if sampleType == 'A':
@@ -1229,16 +1499,12 @@ class StrategyConfig(object):
             return self._metaData['Sample']['BeginTime']
         return 0
 
-    def getKLineType(self, contNo=''):
+    def getKLineType(self):
         '''获取K线类型'''
-        if contNo in self._metaData['Sample']:
-            return self._metaData['Sample'][contNo]['KLineType']
         return self._metaData['Sample']['KLineType']
 
-    def getKLineSlice(self, contNo=''):
+    def getKLineSlice(self):
         '''获取K线间隔'''
-        if contNo in self._metaData['Sample']:
-            return self._metaData['Sample'][contNo]['KLineSlice']
         return self._metaData['Sample']['KLineSlice']
 
     def setAllKTrueInSample(self, sample, setForSpread=False):
@@ -1289,16 +1555,26 @@ class StrategyConfig(object):
         '''设置K线类型和K线周期'''
         if barType not in ('t', 'T', 'S', 'M', 'H', 'D', 'W', 'm', 'Y'):
             return -1
-        if contNo in self._metaData['Sample']:
-            self.setBarIntervalInSample(barType, barInterval, self._metaData['Sample'][contNo])
-            return
-        self.setBarIntervalInSample(barType, barInterval, self._metaData['Sample'])
+        if not contNo or contNo == self.getBenchmark():
+            self._metaData['Sample']['KLineType'] = barType
+            self._metaData['Sample']['KLineSlice'] = barInterval
+            return 0
 
-    def setBarIntervalInSample(self, barType, barInterval, sample):
-        if barType:
-            sample['KLineType'] = barType
-        if barInterval > 0:
-            sample['KLineSlice'] = barInterval
+        if contNo not in self._metaData['Sample']:
+            self._metaData['Sample'][contNo] = [{'KLineType' : barType, 'KLineSlice' : barInterval}, ]
+            return 0
+
+        isExist = False
+        barList = self._metaData['Sample'][contNo]
+        for barDict in barList:
+            if barDict['KLineType'] == barType and barDict['KLineSlice'] == barInterval:
+                isExist = True
+                break
+        if isExist:
+            return 0
+
+        barList.append({'KLineType': barType, 'KLineSlice': barInterval})
+        return 0
 
     def getInitCapital(self, userNo=''):
         '''获取初始资金'''
@@ -1421,18 +1697,31 @@ class StrategyConfig(object):
             feeDict[k] = deepcopy(initDict)
         return feeDict
 
-    def setTradeMode(self, inActual, sendOrderType, useSample, useReal):
-        runMode = self._metaData['RunMode']
-        if inActual:
-            # 实盘运行
-            if sendOrderType not in (1, 2):
-                return -1
-            runMode['Actual']['SendOrder2Actual'] = True
-            runMode['SendOrder'] = str(sendOrderType)
-        else:
-            # 模拟盘运行
-            runMode['Simulate']['UseSample'] = useSample
-            runMode['Simulate']['Continues'] = useReal
+    def setTriggerCont(self, contNoTuple):
+        self._metaData['TriggerCont'] = contNoTuple
+
+    def getTriggerCont(self):
+        if 'TriggerCont' in self._metaData:
+            return self._metaData['TriggerCont']
+        return None
+
+    def setActual(self):
+        self._metaData['RunMode']['Actual']['SendOrder2Actual'] = True
+
+    # def setTradeMode(self, inActual, useSample, useReal):
+    #     runMode = self._metaData['RunMode']
+    #     if inActual:
+    #         # 实盘运行
+    #         runMode['Actual']['SendOrder2Actual'] = True
+    #     else:
+    #         # 模拟盘运行
+    #         runMode['Simulate']['UseSample'] = useSample
+    #         runMode['Simulate']['Continues'] = useReal
+
+    def setOrderWay(self, type):
+        if type not in (1, 2):
+            return -1
+        self._metaData['RunMode']['SendOrder'] = str(type)
 
     def setTradeDirection(self, tradeDirection):
         '''设置交易方向'''
@@ -1491,83 +1780,8 @@ class StrategyConfig(object):
         except:
             return False
 
-    # ----------------- 设置套利函数相关 ---------------------
-    def setSpread(self, contList):
-        '''设置套利合约列表'''
-        if not contList:
-            return 0
-
-        contract = []
-        for cont in contList:
-            if cont in self.getContract():
-                contract.append(cont)
-
-        if not contract:
-            return -1
-        self._metaData['Spread'] = {'Contract' : tuple(contract)}
-
-    def getSpread(self):
-        '''获取套利合约列表'''
-        if self.isSetSpread():
-            return self._metaData['Spread']['Contract']
-
-    def isSetSpread(self):
-        '''是否设置套利合约列表'''
-        if 'Spread' in self._metaData and len(self._metaData['Spread']['Contract']) > 0:
-            return True
-        return False
-
-    def setSpreadSample(self, sampleType, sampleValue):
-        '''设置套利合约的样本数据'''
-        if not self.isSetSpread():
-            return -1
-
-        if sampleType not in ('A', 'D', 'C', 'N'):
-            return -1
-
-        if 'Sample' not in self._metaData['Spread']:
-            self._metaData['Spread']['Sample'] = self.initSampleDict()
-
-        # 使用所有K线
-        if sampleType == 'A':
-            self.setAllKTrueInSample(self._metaData['Spread']['Sample'], True)
-            return 0
-
-        # 指定日期开始触发
-        if sampleType == 'D':
-            if not sampleValue or not isinstance(sampleValue, str):
-                return -1
-            if not self.isVaildDate(sampleValue, "%Y%m%d"):
-                return -1
-            self.setBarPeriodInSample(sampleValue, self._metaData['Spread']['Sample'], True)
-            return 0
-
-        # 使用固定根数
-        if sampleType == 'C':
-            if not isinstance(sampleValue, int) or sampleValue <= 0:
-                return -1
-            self.setBarCountInSample(sampleValue, self._metaData['Spread']['Sample'], True)
-            return 0
-
-        # 不执行历史K线
-        if sampleType == 'N':
-            self._metaData['Spread']['Sample']['UseSample'] = False
-            return 0
-
-        return -1
-
-    def setSpreadBarInterval(self, barType, barInterval):
-        '''设置K线类型和K线周期'''
-        if not self.isSetSpread():
-            return -1
-        if barType not in ('t', 'T', 'S', 'M', 'H', 'D', 'W', 'm', 'Y'):
-            return -1
-        self.setBarIntervalInSample(barType, barInterval, self._metaData['Spread']['Sample'])
-
-    def getSpreadSample(self):
-        if not self.isSetSpread():
-            return None
-        return self._metaData['Spread']['Sample']
+    def getLimit(self):
+        return self._metaData['Limit']
 
 class BarInfo(object):
     def __init__(self, logger):
@@ -1672,7 +1886,10 @@ class StrategyHisQuote(object):
         # 回测阶段的实时K线数据,不出指标和信号
         self._reportRealDataList = []
         self._isAfterReportFirstData = True
-        
+
+        #
+        self._realTimeAsHistoryKLineCnt = 0
+
     def initialize(self):
         self._contractTuple = self._config.getContract()
         
@@ -1687,10 +1904,26 @@ class StrategyHisQuote(object):
         # 触发方式配置
         self._triggerDict = self._config.getTrigger()
         
-        contractNo = self._config.getContract()[0]
-        
         # Bar
-        self._curBarDict[contractNo] = BarInfo(self.logger)
+        rspKLineReady = not bool(self._useSample)
+        for contractNo in self._contractTuple:
+            self._curBarDict[contractNo] = BarInfo(self.logger)
+            self._metaData[contractNo] = {
+                'KLineReady': rspKLineReady,
+                'KLineType': '',
+                'KLineSlice': 1,
+                'KLineData': []
+            }
+            self._kLineNoticeData[contractNo] = {
+                'KLineType': '',
+                'KLineSlice': 1,
+                'KLineReady': True,
+                'KLineData': [],
+            }
+            self._hisLength[contractNo] = 0
+            self._pkgEarliestKLineDateTimeStamp[contractNo] = -1
+            self._curEarliestKLineDateTimeStamp[contractNo] = sys.maxsize
+            self._lastEarliestKLineDateTimeStamp[contractNo] = -1
 
     # //////////////`////////////////////////////////////////////////////
     def getBeginDate(self):
@@ -1712,6 +1945,42 @@ class StrategyHisQuote(object):
             return []
 
         return self._curBarDict[contNo].getBarOpenInt()
+
+    # 获取存储位置最后一根k线的交易日
+    def getLastTradeDate(self):
+        result = {}
+        for contractNo in self._contractTuple:
+            lastKLine, _ = self.getLastStoredKLine(contractNo)
+            if lastKLine is None:
+                result[contractNo] = None
+            else:
+                result[contractNo] = lastKLine["TradeDate"]
+        return result
+
+    def getLastStoredKLine(self, contractNo):
+        noticeKLineDatas = self._kLineNoticeData[contractNo]["KLineData"]
+        rspKLineDatas = self._metaData[contractNo]["KLineData"]
+        if len(noticeKLineDatas) > 0:
+            return noticeKLineDatas[-1], KLineFromRealTime
+        elif len(rspKLineDatas)>0:
+            return rspKLineDatas[-1], KLineFromHis
+        else:
+            return None, None
+
+    def setLastStoredKLineStable(self, contractNo):
+        noticeKLineDatas = self._kLineNoticeData[contractNo]["KLineData"]
+        rspKLineDatas = self._metaData[contractNo]["KLineData"]
+        if len(noticeKLineDatas) > 0:
+            noticeKLineDatas[-1]["IsKLineStable"] = True
+        elif len(rspKLineDatas) > 0:
+            rspKLineDatas[-1]["IsKLineStable"] = True
+        else:
+            pass
+
+    def getLastRunKLine(self, contractNo):
+        assert contractNo in self._curBarDict, "error"
+        barManager = self._curBarDict[contractNo]
+        return barManager.getCurBar()
 
     def getBarTradeDate(self, contNo):
         if contNo == '':
@@ -1928,61 +2197,68 @@ class StrategyHisQuote(object):
             else:
                 self.reqKLinesByCount(self._contractNo, count, EEQU_NOTICE_NOTNEED)
 
+    def _handleKLineRspData(self, event):
+        contractNo = event.getContractNo()
+        self._insertHisRspData(event)
+        if self.isHisQuoteRspEnd(event):
+            # print(contractNo," end ***************")
+            self._reIndexHisRspData(contractNo)
+            self._hisLength[contractNo] = len(self._metaData[contractNo]["KLineData"])
+
+    # 当 not self._reqByDateEnd时，更新
+    def _updateRspDataRefDTS(self, event):
+        assert self._reqByDate and not self._reqByDateEnd, "error"
+        dataList = event.getData()
+        contractNo = event.getContractNo()
+        # update current package earliest KLine DateTimeStamp
+        if len(dataList) == 0:
+            pass
+        else:
+            self._pkgEarliestKLineDateTimeStamp[contractNo] = dataList[-1]["DateTimeStamp"]
+        # update current req earliest KLine DateTimeStamp
+        if event.isChainEnd() and self._pkgEarliestKLineDateTimeStamp[contractNo]<self._curEarliestKLineDateTimeStamp[contractNo]:
+            self._curEarliestKLineDateTimeStamp[contractNo] = self._pkgEarliestKLineDateTimeStamp[contractNo]
+
+    def _handleKLineRspByDate(self, event):
+        contractNo = event.getContractNo()
+        if not self._reqByDateEnd:
+            self._insertHisRspData(event)
+            self._updateRspDataRefDTS(event)
+            if event.isChainEnd():
+                self._isReqByDateContinue(event)
+        else:
+            self._handleKLineRspData(event)
+
+    def _isReqByDateContinue(self,  event):
+        contractNo = event.getContractNo()
+        # req by date end or continue
+        # enough data
+        if not event.isChainEnd():
+            return
+        elif self._curEarliestKLineDateTimeStamp[contractNo] <= self._reqBeginDate:
+            self._reqByDateEnd = True
+            self.reqKLinesByCount(contractNo, self._reqKLineTimes * 4000, EEQU_NOTICE_NEED)
+        # 9.5 lack data
+        elif self._curEarliestKLineDateTimeStamp[contractNo] == self._lastEarliestKLineDateTimeStamp[contractNo]:
+            self._reqByDateEnd = True
+            self.reqKLinesByCount(contractNo, self._reqKLineTimes * 4000, EEQU_NOTICE_NEED)
+        # local lack data
+        elif self._curEarliestKLineDateTimeStamp[contractNo] > self._reqBeginDate:
+            self._reqKLineTimes += 1
+            self.reqKLinesByCount(contractNo, self._reqKLineTimes * 4000, EEQU_NOTICE_NOTNEED)
+            self._lastEarliestKLineDateTimeStamp[contractNo] = self._curEarliestKLineDateTimeStamp[contractNo]
+        else:
+            raise IndexError("can't be this case")
+
+    def _handleKLineRspByCount(self, event):
+        self._handleKLineRspData(event)
+
     # response 数据
     def onHisQuoteRsp(self, event):
-        contractNo = event.getContractNo()
-        # req by count
-        if not self._reqByDate:
-            self._updateHisRspData(event)
-            if self.isHisQuoteRspEnd(event):
-                # print(contractNo," end ***************")
-                self._reIndexHisRspData(contractNo)
-                self._hisLength[contractNo] = len(self._metaData[contractNo]["KLineData"])
-            return
-
-        # req by date
-        if not self._reqByDateEnd:
-            if contractNo not in self._pkgEarliestKLineDateTimeStamp:
-                self._pkgEarliestKLineDateTimeStamp[contractNo] = -1
-            if contractNo not in self._curEarliestKLineDateTimeStamp:
-                self._curEarliestKLineDateTimeStamp[contractNo] = -1
-            if contractNo not in self._lastEarliestKLineDateTimeStamp:
-                self._lastEarliestKLineDateTimeStamp[contractNo] = -1
-
-            dataList = event.getData()
-            # update current package earliest KLine DateTimeStamp
-            if len(dataList) == 0:
-                pass
-            else:
-                self._pkgEarliestKLineDateTimeStamp[contractNo] = dataList[-1]["DateTimeStamp"]
-
-            # update current req earliest KLine DateTimeStamp
-            if event.isChainEnd() and self._curEarliestKLineDateTimeStamp[contractNo] < self._pkgEarliestKLineDateTimeStamp[contractNo]:
-                self._curEarliestKLineDateTimeStamp[contractNo] = self._pkgEarliestKLineDateTimeStamp[contractNo]
-
-            # req by date end or continue
-            # enough data
-            if not event.isChainEnd():
-                pass
-            elif self._curEarliestKLineDateTimeStamp[contractNo] <= self._reqBeginDate:
-                self._reqByDateEnd = True
-                self.reqKLinesByCount(contractNo, self._reqKLineTimes * 4000, EEQU_NOTICE_NEED)
-            # 9.5 lack data
-            elif self._curEarliestKLineDateTimeStamp[contractNo] == self._lastEarliestKLineDateTimeStamp[contractNo]:
-                self._reqByDateEnd = True
-                self.reqKLinesByCount(contractNo, self._reqKLineTimes * 4000, EEQU_NOTICE_NEED)
-            # local lack data
-            elif self._curEarliestKLineDateTimeStamp[contractNo] > self._reqBeginDate:
-                self._reqKLineTimes += 1
-                self.reqKLinesByCount(contractNo, self._reqKLineTimes * 4000, EEQU_NOTICE_NOTNEED)
-                self._lastEarliestKLineDateTimeStamp[contractNo] = self._curEarliestKLineDateTimeStamp[contractNo]
-            else:
-                raise IndexError("can't be this case")
-        else:
-            self._updateHisRspData(event)
-            if self.isHisQuoteRspEnd(event):
-                self._reIndexHisRspData(contractNo)
-                self._hisLength[contractNo] = len(self._metaData[contractNo]["KLineData"])
+        if not self._reqByDate:                     # req by count
+            self._handleKLineRspByCount(event)
+        else:                                       # req by date
+            self._handleKLineRspByDate(event)
 
     def isHisQuoteRspEnd(self, event):
         if event.isChainEnd() and not self._reqByDate:
@@ -1992,15 +2268,9 @@ class StrategyHisQuote(object):
         return False
 
     # 更新response 数据
-    def _updateHisRspData(self, event):
+    def _insertHisRspData(self, event):
         contNo = event.getContractNo()
-        if contNo not in self._metaData:
-            self._metaData[contNo] = {
-                'KLineReady': False,
-                'KLineType': '',
-                'KLineSlice': 1,
-                'KLineData': [],
-            }
+
         dataDict = self._metaData[contNo]
         dataDict['KLineType'] = event.getKLineType()
         dataDict['KLineSlice'] = event.getKLineSlice()
@@ -2011,7 +2281,7 @@ class StrategyHisQuote(object):
         for kLineData in dataList:
             if self._reqByDate:
                 if len(rfdataList) == 0 or (len(rfdataList) >= 1 and kLineData["DateTimeStamp"] < rfdataList[0]["DateTimeStamp"] and \
-                kLineData["DateTimeStamp"] >= self._reqBeginDate):
+                    kLineData["DateTimeStamp"] >= self._reqBeginDate):
                     rfdataList.insert(0, kLineData)
             else:
                 if len(rfdataList) == 0 or (len(rfdataList) >= 1 and kLineData["DateTimeStamp"] < rfdataList[0]["DateTimeStamp"]):
@@ -2035,120 +2305,110 @@ class StrategyHisQuote(object):
             
             self._strategy.sendTriggerQueue(event)
 
+    def _handleKLineNoticeData(self, localStoreList, event):
+        apiDataList = event.getData()
+        contractNo = event.getContractNo()
+        # notice数据，直接加到队尾
+        for data in apiDataList:
+            data["IsKLineStable"] = False
+            storedLastKLine, lastKLineSource = self.getLastStoredKLine(contractNo)
+            # 没有数据，索引取回测数据的最后一条数据的索引，没有数据从1开始
+            if storedLastKLine is None:
+                data["KLineIndex"] = 1
+                localStoreList.append(data)
+            else:
+                lastKLineIndex = storedLastKLine["KLineIndex"]
+                lastKLineDTS = storedLastKLine["DateTimeStamp"]
+                if lastKLineDTS == data["DateTimeStamp"]:
+                    data["KLineIndex"] = lastKLineIndex
+                    self._handleSameKLine(localStoreList, data , lastKLineSource, contractNo)
+                else:
+                    data["KLineIndex"] = lastKLineIndex+1
+                    self.setLastStoredKLineStable(contractNo)
+                    localStoreList.append(data)
+            # print(storedLastKLine["KLineIndex"], storedLastKLine["DateTimeStamp"], self._metaData[contractNo]["KLineData"][-1]["DateTimeStamp"])
+            # 发送实时k线
+            self._sendRealTimeKLine(data, contractNo)
+            # 处理触发
+            if len(localStoreList) >= 2:
+                self._handleRealTimeKLineTrigger(contractNo, localStoreList[-2])
+                self._handleRealTimeKLineTrigger(contractNo, localStoreList[-1])
+            elif len(localStoreList) == 1:
+                self._handleRealTimeKLineTrigger(contractNo, localStoreList[-1])
+            else:
+                raise ValueError
+
+    def _handleSameKLine(self, localStoreList, data , lastKLineSource, contractNo):
+        if lastKLineSource == KLineFromHis:
+            # todo 处理 历史k线最后一根,
+            localStoreList.append(data)
+        elif lastKLineSource == KLineFromRealTime:
+            localStoreList[-1] = data
+
+    def _sendRealTimeKLine(self, data, contNo):
+        if contNo != self._contractNo:
+            return
+
+        # 跑历史回测期间，到来的实时数据只有稳定后才填充，并且按照历史触发。
+        if self._strategy.isHisStatus():
+            if not data["IsKLineStable"]:
+                return
+            else:
+                status = ST_STATUS_CONTINUES_AS_HISTORY
+                self._realTimeAsHistoryKLineCnt += 1
+        else:
+            status = ST_STATUS_CONTINUES_AS_REALTIME
+        event = Event({
+            "EventCode": ST_TRIGGER_FILL_DATA,
+            "ContractNo": contNo,
+            "Data": {
+                "Data": data,
+                "Status": status
+            }
+        })
+        self._strategy.sendTriggerQueue(event)
+
+    def _handleRealTimeKLineTrigger(self, contractNo, data):
+        if contractNo != self._contractNo:
+            return
+        orderWay = str(self._config.getSendOrder())
+        kLineTrigger = self._config.hasKLineTrigger()
+        if orderWay == SendOrderRealTime and kLineTrigger and not data["IsKLineStable"]:
+            event = Event({
+                'EventCode': ST_TRIGGER_KLINE,
+                'ContractNo': contractNo,
+                'Data': data
+            })
+            self._strategy.sendTriggerQueue(event)
+
+        if orderWay == SendOrderStable and kLineTrigger and data["IsKLineStable"]:
+            event = Event({
+                'EventCode': ST_TRIGGER_KLINE,
+                'ContractNo': contractNo,
+                'Data': data,
+            })
+            self._strategy.sendTriggerQueue(event)
+
     def onHisQuoteNotice(self, event):
         contNo = event.getContractNo()
         if self._useSample and (contNo not in self._metaData or not self._metaData[contNo]["KLineReady"]):
-            # print("notice data arrived before req data end, abandon", self._metaData[contNo]["KLineReady"], event.isChainEnd())
-            # print(" length = ", len(self._metaData[self._contractNo]['KLineData']))
+            # raise ValueError, todo, error handle
             return
 
         kLineTrigger = self._config.hasKLineTrigger()
-        if contNo not in self._kLineNoticeData:
-            self._kLineNoticeData[contNo] = {
-                'KLineType' : '',
-                'KLineSlice': 1,
-                'KLineReady':True,
-                'KLineData' : [],
-            }
-        if contNo not in self._hisLength:
-            self._hisLength[contNo] = 0
-
         dataDict = self._kLineNoticeData[contNo]
         dataDict['KLineType'] = event.getKLineType()
         dataDict['KLineSlice'] = event.getKLineSlice()
-        rfdataList = dataDict['KLineData']
-
-        dataList = event.getData()
-        # notice数据，直接加到队尾
-        for data in dataList:
-            data["IsKLineStable"] = False
-            # 没有数据，索引取回测数据的最后一条数据的索引，没有数据从1开始
-            if len(rfdataList) == 0:
-                if self._hisLength[contNo] == 0:
-                    data["KLineIndex"] = self._hisLength[contNo]+1
-                else:
-                    lastKLine = self._metaData[contNo]['KLineData'][-1]
-                    data["KLineIndex"] = self._hisLength[contNo] if lastKLine["DateTimeStamp"] == data["DateTimeStamp"] else self._hisLength[contNo]+1
-                # print("len of rfdatalist = ", len(rfdataList))
-                # print(self._metaData[self._contractNo]['KLineData'][-1]["DateTimeStamp"])
-                # print(dataList[0]["DateTimeStamp"])
-            # 该周期的tick更新数据，索引不变
-            elif data["DateTimeStamp"] == rfdataList[-1]["DateTimeStamp"]:
-                data["KLineIndex"] = rfdataList[-1]["KLineIndex"]
-            # 下个周期的数据，索引自增，标记K线稳定
-            elif data["DateTimeStamp"] > rfdataList[-1]["DateTimeStamp"]:
-                data["KLineIndex"] = rfdataList[-1]["KLineIndex"] + 1
-                rfdataList[-1]["IsKLineStable"] = True
-
-            # //// 填充基准合约k线，使得基准合约k线连续
-            if contNo == self._contractNo:
-                if self._strategy.isHisStatus():
-                    event = Event({
-                        "EventCode":ST_TRIGGER_FILL_DATA,
-                        "ContractNo":contNo,
-                        "Data":{
-                            "Data":data,
-                            "Status":ST_STATUS_CONTINUES_AS_HISTORY
-                        }
-                    })
-                    self._strategy.sendTriggerQueue(event)
-                else:
-                    event = Event({
-                        "EventCode": ST_TRIGGER_FILL_DATA,
-                        "ContractNo": contNo,
-                        "Data": {
-                            "Data": data,
-                            "Status": ST_STATUS_CONTINUES_AS_REALTIME
-                        }
-                    })
-                    self._strategy.sendTriggerQueue(event)
-
-            if not self._strategy.isRealTimeStatus():
-                rfdataList.append(data)
-                continue
-
-            # 回测结束，第一次收到数据,先发送回测阶段收到的实时数据，不发单
-            orderWay = str(self._config.getSendOrder())
-            
-            isLastKLineStable = False
-            if len(rfdataList) >= 1:
-                isLastKLineStable = rfdataList[-1]["IsKLineStable"]
-
-            # print("kline index = ", data["KLineIndex"], isLastKLineStable, orderWay)
-
-            # 连续触发阶段，实时发单
-            if orderWay == SendOrderRealTime and kLineTrigger:
-                event = Event({
-                    'EventCode': ST_TRIGGER_KLINE,
-                    'ContractNo': contNo,
-                    'Data': data
-                })
-                self._strategy.sendTriggerQueue(event)
-                # print("========================real time trigger")
-            # K线稳定后发单，不考虑闭市最后一笔触发问题
-            if orderWay == SendOrderStable and isLastKLineStable and kLineTrigger:
-                if self._hisLength[contNo] > 0 and rfdataList[-1]["DateTimeStamp"] == self._metaData[contNo]['KLineData'][-1]["DateTimeStamp"]:
-                    pass
-                else:
-                    event = Event({
-                        'EventCode'  : ST_TRIGGER_KLINE,
-                        'ContractNo' : contNo,
-                        'Data'       : rfdataList[-1],
-                    })
-                    self._strategy.sendTriggerQueue(event)
-                    # print(rfdataList[-1]["DateTimeStamp"])
-                    # print("========================k line stable trigger")
-            rfdataList.append(data)
+        localStoreList = dataDict['KLineData']
+        self._handleKLineNoticeData(localStoreList, event)
 
     # ///////////////////////////回测接口////////////////////////////////
     def _isAllReady(self):
         if not self._useSample:
             return True
-
         for contractNo in self._config.getContract():
             if contractNo not in self._metaData or not self._metaData[contractNo]["KLineReady"]:
                 return False
-
         return True
 
     def _switchKLine(self, contNo):
@@ -2209,19 +2469,19 @@ class StrategyHisQuote(object):
                 self._curBarDict[otherContract] = BarInfo(self.logger)
             self._curBarDict[otherContract].updateBar(otherContractData)
     
-    def _afterBar(self, contractNos, barInfos):
-        self._calc.calcProfit(contractNos,barInfos)
-        result = self._calc.getMonResult()
-        result.update({
-            "StrategyName":self._strategy.getStrategyName(),
-            "Status":ST_STATUS_HISTORY,
-        })
-        event = Event({
-            "EventCode":EV_EG2ST_MONITOR_INFO,
-            "StrategyId":self._strategy.getStrategyId(),
-            "Data":result
-        })
-        self._strategy.sendEvent2Engine(event)
+    # def _afterBar(self, contractNos, barInfos):
+        # self._calc.calcProfit(contractNos,barInfos)
+        #result = self._calc.getMonResult()
+        # result.update({
+            # "StrategyName":self._strategy.getStrategyName(),
+            # "Status":ST_STATUS_HISTORY,
+        # })
+        # event = Event({
+            # "EventCode":EV_EG2ST_MONITOR_INFO,
+            # "StrategyId":self._strategy.getStrategyId(),
+            # "Data":result
+        # })
+        # self._strategy.sendEvent2Engine(event)
         
     def _sendFlushEvent(self):
         event = Event({
@@ -2244,9 +2504,6 @@ class StrategyHisQuote(object):
         self._addSignal()
         self._sendFlushEvent()
 
-        self._curHisIndex = {contract: 0 for contract in self._config.getContract()}
-        self._curRealTimeIndex = {contract: 0 for contract in self._config.getContract()}
-
         if not self._useSample:
             return
 
@@ -2263,93 +2520,42 @@ class StrategyHisQuote(object):
             # todo 过滤最后一根k线，不过滤的话，会出现 k线稳定发单在交界处异常。
             # 更新当前Bar
             self._updateCurBar(self._contractNo, data)
-
-            # 根据基准合约，更新其他Bar
-            otherContractDatas = self._getHSOtherContractBar(data["DateTimeStamp"])
-            self._updateOtherBar(otherContractDatas)
-
-            # 填入基准合约bar info
-            otherContractDatas.update({self._contractNo:data})
-            # 执行策略函数
-            if self._config.hasKLineTrigger():
-                handle_data(context)
-            # 通知当前Bar结束
-            self._afterBar(contractList, otherContractDatas)
+            # # 根据基准合约，更新其他Bar
+            # otherContractDatas = {}
+            # # 填入基准合约bar info
+            # otherContractDatas.update({self._contractNo:data})
+            # 执行策略函数。历史回测期间, 按照k线最新价计算浮动盈亏, 过滤在sendOrder里面过滤
+            if self._strategy._isExit():
+                break
+            if not self._config.hasKLineTrigger():
+                continue
+            self._strategy.setTriggerType(ST_TRIGGER_HIS_KLINE)
+            handle_data(context)
+            self._calcProfitWhenHis()
             if i%200==0:
-                self.drawBatchHisKine(baseContractData[beginIndex:i])
-                beginIndex = i
-
-        if beginIndex != len(baseContractData):
-            self.drawBatchHisKine(baseContractData[beginIndex:])
+                self.drawBatchHisKine(baseContractData[beginIndex:i+1])
+                beginIndex = i+1
+            elif i == len(baseContractData)-1:
+                self.drawBatchHisKine(baseContractData[beginIndex:])
 
         self.logger.debug('[runReport] run report completed!')
         # 回测完成，刷新信号、指标
         self._sendFlushEvent()
-
         # print('**************************** run his end')
 
-    # History Status
-    def _getHSOtherContractBar(self, baseContractDateTimeStamp):
-        otherContracts = list(self._config.getContract()[1:])
-        result = {}
-        for otherContract in otherContracts:
-            index = self._curHisIndex[otherContract]
-            otherContractKLineData = self._metaData[otherContract]["KLineData"]
-            while True:
-                if self._hisLength[otherContract] == 0 or index + 1 >= self._hisLength[otherContract]:
-                    break
-                #
-                if otherContractKLineData[index]["DateTimeStamp"] <= baseContractDateTimeStamp and \
-                otherContractKLineData[index + 1]["DateTimeStamp"] > baseContractDateTimeStamp:
-                    break
-                elif otherContractKLineData[index]["DateTimeStamp"] <= baseContractDateTimeStamp and \
-                otherContractKLineData[index + 1]["DateTimeStamp"] <= baseContractDateTimeStamp:
-                    index += 1
-                elif otherContractKLineData[index]["DateTimeStamp"] > baseContractDateTimeStamp:
-                    break
-
-            # 找到了正确的位置或者没有
-            if self._hisLength[otherContract] == 0 or otherContractKLineData[index]["DateTimeStamp"] > baseContractDateTimeStamp:
-                otherContractBar = self._curBarDict[otherContract].getCurBar()
-            else:
-                otherContractBar = otherContractKLineData[index]
-            self._curHisIndex[otherContract] = index
-            result[otherContract] = otherContractBar
-        return result
-
-    # real time status 获取其他合约最近的k线
-    def _getRTSOtherContractBar(self, baseContractDateTimeStamp):
-        otherContracts = list(self._config.getContract()[1:])
-        result = {}
-
-        for otherContract in otherContracts:
-            if otherContract not in self._kLineNoticeData or len(self._kLineNoticeData[otherContract]["KLineData"]) == 0:
-                otherContractBar = self._curBarDict[otherContract].getCurBar()
-                result[otherContract] = otherContractBar
-                continue
-
-            otherContractKLineData = self._kLineNoticeData[otherContract]["KLineData"]
-            index = self._curRealTimeIndex[otherContract]
-            while True:
-                if index+1 >= len(self._kLineNoticeData[otherContract]["KLineData"]):
-                    break
-                #
-                if otherContractKLineData[index]["DateTimeStamp"] <= baseContractDateTimeStamp and \
-                otherContractKLineData[index + 1]["DateTimeStamp"] > baseContractDateTimeStamp:
-                    break
-                elif otherContractKLineData[index]["DateTimeStamp"] <= baseContractDateTimeStamp and \
-                otherContractKLineData[index + 1]["DateTimeStamp"] <= baseContractDateTimeStamp:
-                    index += 1
-                elif otherContractKLineData[index]["DateTimeStamp"] <= baseContractDateTimeStamp:
-                    break
-
-            if otherContractKLineData[index]["DateTimeStamp"] > baseContractDateTimeStamp:
-                otherContractBar = self._curBarDict[otherContract].getCurBar()
-            else:
-                otherContractBar = otherContractKLineData[index]
-            self._curRealTimeIndex[otherContract] = index
-            result[otherContract] = otherContractBar
-        return result
+    def _calcProfitWhenHis(self):
+        priceInfos = {}
+        for contractNo in self._contractTuple:
+            curContractBar = self._curBarDict[contractNo].getCurBar()
+            priceInfos[contractNo] = {
+                "TradeDate": curContractBar["TradeDate"],
+                "DateTimeStamp": curContractBar["DateTimeStamp"],
+                "LastPrice": curContractBar["LastPrice"],  # filed mean = 4,表示 LastPrice
+                "LastPriceSource": LastPriceFromKLine
+        }
+        # self._calc.calcProfit(priceInfos)
+        contractNos = list(self._contractTuple)
+        self._calc.calcProfit(contractNos, priceInfos)
 
     def drawBatchHisKine(self, data):
         self.sendAllHisKLine(data)
@@ -2370,63 +2576,85 @@ class StrategyHisQuote(object):
         })
         self._strategy.sendEvent2Engine(event)
 
-    def runOtherTrigger(self, context, handle_data, event):
-        handle_data(context)
-
+    # 即时行情变了，重新计算盈利。
+    def calcProfitByQuote(self, priceInfos):
+        contractNos = list(self._contractTuple)
+        self._calc.calcProfit(contractNos, priceInfos)
 
     # 填充实时k线
     def runReportRealTime(self, context, handle_data, event):
         '''发送回测阶段来的数据'''
         assert event.getContractNo() == self._contractNo, "error ,only base contract can update k line "
         data = event.getData()["Data"]
+        self._strategy.setRunRealTimeStatus(event.getData()["Status"])
+        # print("status = ", event.getData()["Status"])
         contractList = list(self._config.getContract())
 
         # 更新当前bar数据
         self._updateCurBar(self._contractNo, data)
         # 更新其他bar
-        otherContractDatas = self._getRTSOtherContractBar(data["DateTimeStamp"])
-        self._updateOtherBar(otherContractDatas)
+        # otherContractDatas = {}
+        # otherContractDatas.update({self._contractNo: data})
 
-        otherContractDatas.update({self._contractNo: data})
-
-        # 进一步把实时阶段，划分成 历史 + 真实时阶段
-        # 将在跑历史回测期间到的实时数据， 按照历史回测处理
-        status = event.getData()["Status"]
-        self._strategy.setRunRealTimeStatus(status)
-        # print(self._strategy.isRealTimeStatus(), self._strategy._runStatus, self._strategy._runRealTimeStatus, self._strategy.isRealTimeAsHisStatus())
-        #
+        # 当作历史回测阶段
         if self._strategy.isRealTimeAsHisStatus():
+            self.runVirtualReport(context, handle_data, event)
+            self._realTimeAsHistoryKLineCnt -= 1
+        elif self._strategy.isRealTimeStatus():
+            # 推送基准合约K线
+            self._updateRealTimeKLine(data)
+        else:
+            raise ValueError
+        # print(self._strategy.isRealTimeStatus(), self._strategy._runStatus, self._strategy._runRealTimeStatus, self._strategy.isRealTimeAsHisStatus())
+        self._sendFlushEvent()
+
+    def runVirtualReport(self,context, handle_data, event):
+        if self._config.hasKLineTrigger():
+            data = event.getData()["Data"]
+            self._addKLine(data)
+            self._strategy.setTriggerType(ST_TRIGGER_HIS_KLINE)
             handle_data(context)
 
-        # 推送基准合约K线
-        self._updateRealTimeKLine(data)
-        self._sendFlushEvent()
-        self._afterBar(contractList, otherContractDatas)
-
+    # ST_STATUS_CONTINUES_AS_REALTIME 阶段
     def runRealTime(self, context, handle_data, event):
-        '''K线实时触发'''
-        assert self._strategy.isRealTimeStatus(), "error "
         contractList = list(self._config.getContract())
         contNo = event.getContractNo()
         data = event.getData()
-        # 更新当前bar数据
-        self._updateCurBar(contNo, data)
-        # 更新其他bar
-        otherContractDatas = self._getRTSOtherContractBar(data["DateTimeStamp"])
-        self._updateOtherBar(otherContractDatas)
-        otherContractDatas.update({self._contractNo: data})
+        eventCode = event.getEventCode()
 
-        # print("contractNo is ", contNo)
-        # if contNo == self._contractNo:
-        #     print("current k line index is", data["KLineIndex"])
-        #     lastFive = self._curBarDict[contNo]._barList[-5:]
-        #     lastFiveClose =[barInfo['LastPrice'] for barInfo in lastFive]
-        #     print(" in inner data is ", lastFiveClose)
-        # 执行策略函数
-        handle_data(context)
-        # 通知当前Bar结束
+        if not self._strategy.isRealTimeStatus():
+            return
+        # print(self._strategy.isRealTimeStatus(), contNo == self._contractNo, self._strategy._runStatus, self._strategy._runRealTimeStatus)
+        # assert self._strategy.isRealTimeStatus(), "error "
+
+        if not self._strategy.isRealTimeStatus():
+            return
+        assert contNo == self._contractNo, "error "
+
+        if eventCode == ST_TRIGGER_KLINE:
+            # 更新当前bar数据
+            self._updateCurBar(contNo, data)
+            if self._config.hasKLineTrigger():
+                # print("实时k线触发")
+                self._strategy.setTriggerType(eventCode)
+                handle_data(context)
+        elif eventCode == ST_TRIGGER_TIMER and self._config.hasTimerTrigger():
+            # print("定时触发")
+            self._strategy.setTriggerType(eventCode)
+            handle_data(context)
+        elif eventCode == ST_TRIGGER_CYCLE and self._config.hasCycleTrigger():
+            # print("循环触发")
+            self._strategy.setTriggerType(eventCode)
+            handle_data(context)
+        elif eventCode == ST_TRIGGER_SANPSHOT and self._config.hasSnapShotTrigger():
+            self._strategy.setTriggerType(eventCode)
+            handle_data(context)
+        elif eventCode == ST_TRIGGER_TRADE and self._config.hasTradeTrigger():
+            self._strategy.setTriggerType(eventCode)
+            handle_data(context)
         self._sendFlushEvent()
-        self._afterBar(contractList, otherContractDatas)
+
+        assert eventCode in [ST_TRIGGER_KLINE, ST_TRIGGER_TRADE, ST_TRIGGER_SANPSHOT, ST_TRIGGER_TIMER, ST_TRIGGER_CYCLE], "Error "
 
     def _updateRealTimeKLine(self, data):
         event = Event({
@@ -2439,7 +2667,8 @@ class StrategyHisQuote(object):
             }
         })
         self._strategy.sendEvent2Engine(event)
-    
+
+
 class StrategyQuote(QuoteModel):
     '''即时行情数据模型'''
     def __init__(self, strategy, config):
@@ -2551,6 +2780,16 @@ class StrategyQuote(QuoteModel):
 
     def onDepthNotice(self, event):
         QuoteModel.updateLv2(self, event)
+
+    def getLv1DataAndUpdateTime(self, contNo):
+        if not contNo:
+            return
+        if contNo in self._contractData:
+            metaData = self._contractData[contNo]._metaData
+            resDict = { 'UpdateTime' : metaData['UpdateTime'],
+                       'Lv1Data' : deepcopy(metaData['Lv1Data'])
+            }
+            return resDict
 
     # ////////////////////////即时行情////////////////////////////
     # 参数验装饰器
@@ -2818,31 +3057,9 @@ class StrategyTrade(TradeModel):
         self._config = config
         #self._selectedUserNo = self._config._metaData['Money']['UserNo']
         # print("===== StrategyTrade ====", self._config._metaData)
-
-        # 本策略下的单
-        # key 为 equant session id
-        self._localOrder = {}
-        # 本策略下单后，返回的结果
-        # key 为 api session id
-        # self._orderResult = {}
-
-        # equant session id 到 api session id 的 映射
-        # api session id 到 equant session id 的 映射
-        self._eSessionId2apiSessionId = {}
-        self._apiSessionId2ESessionId = {}
         
     def initialize(self):
         self._selectedUserNo = self._config.getUserNo()
-
-    # 更新本地订单
-    def updateEquantOrder(self, event):
-        self._localOrder[event.getESessionId()] = event.getData()
-        # print(" 本地订单id ",event.getESessionId())
-
-    #
-    def updateSessionIdMap(self, event):
-        self._eSessionId2apiSessionId[event.getESessionId()] = event.getSessionId()
-        # print(" 对应关系", event.getESessionId(), event.getSessionId())
 
     def reqTradeData(self):
         event = Event({
@@ -2884,6 +3101,15 @@ class StrategyTrade(TradeModel):
             return 0
 
         return tMoneyModel._metaData[key]
+        
+    def getSign(self, userNo):
+        '''
+        :return: 获取当前账户的服务器标识
+        '''
+        userInfo = self.getUserModel(userNo)
+        if not userInfo:
+            return None
+        return userInfo.getSign()
 
     def getCost(self):
         '''

@@ -4,33 +4,24 @@ import pandas as pd
 import matplotlib
 matplotlib.use('TkAgg')
 
-import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
-from matplotlib.figure import Figure
 import matplotlib.pyplot as plt, matplotlib.dates as mdate
 from matplotlib import ticker
-from datetime import datetime
 
 import tkinter as tk
 import tkinter.ttk as ttk
-import time
 
 from capi.com_types import *
 from report.handler import EventHandler
 from report.rightclickmenu import RightClickMenu
+from ui.collapsibleframe import CollapsibleFrame
 from utils.utils import int2date
+from report.fieldConfigure import *
 
 # 设置中文显示
 matplotlib.rcParams['font.sans-serif'] = ['FangSong']
 matplotlib.rcParams['axes.unicode_minus'] = False
-
-
-# report_item没有用
-report_item = ["测试天数", "测试周期数", "信号消失次数", "初始资金", "最终权益",
-               "空仓周期数", "最长连续空仓周期", "最长交易周期", "标准离差",
-               "标准离差率", "夏普比率", "盈亏总平均/亏损平均", "权益最大回撤",
-               "权益最大回撤时间", "权益最大回撤比", "权益最大回撤比时间"]
 
 plt.style.use('ggplot')
 
@@ -66,8 +57,8 @@ class Directory(tk.Frame):
         self.detail_frame = Detail(self.data, self.parent)
 
     def make_widgets(self):
-        self.data_tree = ttk.Treeview(self, height=30, selectmode="browse", show=['tree'])  # 树状
-        self.menu = RightClickMenu(self.data_tree)
+        self.data_tree = ttk.Treeview(self, height=30, selectmode="browse", show=['tree'], style="Filter.Treeview")
+        self.menu = RightClickMenu(self.data_tree, self.parent)
 
         self.data_tree.column('#0', stretch=False, width=200)  # width应该根据显示文字的长度进行变化
         self.ysb = tk.Scrollbar(self.data_tree, orient='vertical')
@@ -84,7 +75,7 @@ class Directory(tk.Frame):
 
         self.data_tree.bind('<Button-3>', self.right_click_callback)
         self.data_tree.bind('<Double-1>', self.select_callback)
-        self.data_tree.bind('<FocusOut>', self.focus_out_event)
+        # self.data_tree.bind('<FocusOut>', self.focus_out_event)
         # self.data_tree.bind('<FocusIn>', self.focus_in_event)
 
     def create_directory(self):
@@ -147,11 +138,13 @@ class Directory(tk.Frame):
             self.update_idletasks()
             # self.data_tree.selection_remove(select)
 
+    # 弃用
     def focus_out_event(self, event):
         _item = self.data_tree.focus()
         self.data_tree.selection_remove(_item)
         # self.data_tree.selection_toggle(_item)
 
+    # 弃用
     def focus_in_event(self, event):
         _item = self.data_tree.focus()
         self.data_tree.selection_set(_item)
@@ -306,7 +299,7 @@ class Analyse(BaseFrame):
         self.make_report()
 
     def make_report(self):
-        self.tree = ttk.Treeview(self, show=[], columns=('a', 'b', 'c', 'd'))
+        self.tree = ttk.Treeview(self, show=[], columns=('a', 'b', 'c', 'd'), style="Filter.Treeview")
         vbar = tk.Scrollbar(self, orient='vertical')
         self.tree.column('a', width=250, anchor=tk.W)
         self.tree.column('b', width=300, anchor=tk.W)
@@ -420,60 +413,44 @@ class Analyse(BaseFrame):
 class StageStatis(BaseFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.parent = parent
+
+        self.yearDis    = None
+        self.quarterDis = None
+        self.monthDis   = None
+        self.weekDis    = None
+        self.dailyDis   = None
         self.create_graph_widgets()
-        self.make_widgets()
 
     def create_graph_widgets(self):
         """创建五个treeview控件"""
         column = ('a', 'b', 'c', 'd', 'e', 'f', 'g')
+        # title = ('年度分析', '季度分析', '月度分析', '周分析', '日分析')
+        yHead = ('年份', '权益', '净利润', '盈利率', '胜率', '平均盈利/亏损', '净利润增长速度')
+        qHead = ('季', '权益', '净利润', '盈利率', '胜率', '平均盈利/亏损', '净利润增长速度')
+        mHead = ('月份', '权益', '净利润', '盈利率', '胜率', '平均盈利/亏损', '净利润增长速度')
+        wHead = ('周', '权益', '净利润', '盈利率', '胜率', '平均盈利/亏损', '净利润增长速度')
+        dHead = ('日期', '权益', '净利润', '盈利率', '胜率', '平均盈利/亏损', '净利润增长速度')
 
-        self.y_form = ttk.Treeview(self, columns=column, selectmode="none", show=["headings"])
-        self.q_form = ttk.Treeview(self, columns=column, selectmode="none", show=["headings"])
-        self.m_form = ttk.Treeview(self, columns=column, selectmode="none", show=["headings"])
-        self.w_form = ttk.Treeview(self, columns=column, selectmode="none", show=["headings"])
-        self.d_form = ttk.Treeview(self, columns=column, selectmode="none", show=["headings"])
+        self.yearDis    = CollapsibleFrame(self, '年度分析', column, yHead, 1)
+        self.quarterDis = CollapsibleFrame(self, '季度分析', column, qHead, 1)
+        self.monthDis   = CollapsibleFrame(self, '月度分析', column, mHead, 1)
+        self.weekDis    = CollapsibleFrame(self, '周分析', column, wHead, 1)
+        self.dailyDis   = CollapsibleFrame(self, '日分析', column, dHead, 6)
 
-    def make_widgets(self):
-        column = ('a', 'b', 'c', 'd', 'e', 'f', 'g')
-        heading = ('日期', '权益', '净利润', '盈利率', '胜率', '平均盈利/亏损', '净利润增长速度')
-        title = ('年度分析', '季度分析', '月度分析', '周分析', '日分析')
-        labelfont = ('楷体', 12, 'bold')
-        self.create_graph_widgets()
-        graph = (self.y_form, self.q_form, self.m_form, self.w_form, self.d_form)
-
-        # 折叠窗口功能，目前没有实现
-        # row = 0
-        # for t, g in zip(title, graph):
-        #     pady = 0 if row % 2 == 0 else 5
-        #     self.create_statis_frame(row, t, g, pady)
-        #     row += 1
-
-        for t, g in zip(title, graph):
-            label = tk.Label(self, text=t, bg='navy', fg='yellow', font=labelfont, width=116, height=1)
-            label.pack(side=tk.TOP, fill=tk.X, pady=10)
-            label.bind("<Button-1>", self.on_one_left_click)
-            vbar = tk.Scrollbar(g, orient='vertical')
-            vbar.config(command=g.yview)
-            g.config(yscrollcommand=vbar.set)
-            g.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=10)
-            vbar.pack(side=tk.RIGHT, fill=tk.Y)
-            for c, head in zip(column, heading):
-                g.column(c, width=20, anchor="center")
-                g.heading(c, text=head)
+        for g in [self.yearDis, self.quarterDis, self.monthDis, self.weekDis, self.dailyDis]:
+            g.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=5)
 
     def display(self, data):
-        # 这里放要展示的数据
-        # 以下三个都是树根
-        graph = (self.y_form, self.q_form, self.m_form, self.w_form, self.d_form)
+        graph = (self.yearDis.statisTree, self.quarterDis.statisTree,
+                 self.monthDis.statisTree, self.weekDis.statisTree, self.dailyDis.statisTree)
         stage_data = data['Stage']
         for g, sd in zip(graph, stage_data.values()):
             # ------------------------------------
             children = g.get_children()
             for child in children:
                 g.delete(child)
-            # -------------------------------------
-            for d in sd: #  int2date(d['Time']).strftime('%Y%m%d')
+
+            for d in sd:
                 g.insert('', 'end', values=(d['Time'],
                                             '{:.2f}'.format(float(d['Equity'])),
                                             '{:.2f}'.format(float(d['NetProfit'])),
@@ -481,48 +458,6 @@ class StageStatis(BaseFrame):
                                             '{:.2%}'.format(float(d['WinRate'])),
                                             '{:.2f}'.format(float(d['MeanReturns'])),
                                             '{:.2%}'.format(float(d['IncSpeed']))))
-
-    def on_one_left_click(self, event, widget):
-        #print("tell you!")
-        widget.pack_forget()
-
-    def create_statis_frame(self, row, label_text, tree, space):
-        """
-
-        :param row: 第几行
-        :param label_text:label需要显示的文本
-        :param tree: 好像没有用
-        :param space: 间距
-        :return:
-        """
-        # labelfont = 'bold'
-        column = ('a', 'b', 'c', 'd', 'e', 'f', 'g')
-        heading = ('日期', '权益', '净利润', '盈利率', '胜率', '平均盈利/亏损', '净利润增长速度')
-
-        f = tk.Frame(self)
-        row = tk.Frame(f)
-        f.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES, pady=space)
-        row.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
-        L1 = tk.Label(row, text=label_text, bg='navy', fg='yellow', width=106)
-        L1.pack(side=tk.LEFT, fill=tk.X, expand=tk.YES)
-        L2 = tk.Label(row, text=' @ ', bg='navy', fg='yellow')
-        L2.pack(side=tk.LEFT, fill=tk.X)
-
-        tree = ttk.Treeview(f, columns=column, selectmode="none", show=["headings"])
-        vbar = tk.Scrollbar(tree, orient='vertical')
-        vbar.config(command=tree.yview)
-        tree.config(yscrollcommand=vbar.set)
-        tree.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        vbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        L2.bind("<Button-1>", func=self.handler_adaptor(self.on_one_left_click, widget=tree))
-        for c, head in zip(column, heading):
-            tree.column(c, width=20, anchor="center")
-            tree.heading(c, text=head)
-
-    def handler_adaptor(self, fun, **kwds):
-        """事件处理函数适配器"""
-        return lambda event, fun=fun, kwds=kwds: fun(event, **kwds)
 
 
 class Trade(BaseFrame):
@@ -534,8 +469,9 @@ class Trade(BaseFrame):
         self.make_widgets()
 
     def make_widgets(self):
-        column = ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k')
-        self.tree = ttk.Treeview(self, columns=column, selectmode="browse", show=["headings"])
+        column = ("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k")
+        width  = (60, 80, 5, 10, 5, 10, 20, 10, 10, 10, 10)
+        self.tree = ttk.Treeview(self, columns=column, selectmode="browse", show=["headings"], style="Filter.Treeview")
         # width应该根据窗口的的大小进行变化，不能是一个固定值
         self.tree.column('#0', stretch=False, width=800)
         vbar = tk.Scrollbar(self, orient='vertical')
@@ -546,10 +482,13 @@ class Trade(BaseFrame):
         vbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        heading = ('时间', '合约', '交易类型', '下单类型', '成交数量', '成交价', '成交额', '委托数量', '平仓盈亏', '手续费', '滑点损耗')
+        heading = ('时间', '合约', '交易类型', '下单类型', '成交数量', '成交价', '成交额',
+                   '委托数量', '平仓盈亏', '手续费', '滑点损耗')
         for c, h in zip(column, heading):
-            self.tree.column(c,  width=80, anchor=tk.W)
             self.tree.heading(c, text=h)
+
+        for c, w in zip(column, width):
+            self.tree.column(c, width=w, anchor=tk.W)
 
         self.tree.bind('<FocusOut>', self.focus_out_event)
         self.tree.bind('<FocusIn>', self.focus_in_event)
@@ -563,13 +502,15 @@ class Trade(BaseFrame):
         kline_type = data['KLineType']
         for eo in orders:
             time = self.get_order_time(kline_type, eo['Order'])
-            trade_type = self.get_trade_type(eo['Order'])
+            direct = DirectDict[eo['Order']['Direct']]
+            offset = OffsetDict[eo['Order']['Offset']]
+            trade_type = direct + offset
             self.tree.insert('', 'end', values=(time,
                                                 eo['Order']['Cont'],
                                                 trade_type,
-                                                '市价单',
+                                                OrderTypeDict[eo['Order']['OrderType']],
                                                 eo['Order']['OrderQty'],
-                                                '{:.1f}'.format(float(eo['Order']['OrderPrice'])),
+                                                '{:.2f}'.format(float(eo['Order']['OrderPrice'])),
                                                 '{:.1f}'.format(float(eo['Turnover'])),
                                                 eo['Order']['OrderQty'],
                                                 '{:.1f}'.format(float(eo['LiquidateProfit'])),
@@ -582,7 +523,6 @@ class Trade(BaseFrame):
         t = str(order['DateTimeStamp'])
         # TODO:kline_type传进来了一个字典["KLineType": , "KLineSlice": ]
         if kline_type["KLineType"] == EEQU_KLINE_DAY:
-            # time = t[0:4] + "年" + t[4:6] + "月" + t[6:8] + "日"
             time = t[0:8]
 
         elif kline_type["KLineType"] == EEQU_KLINE_MINUTE:
@@ -592,37 +532,6 @@ class Trade(BaseFrame):
             time = t[0:8] + " " + t[8:10] + ":" + t[10:12] + ":" + t[12:14] + '.' + t[-3:]
 
         return time
-
-    def get_trade_type(self, order):
-        direct = order['Direct']
-        offset = order['Offset']
-        if direct == dBuy:
-            if offset == oNone:
-                trade_type = "买"
-            elif offset == oOpen:
-                trade_type = "买开"
-            elif offset == oCover:
-                trade_type = "买平"
-            elif offset == oCoverT:
-                trade_type = "买平今"
-            elif offset == oOpenCover:
-                trade_type = "买开平"
-            elif offset == oCoverOpen:
-                trade_type = "买平开"
-        elif direct == dSell:
-            if offset == oNone:
-                trade_type = "卖"
-            elif offset == oOpen:
-                trade_type = "卖开"
-            elif offset == oCover:
-                trade_type = "卖平"
-            elif offset == oCoverT:
-                trade_type = "卖平今"
-            elif offset == oOpenCover:
-                trade_type = "卖开平"
-            elif offset == oCoverOpen:
-                trade_type = "卖平开"
-        return trade_type
 
     def focus_out_event(self, event):
         _item = self.tree.focus()
@@ -659,7 +568,7 @@ class Graph(BaseFrame):
         self.tree_frame = tk.Frame(self, width=200, height=800)
         self.tree_frame.pack(side=tk.LEFT, fill=tk.Y)
 
-        self.graph_tree = ttk.Treeview(self.tree_frame,  selectmode="browse", show="tree")
+        self.graph_tree = ttk.Treeview(self.tree_frame,  selectmode="browse", show="tree", style="Filter.Treeview")
         self.graph_tree.column('#0', stretch=False, width=200)
         vbar = tk.Scrollbar(self.tree_frame, orient='vertical')
 
@@ -748,8 +657,3 @@ class Graph(BaseFrame):
                 self.ax.set_xlabel("a")
                 self.ax.set_ylabel("b")
                 self.canvas.draw()
-
-
-if __name__ == '__main__':
-    config = [1, 2, 3, 4, 5]
-    Detail(config)

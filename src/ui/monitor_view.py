@@ -9,6 +9,7 @@ from .com_view import QuantFrame, QuantToplevel
 from .editor import MonitorText, SignalText, ErrorText
 from .menu import RunMenu
 from capi.com_types import *
+from report.fieldConfigure import StrategyStatus, FrequencyDict
 
 
 class QuantMonitor(object):
@@ -20,14 +21,8 @@ class QuantMonitor(object):
     def __init__(self, frame, control, language):
         self.parentFrame = frame
         self._controller = control
+        self._logger = self._controller.get_logger()
         self.language = language
-
-        # 初始化策略状态字典
-        self._initStrategyStatus()
-        # 初始化K线类型字典
-        self._initKLineType()
-        # 策略编号初始值
-        self._strategyNum = 1
 
         # Monitor不同标签的背景色
         self.rColor = self.bgColorW
@@ -90,8 +85,8 @@ class QuantMonitor(object):
 
     def createExecute(self):
         headList  = ["编号", "策略名称", "基准合约", "频率", "运行状态", "实盘运行",
-                    "初始资金", "年化收益", "最大回撤", "累计收益", "胜率"]
-        widthList = [5, 50, 50, 5, 10, 5, 20, 5, 20, 20, 5]
+                    "初始资金", "可用资金", "最大回撤", "累计收益", "胜率"]
+        widthList = [5, 50, 50, 5, 10, 5, 20, 10, 20, 20, 5]
 
         self.executeBar = ttk.Scrollbar(self.executeList, orient="vertical")
         self.executeBar.pack(side=RIGHT, fill=Y)
@@ -103,10 +98,6 @@ class QuantMonitor(object):
 
         self.executeListTree.bind("<Button-3>", self.createMenu)
 
-        # for key in tuple(headList):
-        #     self.executeListTree.column(key, minwidth=20, width=55, anchor=CENTER)
-        #     self.executeListTree.heading(key, text=key)
-
         for key, w in zip(headList, widthList):
             self.executeListTree.column(key, width=w, anchor=CENTER)
             self.executeListTree.heading(key, text=key)
@@ -114,29 +105,6 @@ class QuantMonitor(object):
     def createMenu(self, event):
         """创建运行策略右键菜单"""
         RunMenu(self._controller, self.executeListTree).popupmenu(event)
-
-    def _initStrategyStatus(self):
-        self._statusDict = {
-            ST_STATUS_NONE:         "初始状态",
-            ST_STATUS_HISTORY:      "历史回测",
-            ST_STATUS_CONTINUES:    "实时触发",
-            ST_STATUS_PAUSE:        "暂停",
-            ST_STATUS_QUIT:         "停止",
-            ST_STATUS_REMOVE:       "移除"
-        }
-
-    def _initKLineType(self):
-        self._kLineTypeDict = {
-            "D": "日",
-            "M": "分钟",
-            "S": "秒",
-        }
-
-    def _getStrategyStatus(self, key):
-        return self._statusDict[key]
-
-    def _getKLineType(self, key):
-        return self._kLineTypeDict[key]
 
     def _formatMonitorInfo(self, dataDict):
         """
@@ -149,22 +117,25 @@ class QuantMonitor(object):
             StName = dataDict['StrategyName']
             BenchCon = dataDict['Config']['Contract'][0]
 
-            kLineType = self._getKLineType(dataDict['Config']['Sample']['KLineType'])
+            kLineType = FrequencyDict[dataDict['Config']['Sample']['KLineType']]
             kLineSlice = dataDict['Config']['Sample']['KLineSlice']
 
             Frequency = str(kLineSlice) + kLineType
             RunType = "是" if dataDict['Config']['RunMode']['Actual']['SendOrder2Actual'] else "否"
-            Status = self._getStrategyStatus(dataDict["StrategyState"])
+            Status = StrategyStatus[dataDict["StrategyState"]]
             InitFund = dataDict['Config']['Money']['InitFunds']
 
             if 'RunningData' in dataDict:
+                # Available =  "{:.2f}".format(dataDict['RunningData']['Fund'][-1]['Available'])
+                Available = "{:.2f}".format(dataDict['RunningData']['Available'])
                 # 年化单利收益率
-                AnnualizedReturns = "{:.2f}".format(dataDict['RunningData']['Detail']['AnnualizedSimple'])
-                MaxRetrace = "{:.2f}".format((dataDict['RunningData']['Detail']['MaxRetrace']))
-                TotalProfit = "{:.2f}".format(dataDict['RunningData']['Detail']['NetProfit'])
-                WinRate = "{:.2f}".format(dataDict['RunningData']['Detail']['WinRate'])
+                # AnnualizedReturns = "{:.2f}".format(dataDict['RunningData']['Detail']['AnnualizedSimple'])
+                MaxRetrace = "{:.2f}".format((dataDict['RunningData']['MaxRetrace']))
+                TotalProfit = "{:.2f}".format(dataDict['RunningData']['NetProfit'])
+                WinRate = "{:.2f}".format(dataDict['RunningData']['WinRate'])
             else:
-                AnnualizedReturns = 0
+                Available = InitFund
+                # AnnualizedReturns = 0
                 MaxRetrace = 0
                 TotalProfit = 0
                 WinRate = 0
@@ -181,7 +152,7 @@ class QuantMonitor(object):
             Status,
             RunType,
             InitFund,
-            AnnualizedReturns,
+            Available,
             MaxRetrace,
             TotalProfit,
             WinRate
@@ -196,9 +167,12 @@ class QuantMonitor(object):
             return
 
         strategyId = dataDict["StrategyId"]
-        if self.executeListTree.exists(strategyId):
-            self.updateStatus(strategyId, dataDict)
-            return
+        try:
+            if self.executeListTree.exists(strategyId):
+                self.updateStatus(strategyId, dataDict)
+                return
+        except Exception as e:
+            self._logger.warn("updateSingleExecute exception")
         self.executeListTree.insert("", END, iid=strategyId, values=tuple(values), tag=0)
 
     def createErr(self):

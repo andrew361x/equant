@@ -17,6 +17,7 @@ from utils.language import Language
 from .language import Language
 from .editor import ContractText
 from capi.com_types import *
+from report.windowconfig import center_window
 
 
 class QuantFrame(object):
@@ -49,7 +50,7 @@ class QuantToplevel(tk.Toplevel):
         self.language = Language("EquantMainFrame")
         self.setPos()
         #图标
-        self.iconbitmap(bitmap=r"./icon/epolestar ix1.ico")
+        self.iconbitmap(bitmap=r"./icon/epolestar ix2.ico")
 
     def setPos(self):
         # 获取主窗口大小和位置，根据主窗口调整输入框位置
@@ -228,7 +229,7 @@ class DeleteToplevel(QuantToplevel):
         self.saveBtn = tk.Button(f2, text=self.language.get_text(33), bd=0)
         self.cancelBtn = tk.Button(f2, text=self.language.get_text(20), bd=0)
 
-        label.pack(side=tk.LEFT, fill=tk.X, expand=tk.NO, padx=15)
+        label.pack(side=tk.LEFT, fill=tk.X, expand=tk.NO, padx=15, pady=15)
         self.cancelBtn.pack(side=tk.RIGHT, expand=tk.NO, ipadx=5, padx=15, pady=10)
         self.saveBtn.pack(side=tk.RIGHT, expand=tk.NO, ipadx=5, padx=15, pady=10)
 
@@ -249,57 +250,20 @@ def Singleton(cls):
 class HistoryToplevel(QuantToplevel):
     def __init__(self, view, master=None):
         super().__init__(master)
-        self.bind('<<REPORT_DATA_DISPLAY>>', self.display_report)
         self.withdraw()
         self.wm_attributes("-topmost", 0)  # 窗口置顶
         self._view = view
         self._master = master
         self.set_config()
-        self._report_data = None
-
-    @property
-    def report_data(self):
-        return self._report_data
-
-    def set_report_data(self, data):
-        self._report_data = data
 
     def set_config(self):
         self.title('回测报告')
-        from report.windowconfig import center_window
         center_window(self, 1000, 600)
         self.minsize(1000, 600)
 
     def display_(self):
         self.update()
         self.deiconify()
-
-    def stop(self, event):
-        # test_report_display(self.report_data)
-        self._view.editor_head_report_button(text="回测", command=self.report)
-
-    def display_report(self, event):
-        test_report_display(self.report_data)
-
-    def report(self):
-        self._view.editor_head_report_button.configure(state=tk.DISABLED)
-        self.display_()
-
-        from report.runtest import history_report_display
-        history_report_display(self)
-
-
-# 量化设置界面
-# OpenTimesHelp = "> 不选中则表示执行程序化策略时同一根K线达到多次开仓条件时不做限制，始终执行策略；选中则表示执行" \
-#                 "程序化策略同一根K线达到多次开仓条件时会根据用户设置的次数执行策略，若超出用户设置的次数则跳出，" \
-#                 "次数设置输入范围在1-100之间"
-# ContinueOpenTimesHelp = "> 不选中则表示执行程序化策略时连续多根K线达到开仓条件时不做限制，始终执行策略；" \
-#                         "选中则表示执行程序化策略时连续多跟K线达到开仓条件时会根据用户设置的次数执行策略，" \
-#                         "若超出用户设置的次数则跳过，次数设置输入范围在1-100之间"
-# CanClose = "> 不选中则表示执行程序化策略时在同一根K线上开仓之后再触发平仓条件时不做限制，执行策略；选中则表示执行" \
-#            "程序化策略时在同一根K线上开仓之后再出发平仓条件时不做处理"
-# CanOpen = "> 不选中则表示执行程序化策略时在同一根K线上平仓之后再触发开仓条件时不做限制，，执行策略；选中则表示执行" \
-#           "程序化策略时在同一根K线上平仓之后再触发开仓条件时不做处理"
 
 
 class RunWin(QuantToplevel, QuantFrame):
@@ -1610,7 +1574,6 @@ class RunWin(QuantToplevel, QuantFrame):
         self.destroy()
 
     def cancel(self):
-        # TODO：关闭窗口
         self.config = {}
         self.destroy()
 
@@ -1772,6 +1735,8 @@ class SelectContractWin(QuantToplevel, QuantFrame):
             self._master.contractEntry.insert(tk.END, con)
         self._master.contractEntry.config(state="disabled")
 
+        # 不加focus会出现选择合约确定后设置窗口后移
+        self._master.focus()
         self.destroy()
 
     def cancel(self):

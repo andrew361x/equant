@@ -7,6 +7,7 @@ from utils.utils import *
 from .language import Language
 from .editor import EditorText
 from .com_view import *
+from .menu import StrategyMenu
 
 
 class QuantEditorHead(object):
@@ -88,8 +89,6 @@ class StrategyTree(QuantFrame):
         ])
 
         self.root_tree = ttk.Treeview(self.tree_frame, show="tree", style='Filter.Treeview')
-        #TODO：self.tree_menu没用？
-        self.tree_menu = Menu(self.root_tree, tearoff=0)
         
         #增加滚动条
         self.strategyTreeScl = self.addScroll(self.tree_frame, self.root_tree, xscroll=False)
@@ -107,7 +106,6 @@ class StrategyTree(QuantFrame):
 
     def strategyMenu(self, event):
         """右键弹出菜单"""
-        from .menu import StrategyMenu
         StrategyMenu(self.control, self.root_tree).popupmenu(event)
 
     def loadTree(self, parent, rootpath):

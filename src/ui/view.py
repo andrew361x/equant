@@ -1,3 +1,5 @@
+import ctypes
+
 from tkinter import *
 from utils.utils import *
 from .language import Language
@@ -37,6 +39,9 @@ class QuantApplication(object):
         self.root.mainloop()
 
     def create_window(self):
+        myappid = 'mycompany.myproduct.subproduct.version'  # arbitrary string
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
         #srceen size
         width = self.root.winfo_screenwidth()*0.8
         height = self.root.winfo_screenheight()*0.8
@@ -45,7 +50,10 @@ class QuantApplication(object):
         self.root.geometry('%dx%d+%d+%d' % (width, height, width*0.1, height*0.1))
         #title
         self.root.title("极星量化")
-        self.root.iconbitmap(bitmap=r'./icon/epolestar ix1.ico')
+        icon = r'./icon/epolestar ix2.ico'
+
+        self.root.iconbitmap(bitmap=icon)
+        self.root.bitmap = icon
         top_frame = Frame(self.root)
         top_frame.pack(fill=BOTH, expand=YES)
 
@@ -105,6 +113,9 @@ class QuantApplication(object):
         self.quant_monitor.createSignal()
         self.quant_monitor.createErr()
 
+        # 历史回测窗口
+        self.hisTop = None
+
     def updateLogText(self):
         self.quant_monitor.updateLogText()
 
@@ -143,8 +154,15 @@ class QuantApplication(object):
 
     def quantExit(self):
         """量化界面关闭处理"""
+        # 向引擎发送主进程退出信号
         self.control.sendExitRequest()
-        self.root.destroy()
+        if self.hisTop:
+            self.hisTop.destroy()
+
+        # 退出子线程和主线程
+        self.control.quitThread()
+        # 主线程在子线程之后退出
+        #self.root.destroy()
 
     def reportDisplay(self, data, id):
         """
@@ -163,10 +181,9 @@ class QuantApplication(object):
         # 保存报告数据
         save(data, runMode, stName)
 
-        parent = HistoryToplevel(self, self.root)
-        parent.set_config()
-        ReportView(data, parent)
-        parent.display_()
+        self.hisTop = HistoryToplevel(self, self.root)
+        ReportView(data, self.hisTop)
+        self.hisTop.display_()
 
     def updateStatus(self, strategyId, dataDict):
         """

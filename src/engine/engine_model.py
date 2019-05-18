@@ -357,6 +357,9 @@ class TUserInfoModel:
 
     def getMetaData(self):
         return self._metaData
+        
+    def getSign(self):
+        return self._metaData['Sign']
 
     def updateMoney(self, data):
         currencyNo = data['CurrencyNo']
@@ -606,6 +609,12 @@ class TradeModel:
 
     def getUserInfo(self):
         return self._userInfo
+        
+    def getUserModel(self, userNo):
+        if userNo not in self._userInfo:
+            return None
+        
+        return self._userInfo[userNo]
 
     def isUserFill(self):
         return self._dataStatus >= TM_STATUS_USER

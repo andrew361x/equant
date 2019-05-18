@@ -16,30 +16,38 @@ class StrategyMenu(object):
         self._controller = controller
         self.widget = parent
         self.language = Language("EquantMainFrame")
-        self.menu = Menu(parent, tearoff=0)
+
         self._lClickSelectedItem = None   # 左键选择标签
         self._rightClickPath = ""    # 记录右键弹出菜单时选中的策略路径
+
+        self.menu = Menu(parent, tearoff=0)
 
     def add_event(self):
         new_menu = Menu(self.menu, tearoff=0)
         if len(self._lClickSelectedItem) == 1 and self.widget.parent(self._lClickSelectedItem):  # 保证只选中一个
             # self.menu.add_command(label="运行", command=self.runStrategy, state=DISABLED)
             pass
+
         self.menu.add_cascade(label="新建", menu=new_menu)
         new_menu.add_command(label=self.language.get_text(41), command=self.newStrategy)
         new_menu.add_command(label=self.language.get_text(42), command=self.newDir)
         if len(self._lClickSelectedItem) == 1:
             self.menu.add_command(label="修改名称", command=self.rename)
+
         # self.menu.add_command(label="移动分组", command=self.move_strategy)
         self.menu.add_command(label="删除", command=self.delete_)
-        self.menu.add_command(label="test", command=self.test)
+        # self.menu.add_command(label="test", command=self.test)
 
     def test(self):
+        # 用于menu状态测试
         if self.menu.entrycget(0, "state")=="disabled":
-            self.menu.entryconfigure(0, state=NORMAL, background='red')
-            self.menu.delete(0)
+            self.menu.entryconfigure(0, state="normal", background='red')
+            # self.menu.delete(0)
             print(self.menu.entrycget(0, "state"))
             self.menu.update()
+        else:
+            self.menu.entryconfigure(0, state="disabled")
+            print(self.menu.entrycget(0, "state"))
 
     def popupmenu(self, event):
         rSelectItem = self.widget.identify_row(event.y)
@@ -275,7 +283,7 @@ class RunMenu(object):
         self._controller = controller
         self.widget = parent
         self.menu = Menu(parent, tearoff=0)
-        self._lClickSelectedItem = None
+        self._ClickSelectedItem = None   # 选中条目，鼠标单击或前一次右键选中条目
         self._strategyId = []   # 策略Id列表，弹出右键菜单时赋值
 
     def add_event(self):
@@ -288,32 +296,32 @@ class RunMenu(object):
 
     def popupmenu(self, event):
         select = self.widget.identify_row(event.y)
-        self._lClickSelectedItem = event.widget.selection()
+        self._ClickSelectedItem = event.widget.selection()
 
         # 右键弹出菜单时给strategyId 赋值
 
-        if self._lClickSelectedItem:  # 选中之后右键弹出菜单
-            for idx in self._lClickSelectedItem:
+        if self._ClickSelectedItem:  # 选中之后右键弹出菜单
+            for idx in self._ClickSelectedItem:
                 self._strategyId.append(int(idx))
         else:  # 没有选中，直接右键选择
             if select:
                 self._strategyId.append(int(select))
 
-        # print("strategyId: ", self._strategyId)
-
-        if self._lClickSelectedItem:
+        if self._ClickSelectedItem:
             if select:
-                if select not in self._lClickSelectedItem:
+                if select not in self._ClickSelectedItem:
                     self.widget.focus(select)
                     self.widget.selection_set(select)
-                    self._lClickSelectedItem = event.widget.selection()
+                    self._ClickSelectedItem = event.widget.selection()
+                    self._strategyId = [int(select)]
+
             self.add_event()
             self.menu.post(event.x_root, event.y_root)
         else:
             if select:
                 self.widget.focus(select)
                 self.widget.selection_set(select)
-                self._lClickSelectedItem = event.widget.selection()
+                self._ClickSelectedItem = event.widget.selection()
                 self.widget.focus(select)
                 self.widget.selection_set(select)
                 self.add_event()

@@ -150,8 +150,9 @@ class EventHandler(object):
                 # TODO: 移动鼠标时点的效果也跟着改变：
                 # TODO：方案1：直接重新绘制曲线
                 # TODO：方案2：将原来的点描掉，再绘制新点
-                self.temp = self.axes.scatter(orig_x[inde], orig_y[inde], c='white', edgecolors='blue')
-                #print(self.temp)
+                # self.temp = self.axes.scatter(orig_x[inde], orig_y[inde], c='white', edgecolors='blue')
+                self.temp = self.axes.scatter(orig_x[inde], orig_y[inde], c='white')
+
             # -----------------------------------------------------------------------------
 
         self.fig.canvas.draw()

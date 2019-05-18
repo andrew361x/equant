@@ -37,29 +37,46 @@ class TkinterController(object):
         # 策略管理器
         self.strategyManager = self.getStManager()
 
-        # 设置日志更新
-        self.update_log()
-        # 监控信息
-        self.update_monitor()
+        # 创建日志更新线程
+        self.logThread = ChildThread(self.updateLog)
+        # 创建策略信息更新线程
+        self.monitorThread = ChildThread(self.updateMonitor, 1)
+        # 创建接收引擎数据线程
+        self.receiveEgThread = ChildThread(self.model.receiveEgEvent)
 
     def get_logger(self):
         return self.logger
 
-    def update_log(self):
+    def updateLog(self):
         self.app.updateLogText()
         self.app.updateSigText()
         self.app.updateErrText()
-        #TODO:
-        self.top.after(10, self.update_log)
 
-    def update_monitor(self):
+    def updateMonitor(self):
         # 更新监控界面策略信息
         strategyDict = self.strategyManager.getStrategyDict()
         for stId in strategyDict:
             self.app.updateStatus(stId, strategyDict[stId])
-        self.top.after(1000, self.update_monitor)
+
+    def quitThread(self):
+        # 停止更新界面子线程
+        self.logThread.stop()
+        self.logThread.join()
+        self.monitorThread.stop()
+        self.monitorThread.join()
+        # 停止接收策略引擎队列数据
+        self.receiveEgThread.stop()
+        self.receiveEgThread.join()
+        
+        self.top.destroy()
 
     def run(self):
+        #启动日志线程
+        self.logThread.start()
+        #启动监控策略线程
+        self.monitorThread.start()
+        #启动接收数据线程
+        self.receiveEgThread.start()
         #启动主界面线程
         self.app.mainloop()
         
@@ -95,21 +112,30 @@ class TkinterController(object):
 
     def generateReportReq(self, strategyIdList):
         """发送生成报告请求"""
-        # TODO：生成报告，如果RepData为空，则显示最新日期的历史报告，
-        # TODO：不为空，代表获取到的数据为传过来的数据
+        # 量化启动时的恢复策略列表中的策略没有回测数据
+        # 策略停止之后的报告数据从本地获取，不发送请求
+        # 策略启动时查看数据发送报告请求，从engine获取数据
         # 查看策略的投资报告(不支持查看多个)
         if len(strategyIdList) >= 1:
             id = strategyIdList[0]
+            status = self.strategyManager.queryStrategyStatus(id)
+            strategyData = self.strategyManager.getSingleStrategy(id)
+            if status == ST_STATUS_QUIT:  # 策略已停止，从本地获取数据
+                if "RunningData" not in strategyData:  # 程序启动时恢复的策略没有回测数据
+                    messagebox.showinfo("提示", "策略未启动，报告数据不存在", parent=self.top)
+                    return
+                reportData = strategyData["RunningData"]
+                self.app.reportDisplay(reportData, id)
+                return
             self._request.reportRequest(id)
 
-        # for id in strategyIdList:
-        #     self._request.reportRequest(id)
 
     def newStrategy(self, path):
         """右键新建策略"""
         if not os.path.exists(path):
             f = open(path, "w")
-            f.write('\n'
+            f.write('import talib\n'
+                    '\n\n'
                     'def initialize(context): \n    pass\n\n\n'
                     'def handle_data(context):\n    pass')
             f.close()
@@ -184,16 +210,22 @@ class TkinterController(object):
             if id in strategyDict:
                 status = self.strategyManager.queryStrategyStatus(id)
                 if status == ST_STATUS_QUIT:
-                    print("I have been quitted!")
+                    self.logger.info("策略%s已停止!"%(id))
                     continue
-            self._request.strategyQuit(id)
+                self._request.strategyQuit(id)
+            else:
+                self.logger.info("策略管理器中不存在策略%s"%(id))
 
     def delStrategy(self, strategyIdList):
         # 获取策略管理器
         for id in strategyIdList:
-            self._request.strategyRemove(id)
+            # self._request.strategyRemove(id)
             strategyDict = self.strategyManager.getStrategyDict()
             if id in strategyDict:
+                if strategyDict[id]["StrategyState"] == ST_STATUS_QUIT:  # 策略已经停止
+                    self.strategyManager.removeStrategy(id)
+                    self.app.delUIStrategy(id)
+                    # return
                 self._request.strategyRemove(id)
             else:  # 策略已经停止， 直接删除
                 self.app.delUIStrategy(id)
@@ -203,3 +235,24 @@ class TkinterController(object):
         if len(strategyIdList) >= 1:
             id = strategyIdList[0]
             self._request.strategySignal(id)
+
+
+class ChildThread(threading.Thread):
+    """带停止标志位的线程"""
+    def __init__(self, target, wait=0):
+        threading.Thread.__init__(self)
+
+        self.target = target
+        self.sleepTime = wait
+
+        # self.cond = threading.Condition()
+        self.isStopped = False
+
+    def run(self):
+        while not self.isStopped:
+            self.target()
+            time.sleep(self.sleepTime)
+
+    def stop(self):
+        # 设置停止标志位
+        self.isStopped = True
