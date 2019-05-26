@@ -63,9 +63,66 @@ class StartegyManager(object):
     def _stopStrategy(self, strategyId, mode):
         pass
 
+
 class StrategyContext:
     def __init__(self):
-        pass
+        self._strategyStatus = None
+        self._triggerType = None
+        self._conTractNo = None
+        self._kLineType = None
+        self._kLineSlice = None
+        self._tradeDate = None
+        self._dateTimeStamp = None
+        self._triggerData = None
+
+    @property
+    def strategyStatus(self):
+        return self._strategyStatus
+
+    @property
+    def triggerType(self):
+        return self._triggerType
+
+    @property
+    def contractNo(self):
+        return self._conTractNo
+
+    @property
+    def kLineType(self):
+        return self._kLineType
+
+    @property
+    def kLineSlice(self):
+        return self._kLineSlice
+
+    @property
+    def tradeDate(self):
+        if self._tradeDate is not None:
+            return str(self._tradeDate)
+        else:
+            return None
+
+    @property
+    def dateTimeStamp(self):
+        if self._dateTimeStamp is not None:
+            return str(self._dateTimeStamp)
+        else:
+            return None
+
+    @property
+    def triggerData(self):
+        return self._triggerData
+
+    def setCurTriggerSourceInfo(self, args):
+        self._strategyStatus = args["Status"]
+        self._triggerType = args["TriggerType"]
+        self._conTractNo = args["ContractNo"]
+        self._kLineType = args["KLineType"]
+        self._kLineSlice = args["KLineSlice"]
+        self._tradeDate = args["TradeDate"]
+        self._dateTimeStamp = args["DateTimeStamp"]
+        self._triggerData = args["TriggerData"]
+
 
 class TradeRecord(object):
     def __init__(self, eSessionId, orderData={}):
@@ -138,8 +195,8 @@ class Strategy:
         self._strategyState = StrategyStatusReady
         #
         self._runStatus = ST_STATUS_NONE
-        self._runRealTimeStatus = ST_STATUS_NONE
-        self._triggerType = ST_TRIGGER_NONE
+        self._curTriggerSourceInfo = None
+        self._firstTriggerQueueEmpty = True
 
         # self._strategyId+"-"+self._eSessionId 组成本地生成的eSessionId
         self._eSessionId = 1
@@ -238,17 +295,31 @@ class Strategy:
         self._runStatus = ST_STATUS_HISTORY
         self._send2UIStatus(self._runStatus)
         # runReport中会有等待
-        self._dataModel.runReport(self._context, self._userModule.handle_data)
+        try:
+            self._dataModel.runReport(self._context, self._userModule.handle_data)
 
-        # 持续运行阶段
-        self._runStatus = ST_STATUS_CONTINUES
-        self._runRealTimeStatus = ST_STATUS_CONTINUES_AS_HISTORY
-        self._send2UIStatus(self._runStatus)
-        
-        while not self._isExit():
-            event = self._triggerQueue.get()
-            # 发单方式，实时发单、k线稳定后发单。
-            self._dataModel.runRealTime(self._context, self._userModule.handle_data, event)
+            # 持续运行阶段
+            # 1. 中间阶段, 实际上还是作为历史回测
+            # 2. 真正的实时阶段
+            # self._runStatus = ST_STATUS_HISTORY
+            # self._send2UIStatus(self._runStatus)
+            #
+            while not self._isExit():
+                try:
+                    event = self._triggerQueue.get_nowait()
+                    # 发单方式，实时发单、k线稳定后发单。
+                    self._dataModel.runRealTime(self._context, self._userModule.handle_data, event)
+                except queue.Empty as e:
+                    if self._firstTriggerQueueEmpty:
+                        self._runStatus = ST_STATUS_CONTINUES
+                        self._send2UIStatus(self._runStatus)
+                        self._firstTriggerQueueEmpty = False
+                    else:
+                        time.sleep(0.1)
+        except Exception as e:
+            errorText = traceback.format_exc()
+            # traceback.print_exc()
+            self._exit(-1, errorText)
 
     def _startStrategyThread(self):
         '''历史数据准备完成后，运行策略'''
@@ -257,20 +328,24 @@ class Strategy:
         
     def _triggerTime(self):
         '''检查定时触发'''
-        if not self._dataModel.getConfigModel().hasTimerTrigger():
-            return
-        if not self.isRealTimeStatus():
+        if not self._dataModel.getConfigModel().hasTimerTrigger() or not self.isRealTimeStatus():
             return
 
         nowStr = datetime.now().strftime("%Y%m%d%H%M%S")
         for i,timeSecond in enumerate(self._dataModel.getConfigData()['Trigger']['Timer']):
             if 0<=(int(nowStr)-int(timeSecond))<1 and not self._isTimeTriggered[i]:
                 self._isTimeTriggered[i] = True
+                key = self._dataModel.getConfigModel().getKLineShowInfoSimple()
+                dateTimeStamp, tradeDate, lv1Data = self.getTriggerTimeAndData(key[0])
                 event = Event({
                     "EventCode" : ST_TRIGGER_TIMER,
-                    "ContractNo": self._dataModel.getConfigModel().getBenchmark(),
+                    "ContractNo": None,
+                    "KLineType" : None,
+                    "KLineSlice": None,
                     "Data":{
-                        "TriggerType":"Timer"
+                        "TradeDate"  : tradeDate,
+                        "DateTimeStamp": dateTimeStamp,
+                        "Data":timeSecond
                     }
                 })
                 self._triggerQueue.put(event)
@@ -287,11 +362,17 @@ class Strategy:
         cycle = self._dataModel.getConfigData()['Trigger']['Cycle']
         if (nowTime - self._nowTime).total_seconds()*1000>cycle:
             self._nowTime = nowTime
+            key = self._dataModel.getConfigModel().getKLineShowInfoSimple()
+            dateTimeStamp, tradeDate, lv1Data = self.getTriggerTimeAndData(key[0])
             event = Event({
                 "EventCode": ST_TRIGGER_CYCLE,
-                "ContractNo": self._dataModel.getConfigModel().getBenchmark(),
+                "ContractNo": None,
+                "KLineType" : None,
+                "KLineSlice": None,
                 "Data":{
-                    "TriggerType":"CYCLE"
+                    "TradeDate": tradeDate,
+                    "DateTimeStamp": dateTimeStamp,
+                    "Data": None,
                 }
             })
             self._triggerQueue.put(event)
@@ -328,9 +409,7 @@ class Strategy:
             self._triggerMoney()
             # 休眠100ms
             time.sleep(0.1)
-            # 更改策略状态 todo todo进一步修改
-            self.resetRealTimeStatus()
-        
+
     def _startStrategyTimer(self):
         self._stTimer = Thread(target=self._runTimer)
         self._stTimer.start()
@@ -344,7 +423,6 @@ class Strategy:
                 'Status' : status
             }
         })
-        
         self.sendEvent2Engine(event)
     
     def _regEgCallback(self):
@@ -386,13 +464,13 @@ class Strategy:
 
     # 请求历史tick、k线数据
     def _reqHisQuote(self):
-        self._dataModel.reqHisQuote()
+        self._dataModel.getHisQuoteModel().reqAndSubKLine()
 
     # 查询交易数据
     def _reqTradeData(self):
         self._dataModel.reqTradeData()
         
-    #////////////////////////////内部数据应答接口////////////////////
+    # ////////////////////////////内部数据应答接口////////////////////
     def _onCommodity(self, event):
         '''品种查询应答'''
         self._dataModel.onCommodity(event)
@@ -409,35 +487,34 @@ class Strategy:
         # 阶段
         if self.isRealTimeStatus():
             try:
-                self._calcProfitByQuote()
+                self._calcProfitByQuote(event)
             except Exception as e:
                 self.logger.error("即时行情计算浮动盈亏出现错误")
 
-    def _calcProfitByQuote(self):
+    def _calcProfitByQuote(self, event):
+        data = event.getData()
+        if len(data) == 0 or (4 not in data[0]["FieldData"]):
+            # 4:最新价
+            return
+
         priceInfos = {}
-        tradeDates = self._dataModel.getHisQuoteModel().getLastTradeDate()
-        for contractNo in self._dataModel.getConfigModel().getContract():
-            contractQuote = self._dataModel.getQuoteModel().getLv1DataAndUpdateTime(contractNo)
-            # if 4 not in  contractQuote["Lv1Data"]:
-            #     # print(contractQuote["Lv1Data"]), 屏蔽这种情况。 todo exception handling
-            #     return
-            priceInfos[contractNo] = {
-                "TradeDate"     : tradeDates[contractNo],
-                "DateTimeStamp" : contractQuote["UpdateTime"],
-                "LastPrice"     : contractQuote["Lv1Data"][4],          # filed mean = 4,表示 LastPrice
-                "LastPriceSource": LastPriceFromQuote
-            }
-        self._dataModel.getHisQuoteModel().calcProfitByQuote(priceInfos)
+        priceInfos[event.getContractNo()] = {
+            "LastPrice": data[0]["FieldData"][4],
+            "TradeDate": data[0]["UpdateTime"]//1000000000,
+            "DateTimeStamp" : data[0]["UpdateTime"],
+            "LastPriceSource": LastPriceFromQuote
+        }
+        self._dataModel.getHisQuoteModel().calcProfitByQuote(event.getContractNo(), priceInfos)
         
     def _onDepthNotice(self, event):
         self._dataModel.onDepthNotice(event)
 
     def _onHisQuoteRsp(self, event):
         '''历史数据请求应答'''
-        self._dataModel.onHisQuoteRsp(event)
+        self._dataModel.getHisQuoteModel().onHisQuoteRsp(event)
         
     def _onHisQuoteNotice(self, event):
-        self._dataModel.onHisQuoteNotice(event)
+        self._dataModel.getHisQuoteModel().onHisQuoteNotice(event)
 
     # 报告事件, 发到engine进程中，engine进程 再发到ui进程。
     def _onReport(self, event):
@@ -459,6 +536,7 @@ class Strategy:
     def _onLoadStrategyResponse(self, event):
         '''向界面返回策略加载应答'''
         cfg = self._dataModel.getConfigData()
+        
         revent = Event({
             "EventCode" : EV_EG2UI_LOADSTRATEGY_RESPONSE,
             "StrategyId": self._strategyId,
@@ -508,22 +586,7 @@ class Strategy:
         eSessionId = apiEvent.getESessionId()
         for data in dataList:
             self.updateLocalOrder(eSessionId, data)
-
-        if not self._dataModel.getConfigModel().hasTradeTrigger() or len(dataList) == 0:
-            return
-
-        if apiEvent.getEventCode() == EEQU_SRVEVENT_TRADE_ORDER and str(apiEvent.getStrategyId()) == str(self._strategyId):
-            tradeTriggerEvent = Event({
-                "EventCode":ST_TRIGGER_TRADE,
-                "ContractNo": dataList[0]["Cont"],
-                "Data":{
-                    "TriggerType":"Trade",
-                    "Data": apiEvent.getData()
-                }
-            })
-
-            # 交易触发
-            self.sendTriggerQueue(tradeTriggerEvent)
+        self._tradeTriggerOrder(apiEvent)
 
     def _onTradeLoginQry(self, apiEvent):
         self._dataModel._trdModel.updateLoginInfo(apiEvent)
@@ -551,6 +614,7 @@ class Strategy:
         :return: None
         '''
         self._dataModel._trdModel.updateMatchData(apiEvent)
+        self._tradeTriggerMatch(apiEvent)
 
     def _onTradePosition(self, apiEvent):
         '''
@@ -612,17 +676,13 @@ class Strategy:
         return self._strategyName
 
     def isRealTimeStatus(self):
-        return self._runStatus == ST_STATUS_CONTINUES and self._runRealTimeStatus == ST_STATUS_CONTINUES_AS_REALTIME
+        return self._runStatus == ST_STATUS_CONTINUES
 
     def isHisStatus(self):
         return self._runStatus == ST_STATUS_HISTORY
 
-    def isRealTimeAsHisStatus(self):
-        return self._runStatus == ST_STATUS_CONTINUES and self._runRealTimeStatus == ST_STATUS_CONTINUES_AS_HISTORY
-
-    # set run real time status
-    def setRunRealTimeStatus(self, status):
-        self._runRealTimeStatus = status
+    def getStatus(self):
+        return self._runStatus
 
     def sendEvent2Engine(self, event):
         self._st2egQueue.put(event)
@@ -635,18 +695,15 @@ class Strategy:
 
     def _exit(self, errorCode, errorText):
         event = Event({
-            "EventCode":EV_EG2UI_CHECK_RESULT,
-            "StrategyId":self._strategyId,
-            "Data":{
-                "ErrorCode":errorCode,
-                "ErrorText":errorText,
+            "EventCode": EV_EG2UI_CHECK_RESULT,
+            "StrategyId": self._strategyId,
+            "Data": {
+                "ErrorCode": errorCode,
+                "ErrorText": errorText,
             }
         })
-
         self.sendEvent2Engine(event)
-        import time,os
-        time.sleep(5)
-        os._exit(0)
+        self._onStrategyQuit(None)
 
     # 停止策略
     def _onStrategyQuit(self, event):
@@ -662,7 +719,6 @@ class Strategy:
                 "StrategyName": self._strategyName,
             }
         })
-
         self.sendEvent2Engine(quitEvent)
 
     def _onEquantExit(self, event):
@@ -681,8 +737,7 @@ class Strategy:
         self.sendEvent2Engine(responseEvent)
 
     def _switchStrategy(self, event):
-        contNo = self._dataModel.getConfigModel().getContract()[0]
-        self._dataModel.getHisQuoteModel()._switchKLine(contNo)
+        self._dataModel.getHisQuoteModel()._switchKLine()
 
     def _onStrategyRemove(self, event):
         self._strategyState = StrategyStatusExit
@@ -700,29 +755,95 @@ class Strategy:
         self.sendEvent2Engine(responseEvent)
 
     def _snapShotTrigger(self, event):
-        if not self._dataModel.getConfigModel().hasSnapShotTrigger():
+        # 未选择即时行情触发
+        if not self._dataModel.getConfigModel().hasSnapShotTrigger() or not self.isRealTimeStatus():
             return
+
+        # 该合约不触发
         if event.getContractNo() not in self._dataModel.getConfigModel().getTriggerContract():
             return
-        if not self.isRealTimeStatus():
+
+        # 对应字段没有变化不触发
+        data = event.getData()
+        if len(data)==0 or (not set(data[0]["FieldData"].keys())&set([4, 16, 17, 18, 19, 20])):
+            # 4:最新价 16:成交量 17:最优买价 18:买量 19:最优卖价 20:卖量
             return
-        lv1DataAndUpdateTime = self._dataModel.getQuoteModel().getLv1DataAndUpdateTime(event.getContractNo())
+
+        dateTimeStamp, tradeDate, lv1Data = self.getTriggerTimeAndData(event.getContractNo())
         event = Event({
             "EventCode" : ST_TRIGGER_SANPSHOT,
             "ContractNo": event.getContractNo(),
+            "KLineType" : None,
+            "KLineSlice": None,
             "Data":{
-                "TriggerType":"SnapShot",
-                "Data":lv1DataAndUpdateTime
+                "Data": lv1Data,
+                "DateTimeStamp": dateTimeStamp,
+                "TradeDate": tradeDate,
             }
         })
         self.sendTriggerQueue(event)
 
-    def setTriggerType(self, status):
-        self._triggerType = status
+    def setCurTriggerSourceInfo(self, args):
+        self._curTriggerSourceInfo = args
 
-    def getTriggerType(self):
-        return self._triggerType
+    def getCurTriggerSourceInfo(self):
+        return self._curTriggerSourceInfo
 
-    def resetRealTimeStatus(self):
-        if self._runStatus == ST_STATUS_CONTINUES and self._dataModel.getHisQuoteModel()._realTimeAsHistoryKLineCnt<=0:
-            self._runRealTimeStatus = ST_STATUS_CONTINUES_AS_REALTIME
+    #
+    def _tradeTriggerOrder(self, apiEvent):
+        if not self._dataModel.getConfigModel().hasTradeTrigger() or len(apiEvent.getData()) == 0:
+            return
+
+        if apiEvent.getEventCode() == EEQU_SRVEVENT_TRADE_ORDER and str(apiEvent.getStrategyId()) == str(self._strategyId):
+            contractNo = apiEvent.getData[0]["Cont"]
+            dateTimeStamp, tradeDate, lv1Data = self.getTriggerTimeAndData(contractNo)
+
+            tradeTriggerEvent = Event({
+                "EventCode":ST_TRIGGER_TRADE_ORDER,
+                "ContractNo": contractNo,
+                "KLineType" : None,
+                "KLineSlice": None,
+                "Data":{
+                    "Data": apiEvent.getData()[0],
+                    "DateTimeStamp": dateTimeStamp,
+                    "TradeDate": tradeDate,
+                }
+            })
+            # 交易触发
+            self.sendTriggerQueue(tradeTriggerEvent)
+
+    def _tradeTriggerMatch(self, apiEvent):
+        if not self._dataModel.getConfigModel().hasTradeTrigger() or len(apiEvent.getData()) == 0:
+            return
+
+        if apiEvent.getEventCode() == EEQU_SRVEVENT_TRADE_MATCH and str(apiEvent.getStrategyId()) == str(self._strategyId):
+            contractNo = apiEvent.getData[0]["Cont"]
+            dateTimeStamp, tradeDate, lv1Data = self.getTriggerTimeAndData(contractNo)
+
+            tradeTriggerEvent = Event({
+                "EventCode":ST_TRIGGER_TRADE_MATCH,
+                "ContractNo": contractNo,
+                "KLineType" : None,
+                "KLineSlice": None,
+                "Data":{
+                    "Data": apiEvent.getData()[0],
+                    "DateTimeStamp": dateTimeStamp,
+                    "TradeDate": tradeDate,
+                }
+            })
+
+            # 交易触发
+            self.sendTriggerQueue(tradeTriggerEvent)
+
+    def getTriggerTimeAndData(self, contractNo):
+        lv1DataAndUpdateTime = self._dataModel.getQuoteModel().getLv1DataAndUpdateTime(contractNo)
+        if lv1DataAndUpdateTime is not None:
+            dateTimeStamp = lv1DataAndUpdateTime["UpdateTime"]
+            tradeDate = dateTimeStamp // 1000000000
+            lv1Data = lv1DataAndUpdateTime["Lv1Data"]
+        else:
+            dateTimeStamp = None
+            tradeDate = None
+            lv1Data = None
+
+        return dateTimeStamp, tradeDate, lv1Data

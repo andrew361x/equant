@@ -5,8 +5,8 @@ from report.fieldConfigure import FrequencyDict
 
 
 class ReportDetail(object):
-    def __init__(self, expert_setting, position, profit, test_day, fund_record, trade_time_info, orders, trade_info, beginDate, endDate):
-        self._expert_setting = expert_setting
+    def __init__(self, runSet, position, profit, test_day, fund_record, trade_time_info, orders, trade_info, beginDate, endDate):
+        self._runSet = runSet
         self._position = position
         self._profit = profit
         self._test_day = test_day
@@ -19,7 +19,7 @@ class ReportDetail(object):
 
     @property
     def initial_fund(self):  # 资金
-        return self._expert_setting['StartFund']
+        return self._runSet['StartFund']
 
     @property
     def contract(self):  # 合约信息
@@ -27,8 +27,8 @@ class ReportDetail(object):
 
     @property
     def period(self):  # 周期
-        klineType = FrequencyDict[self._expert_setting['KLineType']]
-        kLineSlice = str(self._expert_setting['KLineSlice'])
+        klineType = FrequencyDict[self._runSet['KLineType']]
+        kLineSlice = str(self._runSet['KLineSlice'])
         return kLineSlice + klineType
 
     @property
@@ -126,8 +126,8 @@ class ReportDetail(object):
 
     @property
     def returns(self):  # 盈利率
-        if self._expert_setting['StartFund']:
-            return self._profit['TotalProfit'] / int(self._expert_setting['StartFund'])
+        if self._runSet['StartFund']:
+            return self._profit['TotalProfit'] / int(self._runSet['StartFund'])
         return np.nan
 
     @property
@@ -145,20 +145,20 @@ class ReportDetail(object):
     @property
     def annualized_compound(self):  # 年化复利收益率
         if self.final_equity < 0:
-            if self._expert_setting['StartFund'] == 0:
+            if self._runSet['StartFund'] == 0:
                 return float('inf')
             else:
                 return '--'
-        return (self.final_equity / int(self._expert_setting['StartFund'])) ** (365 / self._test_day) - 1
+        return (self.final_equity / int(self._runSet['StartFund'])) ** (365 / self._test_day) - 1
 
     @property
     def monthly_compound(self):  # 月化复利收益率
         if self.final_equity < 0:
-            if self._expert_setting['StartFund'] == 0:
+            if self._runSet['StartFund'] == 0:
                 return float('inf')
             else:
                 return '--'
-        return (self.final_equity / int(self._expert_setting['StartFund'])) ** (30 / self._test_day) - 1
+        return (self.final_equity / int(self._runSet['StartFund'])) ** (30 / self._test_day) - 1
 
     @property
     def win_rate(self):  # 胜率
@@ -324,7 +324,7 @@ class ReportDetail(object):
             'FinalEquity': self.final_equity,
             'EmptyPeriod': self.empty_period,
             'MaxContinueEmpty': self.max_continue_empty,
-            'MaxTradePeriod': self.max_trade_period,
+            # 'MaxTradePeriod': self.max_trade_period,
             'StdDev': self.std_dev,
             'StdDevRate': self.std_dev_rate,
             'Sharpe': self.sharpe,

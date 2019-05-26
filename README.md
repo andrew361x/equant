@@ -6,23 +6,27 @@
 3. 量化交易者可使用极星量化终端，在实盘运行策略，支持K线触发、即时行情触发、交易数据触发、定时触发和周期性触发等方式
 4. 实盘交易需要用户使用各自有效的期货交易账号，并在极星9.5上完成登录。
 
-#### 安装教程
-1. 安装极星9.5客户端  
-    a. 单击[极星9.5客户端](https://epolestar95-1255628687.cos.ap-beijing.myqcloud.com/epolestar.zip)，下载极星9.5客户端  
-    b. 极星9.5客户端安装包移动到任意目录，例如:D:\equant，并解压
+#### 安装教程  
+1. 下载[极星量化终端](	https://equant-1255628687.cos.ap-beijing.myqcloud.com/EquantPackage.zip)  
 
-2. 安装极星量化  
-    a. 从github或者gitee，下载极星量化终端  
-    b. 将极星量化终端放到与9.5客户端同级目录，例如:D:\equant，并解压  
+2. 解压后，在install文件夹中，右键以管理员身份运行install.bat脚本进行安装  
 
-3. 安装Anaconda3  
-    a. 单击[Anaconda3](https://repo.anaconda.com/archive/Anaconda3-2019.03-Windows-x86_64.exe)下载  
-    b. 双击安装文件，点击"Next",出现"Add Anaconda3 to the system PATH environment variable"时勾选,其他点击"Next"  
-    c. 命令行运行，pip install https://download.lfd.uci.edu/pythonlibs/q5gtlas7/TA_Lib-0.4.17-cp37-cp37m-win_amd64.whl   
+3. 整个过程持续5-10分钟，请勿关闭安装窗口，如需杀毒软件阻拦，请"允许所有操作"  
+
+4. 安装完成后按照"升级说明"，升级极星9.5客户端和极星量化终端
      
+#### 升级说明  
+1. 升级极星9.5客户端  
+    a. 下载[极星9.5客户端](https://epolestar95-1255628687.cos.ap-beijing.myqcloud.com/epolestar.zip)  
+    b. 拷贝升级文件epolestar.zip至极星量化终端安装目录，重命名原epolestar目录名，解压epolestar.zip   
+    
+2. 升级极星量化终端  
+    a. 从github或者gitee上下载极星量化终端equant-master.zip   
+    b. 拷贝升级文件equant-master.zip至极星量化终端安装目录，重命名原equant-master目录名，解压equant-master.zip     
+    
         
 #### 使用说明
-1. 打开极星9.5客户端，点击"量化"按钮，点击"Python"，打开极星量化终端，进行试用
+1. 打开极星9.5客户端，点击"量化"按钮，点击"Python"，打开极星量化终端，进行使用
 2. 同一台机器上如果有多个9.5客户端，只能有一个客户端使用量化 
 
 

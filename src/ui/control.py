@@ -38,19 +38,28 @@ class TkinterController(object):
         self.strategyManager = self.getStManager()
 
         # 创建日志更新线程
-        self.logThread = ChildThread(self.updateLog)
+        # self.logThread = ChildThread(self.updateLog, 0.001)
         # 创建策略信息更新线程
         self.monitorThread = ChildThread(self.updateMonitor, 1)
         # 创建接收引擎数据线程
         self.receiveEgThread = ChildThread(self.model.receiveEgEvent)
 
+        # 设置日志更新
+        self.update_log()
+
     def get_logger(self):
         return self.logger
 
-    def updateLog(self):
-        self.app.updateLogText()
-        self.app.updateSigText()
-        self.app.updateErrText()
+    def update_log(self):
+        try:
+            self.app.updateLogText()
+            self.app.updateSigText()
+            self.app.updateErrText()
+
+            self.top.after(10, self.update_log)
+        except Exception as e:
+            # self.logger.warn("异常", "程序退出异常")
+            pass
 
     def updateMonitor(self):
         # 更新监控界面策略信息
@@ -59,20 +68,20 @@ class TkinterController(object):
             self.app.updateStatus(stId, strategyDict[stId])
 
     def quitThread(self):
+        self.logger.info("quitThread exit")
         # 停止更新界面子线程
-        self.logThread.stop()
-        self.logThread.join()
         self.monitorThread.stop()
         self.monitorThread.join()
         # 停止接收策略引擎队列数据
         self.receiveEgThread.stop()
+        self.model.receiveExit()
         self.receiveEgThread.join()
-        
+
+        self.logger.info("before top.destroy")
         self.top.destroy()
+        self.logger.info("after top.destroy")
 
     def run(self):
-        #启动日志线程
-        self.logThread.start()
         #启动监控策略线程
         self.monitorThread.start()
         #启动接收数据线程
@@ -121,10 +130,10 @@ class TkinterController(object):
             status = self.strategyManager.queryStrategyStatus(id)
             strategyData = self.strategyManager.getSingleStrategy(id)
             if status == ST_STATUS_QUIT:  # 策略已停止，从本地获取数据
-                if "RunningData" not in strategyData:  # 程序启动时恢复的策略没有回测数据
+                if "ResultData" not in strategyData:  # 程序启动时恢复的策略没有回测数据
                     messagebox.showinfo("提示", "策略未启动，报告数据不存在", parent=self.top)
                     return
-                reportData = strategyData["RunningData"]
+                reportData = strategyData["ResultData"]
                 self.app.reportDisplay(reportData, id)
                 return
             self._request.reportRequest(id)

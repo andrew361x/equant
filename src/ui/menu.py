@@ -4,7 +4,6 @@ sys.path.append("..")
 
 from tkinter import *
 from tkinter import messagebox
-import tkinter.ttk as ttk
 
 from utils.language import Language
 from .language import Language
@@ -14,13 +13,14 @@ from .com_view import NewDirToplevel, NewFileToplevel, RenameToplevel, DeleteTop
 class StrategyMenu(object):
     def __init__(self, controller, parent=None):
         self._controller = controller
-        self.widget = parent
+        self.parent = parent
+        self.widget = parent.root_tree   # 获取树控件
         self.language = Language("EquantMainFrame")
 
         self._lClickSelectedItem = None   # 左键选择标签
         self._rightClickPath = ""    # 记录右键弹出菜单时选中的策略路径
 
-        self.menu = Menu(parent, tearoff=0)
+        self.menu = Menu(self.widget, tearoff=0)
 
     def add_event(self):
         new_menu = Menu(self.menu, tearoff=0)
@@ -37,6 +37,7 @@ class StrategyMenu(object):
         # self.menu.add_command(label="移动分组", command=self.move_strategy)
         self.menu.add_command(label="删除", command=self.delete_)
         # self.menu.add_command(label="test", command=self.test)
+        self.menu.add_command(label="刷新", command=self.onRefresh)
 
     def test(self):
         # 用于menu状态测试
@@ -276,6 +277,11 @@ class StrategyMenu(object):
         deleteTop.saveBtn.config(command=enter)
         deleteTop.cancelBtn.config(command=cancel)
         deleteTop.display()
+
+    def onRefresh(self):
+        """刷新目录"""
+        self.parent.update_all_tree()
+        pass
 
 
 class RunMenu(object):

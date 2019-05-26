@@ -218,6 +218,8 @@ class PyAPI(object):
                     }
             }
         '''
+        # data = event.getData()
+        # print("in order k line ", data["ContractNo"], data["KLineType"], data["KLineSlice"], data["ReqCount"])
         self.logger.debug("%d request subscribe hisquote(%s)"%(event.getStrategyId(), event.getContractNo()))
         sessionId = c_uint()
         req = EEquKLineReq()
@@ -422,8 +424,11 @@ class PyAPI(object):
         _data.Type = data['Type']                   # 线型
         _data.Color = data['Color']                 # 颜色
         _data.Thick = data['Thick']                 # 线宽
-        # _data.OwnAxis = ord(data['OwnAxis'])      # 是否独立坐标
-        # _data.Param = add                         # 参数 Max10 #
+        _data.OwnAxis = ord(data['OwnAxis'])        # 是否独立坐标
+        
+        for i in range(data['ParamNum']):
+            _data.Param[i] = data['Param'][i]       # 参数 Max10 #
+            
         _data.ParamNum = data['ParamNum']           # 参数个数
         _data.Groupid = data['Groupid']             # 组号
         _data.GroupName = data['GroupName'].encode()    # 组名（指标名）
@@ -467,8 +472,9 @@ class PyAPI(object):
         _data.Type = data['Type']                       # 线型
         _data.Color = data['Color']                     # 颜色
         _data.Thick = data['Thick']                     # 线宽
-        # _data.OwnAxis = ord(data['OwnAxis'])          # 是否独立坐标
-        # _data.Param = add                             # 参数 Max10 #
+        _data.OwnAxis = ord(data['OwnAxis'])            # 是否独立坐标
+        for i in range(data['ParamNum']):
+            _data.Param[i] = data['Param'][i]           # 参数 Max10 #
         _data.ParamNum = data['ParamNum']               # 参数个数
         _data.Groupid = data['Groupid']                 # 组号
         _data.GroupName = data['GroupName'].encode()    # 组名（指标名）
@@ -535,10 +541,9 @@ class PyAPI(object):
             data = EEquKLineSeries()
             data.KLineIndex  = d['KLineIndex']
             data.Value       = d['Value']
-            data.ClrK        = d['ClrK']
-            data.ClrBar      = d['ClrBar']
-            data.Filled      = d['Filled'].encode()
-            data.BarValue    = d['BarValue']
+            data.KLineSeriesUnion._KLineSeriesStructure3.ClrBar      = d['ClrBar']
+            data.KLineSeriesUnion._KLineSeriesStructure3.Filled      = d['Filled'].encode()
+            data.KLineSeriesUnion._KLineSeriesStructure3.BarValue    = d['BarValue']
             curBuf = cbuf + sizeof(EEquKLineSeries) * i
             cData = string_at(addressof(data), sizeof(EEquKLineSeries))
             memmove(curBuf, cData, sizeof(EEquKLineSeries))
@@ -559,7 +564,28 @@ class PyAPI(object):
             data = EEquKLineSeries()
             data.KLineIndex  = d['KLineIndex']
             data.Value       = d['Value']
-            data.Icon        = d['Icon']
+            data.KLineSeriesUnion._KLineSeriesStructure1.Icon = d['Icon']
+            curBuf = cbuf + sizeof(EEquKLineSeries) * i
+            cData = string_at(addressof(data), sizeof(EEquKLineSeries))
+            memmove(curBuf, cData, sizeof(EEquKLineSeries)) 
+            
+    def _reqTextSeries(self, dataList, cbuf):
+        '''
+        功能：创建C语言类型的字符串
+        参数：
+            dataList[
+            {
+                'KLineIndex'  : value, int
+                'Value'       : value, float
+                'Text'        : value, string
+            }]
+        '''
+        
+        for i, d in enumerate(dataList):
+            data = EEquKLineSeries()
+            data.KLineIndex  = d['KLineIndex']
+            data.Value       = d['Value']
+            data.KLineSeriesUnion._KLineSeriesStructure5.Text = d['Text'].encode()
             curBuf = cbuf + sizeof(EEquKLineSeries) * i
             cData = string_at(addressof(data), sizeof(EEquKLineSeries))
             memmove(curBuf, cData, sizeof(EEquKLineSeries)) 
@@ -581,8 +607,8 @@ class PyAPI(object):
             data = EEquKLineSeries()
             data.KLineIndex  = d['KLineIndex']
             data.Value       = d['Value']
-            data.ClrStick    = d['ClrStick']
-            data.StickValue  = d['StickValue']
+            data.KLineSeriesUnion._KLineSeriesStructure2.ClrStick    = d['ClrStick']
+            data.KLineSeriesUnion._KLineSeriesStructure2.StickValue  = d['StickValue']
             curBuf = cbuf + sizeof(EEquKLineSeries) * i
             cData = string_at(addressof(data), sizeof(EEquKLineSeries))
             memmove(curBuf, cData, sizeof(EEquKLineSeries)) 
@@ -606,10 +632,10 @@ class PyAPI(object):
             data = EEquKLineSeries()
             data.KLineIndex  = d['KLineIndex']
             data.Value       = d['Value']
-            data.Idx2        = d['Idx2']
-            data.ClrLine     = d['ClrLine']
-            data.LineValue   = d['LineValue']
-            data.LinWid      = d['LinWid']
+            data.KLineSeriesUnion._KLineSeriesStructure4.Idx2        = d['Idx2']
+            data.KLineSeriesUnion._KLineSeriesStructure4.ClrLine     = d['ClrLine']
+            data.KLineSeriesUnion._KLineSeriesStructure4.LineValue   = d['LineValue']
+            data.KLineSeriesUnion._KLineSeriesStructure4.LinWid      = d['LinWid']
             curBuf = cbuf + sizeof(EEquKLineSeries) * i
             cData = string_at(addressof(data), sizeof(EEquKLineSeries))
             memmove(curBuf, cData, sizeof(EEquKLineSeries)) 
@@ -662,6 +688,8 @@ class PyAPI(object):
             self._reqDotSeries(data['Data'], cbuf)
         elif seriesType == EEQU_DOT:                        # 点
             self._reqDotSeries(data['Data'], cbuf)
+        elif seriesType == EEQU_TEXT:
+            self._reqTextSeries(data['Data'], cbuf)
         else:
             self._reqIndicatorSeries(data['Data'], cbuf)
 
@@ -750,6 +778,24 @@ class PyAPI(object):
         req.StrategyId = event.getStrategyId()
         self._cDll.E_StrategyDataUpdateNotice(byref(sessionId), byref(req))
         self._setSessionId(sessionId.value, event.getStrategyId())
+        
+    def reqKLineStrategyStateNotice(self, event):
+        '''
+        功能：更新策略状态
+        参数：
+            {
+                'StrategyId'      : 策略id，int,
+                'Data'            : 策略状态,char
+            }
+        '''
+        self.logger.info("Strategy %d quit!"%event.getStrategyId())
+        sessionId = c_uint()
+        req = EEquKlineStrategyStateNotice()
+        req.StrategyId = event.getStrategyId()
+        req.StrategyStatus = ord(event.getData())
+        self._cDll.E_KLineStrategyStateNotice(byref(sessionId), byref(req))
+        self._setSessionId(sessionId.value, event.getStrategyId())    
+    
         
     #////////////////////////////交易数据请求///////////////////////
     def reqQryLoginInfo(self, event):
@@ -1244,6 +1290,7 @@ class PyAPI(object):
             dataList.append(idict)
         
         # 发送到引擎
+        # print("in py2c ", len(dataList), apiEvent.getSessionId(), apiEvent.getContractNo(), apiEvent.getKLineType(), apiEvent.getKLineSlice(), apiEvent.isChainEnd())
         apiEvent.setData(dataList)
         sid = apiEvent.getSessionId()
         apiEvent.setStrategyId(self._getStrategyId(sid))

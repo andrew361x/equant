@@ -12,6 +12,7 @@ import copy
 import psutil
 import os, json
 from collections import OrderedDict
+import traceback
 
 
 class StrategyEngine(object):
@@ -436,7 +437,7 @@ class StrategyEngine(object):
     def _onApiKlinedata(self, apiEvent, code):
         self._hisModel.updateKline(apiEvent)
         strategyId = apiEvent.getStrategyId()
-        #策略号为0，认为是推送数据
+        # 策略号为0，认为是推送数据
         apiData = apiEvent.getData()
         data = apiData[:]
         event = Event({
@@ -448,17 +449,17 @@ class StrategyEngine(object):
             'KLineSlice' : apiEvent.getKLineSlice(),
             'Data'       : data
         })
-        
+
         if strategyId > 0:
             self._sendEvent2Strategy(strategyId, event)
             return
-            
-        #推送数据，分发
-        contNo = apiEvent.getContractNo()
-        if contNo not in self._hisContStrategyDict:
+
+        # 推送数据，分发
+        key = (apiEvent.getContractNo(), apiEvent.getKLineType(), apiEvent.getKLineSlice())
+        if key not in self._hisContStrategyDict:
             return
 
-        stDict = self._hisContStrategyDict[contNo]
+        stDict = self._hisContStrategyDict[key]
         for key in stDict:
             event.setStrategyId(key)
             self._sendEvent2Strategy(key, event)
@@ -686,37 +687,24 @@ class StrategyEngine(object):
             return
         
         strategyId = event.getStrategyId()
-        data = event.getData()
-        contNo = data['ContractNo']
+        key = (data['ContractNo'], data['KLineType'], data['KLineSlice'])
 
-        if contNo not in self._hisContStrategyDict:
-            self._hisContStrategyDict[contNo] = {strategyId:None}
-        
-        stDict = self._hisContStrategyDict[contNo]  
-        if strategyId not in stDict:
-            stDict[strategyId] = None
-            
+        if key not in self._hisContStrategyDict:
+            self._hisContStrategyDict[key] = {}
+
+        self._hisContStrategyDict[key].update({strategyId:True})
         self._pyApi.reqSubHisquote(event)
-        
+
     def _reqUnsubHisquote(self, event):
         '''退订历史行情'''
         strategyId = event.getStrategyId()
         data = event.getData()
-        contNo = data['ContractNo']
-        
-        if contNo not in self._hisContStrategyDict:
-            return #该合约没有订阅
-        stDict = self._hisContStrategyDict[contNo]
 
-        if strategyId not in stDict:
-            return #该策略没有订阅
+        key = (data['ContractNo'], data['KLineType'], data['KLineSlice'])
+        if key not in self._hisContStrategyDict or strategyId not in self._hisContStrategyDict[key]:
+            return
+        stDict = self._hisContStrategyDict[key]
         stDict.pop(strategyId)
-        #已经没有人订阅了，退订吧
-        unSubList = []
-        if len(stDict) <= 0:
-            unSubList.append(contNo)
-        if len(unSubList) > 0:
-            self._pyApi.reqUnsubHisquote(event)
         
     def _reqKLineStrategySwitch(self, event):
         '''切换策略图'''
@@ -830,6 +818,10 @@ class StrategyEngine(object):
         # to solve broken pip error
         eg2stQueue = self._eg2stQueueDict[strategyId]
         eg2stQueue.put(event)
+        
+        #策略停止，通知9.5清理数据
+        apiEvent = Event({'StrategyId':strategyId, 'Data':EEQU_STATE_STOP})
+        self._pyApi.reqKLineStrategyStateNotice(apiEvent)
 
     # 启动当前策略
     def _onStrategyResume(self, event):
@@ -865,6 +857,10 @@ class StrategyEngine(object):
             self.saveStrategyContext2File()
         else:
             self._sendEvent2AllStrategy(event)
+            
+        for id in self._eg2stQueueDict:
+            apiEvent = Event({'StrategyId':id, 'Data':EEQU_STATE_STOP})
+            self._pyApi.reqKLineStrategyStateNotice(apiEvent)
 
     def _onStrategyRemove(self, event):
         strategyId = event.getStrategyId()
@@ -901,4 +897,5 @@ class StrategyEngine(object):
             strategyProcess.wait(timeout=0.1)
             # print("策略进程已经退出", strategyProcess.name)
         except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+            traceback.print_exc()
             self.logger.info("pid %d exit fail" % pid)

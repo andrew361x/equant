@@ -250,11 +250,12 @@ def Singleton(cls):
 class HistoryToplevel(QuantToplevel):
     def __init__(self, view, master=None):
         super().__init__(master)
-        self.withdraw()
+        # self.withdraw()
         self.wm_attributes("-topmost", 0)  # 窗口置顶
         self._view = view
         self._master = master
         self.set_config()
+        self.withdraw()
 
     def set_config(self):
         self.title('回测报告')
@@ -288,8 +289,9 @@ class RunWin(QuantToplevel, QuantFrame):
         self.setPos()
         self.protocol("WM_DELETE_WINDOW", self.cancel)
 
-        # 将函数包装一下(初始资金只能输入数字)
+        # 将函数包装一下(初始资金只能输入数字、浮点数)
         self.testContent = self.register(self.testDigit)
+        self.testFlt     = self.register(self.testFloat)
         # 新建属性设置变量
         self.initVariable()
         # 初始化config
@@ -435,7 +437,8 @@ class RunWin(QuantToplevel, QuantFrame):
 
     def setDefaultConfigure(self):
         conf = self.getTextConfigure()
-        if conf:
+        # if conf:
+        if None:
             # self.user.set(conf[VUser]),
             self.initFund.set(conf[VInitFund]),
             self.defaultType.set(conf[VDefaultType]),
@@ -476,12 +479,12 @@ class RunWin(QuantToplevel, QuantFrame):
 
             self.isOpenTimes.set(conf[VIsOpenTimes]),
             self.openTimes.set(conf[VOpenTimes]),
-            self.isConOpenTimes.set(conf[VOpenTimes]),
-            self.conOpenTimes.set(conf[VOpenTimes]),
+            self.isConOpenTimes.set(conf[VIsConOpenTimes]),
+            self.conOpenTimes.set(conf[VConOpenTimes]),
             self.canClose.set(conf[VCanClose]),
             self.canOpen.set(conf[VCanOpen]),
 
-        else:
+        if True:
             # 设置默认值
             self.isCycle.set(0),
             self.cycle.set(200),
@@ -500,7 +503,7 @@ class RunWin(QuantToplevel, QuantFrame):
             # 账户
 
             # K线类型
-            self.kLineType.set("日")
+            self.kLineType.set("分钟")
             # K线周期
             self.kLineSlice.set("1")
 
@@ -731,6 +734,14 @@ class RunWin(QuantToplevel, QuantFrame):
             return True
         return False
 
+    def testFloat(self, content):
+        """判断Entry中是否为浮点数"""
+        try:
+            if content == "" or isinstance(float(content), float):
+                return True
+        except:
+            return False
+
     def setDefaultOrder(self, frame):
         defaultFrame = tk.Frame(frame, relief=tk.RAISED, bg=rgb_to_hex(255, 255, 255))
         defaultFrame.pack(side=tk.TOP, fill=tk.X, padx=15, pady=5)
@@ -760,10 +771,10 @@ class RunWin(QuantToplevel, QuantFrame):
         minQtyFrame.pack(side=tk.TOP, fill=tk.X, padx=15, pady=5)
         tk.Label(minQtyFrame, text='最小下单量: ', bg=rgb_to_hex(255, 255, 255), justif=tk.LEFT, anchor=tk.W, width=15) \
                  .pack(side=tk.LEFT)
-        minQtyEntry = tk.Entry(minQtyFrame, relief=tk.GROOVE, bd=2, width=10, textvariable=self.minQty,
+        self.minQtyEntry = tk.Entry(minQtyFrame, relief=tk.GROOVE, bd=2, width=10, textvariable=self.minQty,
                                validate="key", validatecommand=(self.testContent, "%P"))
         # minQtyEntry.insert(tk.END, 1)
-        minQtyEntry.pack(side=tk.LEFT, expand=tk.NO, padx=4)
+        self.minQtyEntry.pack(side=tk.LEFT, expand=tk.NO, padx=4)
         tk.Label(minQtyFrame, text='手(1-{})'.format(MAXSINGLETRADESIZE), bg=rgb_to_hex(255, 255, 255),
                  justif=tk.LEFT, anchor=tk.W, width=10).pack(side=tk.LEFT, expand=tk.NO, padx=4)
 
@@ -829,9 +840,9 @@ class RunWin(QuantToplevel, QuantFrame):
         tk.Label(openFeeFrame, text='开仓手续费(率):', bg=rgb_to_hex(255, 255, 255),
                  justify=tk.LEFT, anchor=tk.W, width=15).pack(side=tk.LEFT)
         openFeeEntry = tk.Entry(openFeeFrame, relief=tk.GROOVE, bd=2, textvariable=self.openFee,
-                                validate="key", validatecommand=(self.testContent, "%P"))
-        # openFeeEntry.insert(tk.END, 1)
+                                validate="key", validatecommand=(self.testFlt, "%P"))
         openFeeEntry.pack(side=tk.LEFT, fill=tk.X, padx=5)
+
         openFeeUnit = tk.Label(openFeeFrame, text=' ', bg=rgb_to_hex(255, 255, 255),
                                textvariable=self.openTypeUnitVar, justify=tk.LEFT, anchor=tk.W, width=2)
         openFeeUnit.pack(side=tk.LEFT, padx=5)
@@ -852,8 +863,8 @@ class RunWin(QuantToplevel, QuantFrame):
         tk.Label(closeFeeFrame, text='平仓手续费(率):', bg=rgb_to_hex(255, 255, 255),
                  justify=tk.LEFT, anchor=tk.W, width=15).pack(side=tk.LEFT)
         closeFeeEntry = tk.Entry(closeFeeFrame, relief=tk.GROOVE, bd=2, textvariable=self.closeFee,
-                                 validate="key", validatecommand=(self.testContent, "%P"))
-        # closeFeeEntry.insert(tk.END, 1)
+                                 validate="key", validatecommand=(self.testFlt, "%P"))
+
         closeFeeEntry.pack(side=tk.LEFT, fill=tk.X, padx=5)
         closeFeeUnit = tk.Label(closeFeeFrame, text=' ', bg=rgb_to_hex(255, 255, 255),
                                      textvariable=self.closeTypeUnitVar, justify=tk.LEFT, anchor=tk.W, width=2)
@@ -864,9 +875,7 @@ class RunWin(QuantToplevel, QuantFrame):
         openType = self.openType.get()
         if openType == "固定值":
             self.openTypeUnitVar.set(" ")
-            # self.openFeeUnit.config(text=" ")
         if openType == "比例":
-            # self.openFeeUnit.config(text="%")
             self.openTypeUnitVar.set("%")
 
     def closeTypeUnitSet(self, event=None):
@@ -992,6 +1001,7 @@ class RunWin(QuantToplevel, QuantFrame):
         self.kLineCheck = tk.Checkbutton(kLineFrame, text="K线触发", bg=rgb_to_hex(255, 255, 255),
                                          anchor=tk.W, variable=self.isKLine)
         self.kLineCheck.pack(side=tk.LEFT, padx=5)
+        self.kLineCheck.config(state="disabled")
 
         # 即时行情触发
         self.marketCheck = tk.Checkbutton(marketFrame, text="即时行情触发", bg=rgb_to_hex(255, 255, 255),
@@ -1186,7 +1196,7 @@ class RunWin(QuantToplevel, QuantFrame):
         klineSliceLabel.pack(side=tk.LEFT, padx=5)
 
         self.klineSliceChosen = ttk.Combobox(self.klineSliceFrame, state="readonly", textvariable=self.kLineSlice)
-        self.klineSliceChosen["values"] = ['1', '2', '3', '5', '10', '15', '30']
+        self.klineSliceChosen["values"] = ['1', '2', '3', '5', '10', '15', '30', '60', '120']
         # self.klineSliceChosen.current(0)
         self.klineSliceChosen.pack(side=tk.LEFT, fill=tk.X, padx=10)
 
@@ -1204,9 +1214,9 @@ class RunWin(QuantToplevel, QuantFrame):
                                    validate="key", validatecommand=(self.testContent, "%P"))
         # self.timesEntry.insert(tk.END, 1)
         self.timesEntry.pack(side=tk.LEFT, fill=tk.X, padx=1)
-        self.timesLabel = tk.Label(self.openTimesFrame, text='次(1-100)', bg=rgb_to_hex(255, 255, 255),
+        timesLabel = tk.Label(self.openTimesFrame, text='次(1-100)', bg=rgb_to_hex(255, 255, 255),
                  justif=tk.LEFT, anchor=tk.W, width=10)
-        self.timesLabel.pack(side=tk.LEFT, expand=tk.NO, padx=1)
+        timesLabel.pack(side=tk.LEFT, expand=tk.NO, padx=1)
 
     def setContinueOpenTimes(self, frame):
         """最大连续同向开仓次数"""
@@ -1220,11 +1230,10 @@ class RunWin(QuantToplevel, QuantFrame):
 
         self.conTimesEntry = tk.Entry(self.conTimesFrame, relief=tk.GROOVE, bd=2, width=8, textvariable=self.conOpenTimes,
                                       validate="key", validatecommand=(self.testContent, "%P"))
-        # self.conTimesEntry.insert(tk.END, 1)
         self.conTimesEntry.pack(side=tk.LEFT, fill=tk.X, padx=1)
-        self.conTimesLabel = tk.Label(self.conTimesFrame, text='次(1-100)', bg=rgb_to_hex(255, 255, 255),
+        conTimesLabel = tk.Label(self.conTimesFrame, text='次(1-100)', bg=rgb_to_hex(255, 255, 255),
                  justif=tk.LEFT, anchor=tk.W, width=10)
-        self.conTimesLabel.pack(side=tk.LEFT, expand=tk.NO, padx=1)
+        conTimesLabel.pack(side=tk.LEFT, expand=tk.NO, padx=1)
 
     def setCanClose(self, frame):
         """开仓的当前K线不允许平仓"""
@@ -1388,11 +1397,22 @@ class RunWin(QuantToplevel, QuantFrame):
                 tempT = parseTime(t)
                 timerFormatter.append(tempT)
 
+        if float(initFund) < 1000:
+            messagebox.showinfo("极星量化", "初始资金不能小于1000元", parent=self)
+            self.initFundEntry.focus_set()
+            self.toFundFrame()
+            return
+
         if cycle =="":
             messagebox.showinfo("极星量化", "定时触发周期不能为空", parent=self)
+            self.cycleEntry.focus_set()
+            self.toRunFrame()
             return
         elif int(cycle) % 100 != 0:
             messagebox.showinfo("极星量化", "定时触发周期为100的整数倍", parent=self)
+            self.cycleEntry.focus_set()
+            self.toRunFrame()
+            return
         else:
             pass
 
@@ -1401,16 +1421,25 @@ class RunWin(QuantToplevel, QuantFrame):
             return
         elif int(minQty) > MAXSINGLETRADESIZE:
             messagebox.showinfo("极星量化", "最小下单量不能大于1000", parent=self)
+            self.minQtyEntry.focus_set()
+            self.toFundFrame()
             return
         else:
             pass
 
-        if isOpenTimes and (int(openTimes) < 1 or int(openTimes) > 100):
-            messagebox.showinfo("极星量化", "每根K线同向开仓次数必须介于1-100之间", parent=self)
-            return
-        if isConOpenTimes and (int(conOpenTimes) < 1 or int(conOpenTimes) > 100):
-            messagebox.showinfo("极星量化", "最大连续同向开仓次数必须介于1-100之间", parent=self)
-            return
+        if isConOpenTimes:
+            if conOpenTimes == '' or int(conOpenTimes) < 1 or int(conOpenTimes) > 100:
+                messagebox.showinfo("极星量化", "最大连续同向开仓次数必须介于1-100之间", parent=self)
+                self.conTimesEntry.focus_set()
+                self.toSampFrame()
+                return
+
+        if isOpenTimes:
+            if openTimes == '' or int(openTimes) < 1 or int(openTimes) > 100:
+                messagebox.showinfo("极星量化", "每根K线同向开仓次数必须介于1-100之间", parent=self)
+                self.timesEntry.focus_set()
+                self.toSampFrame()
+                return
 
         self.config["Contract"] = (contractInfo,)
         # self.config["Contract"] = tuple(contractInfo)

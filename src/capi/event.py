@@ -94,10 +94,16 @@ class Event:
         return self._record["ContractNo"]
 
     def getKLineType(self):
-        return self._record["KLineType"]
+        if "KLineType" in self._record:
+            return self._record["KLineType"]
+        else:
+            return None
 
     def getKLineSlice(self):
-        return self._record["KLineSlice"]
+        if "KLineSlice" in self._record:
+            return self._record["KLineSlice"]
+        else:
+            return None
 
     def isChainEnd(self):
         chain = self.getChain()

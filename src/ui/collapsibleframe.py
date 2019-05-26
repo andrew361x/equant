@@ -25,7 +25,7 @@ class CollapsibleFrame(tk.Frame):
         self.label.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.toggleLabel.pack(side=tk.LEFT)
 
-        self.statisTree = ttk.Treeview(self.graphFrame, columns=column, height=height, selectmode="browse",
+        self.statisTree = ttk.Treeview(self.graphFrame, columns=column, height=height, selectmode="none",
                                        show=["headings"], style="Filter.Treeview")
 
         vbar = tk.Scrollbar(self.graphFrame, orient='vertical')

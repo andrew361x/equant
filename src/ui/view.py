@@ -156,8 +156,6 @@ class QuantApplication(object):
         """量化界面关闭处理"""
         # 向引擎发送主进程退出信号
         self.control.sendExitRequest()
-        if self.hisTop:
-            self.hisTop.destroy()
 
         # 退出子线程和主线程
         self.control.quitThread()

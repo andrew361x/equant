@@ -1,7 +1,7 @@
 import os
 
 from tkinter import *
-from tkinter import ttk, messagebox, Frame
+from tkinter import Frame
 import tkinter.font as tkFont
 from utils.utils import *
 from .language import Language
@@ -17,6 +17,10 @@ class QuantEditorHead(object):
         
         self.head_frame = Frame(frame, bg=rgb_to_hex(245, 245, 245), height=30)
         Label(self.head_frame, bg=rgb_to_hex(245, 245, 245), text=self.language.get_text(1)).pack(side=LEFT)
+
+        # self.stateLabel = Label(self.head_frame, bg=rgb_to_hex(245, 245, 245), text=self.language.get_text(1))
+        # self.stateLabel.pack(side=RIGHT, fill=X, expand=YES, anchor=E)
+
         self.head_frame.pack_propagate(0)
         self.head_frame.pack(fill=X)
         
@@ -106,7 +110,7 @@ class StrategyTree(QuantFrame):
 
     def strategyMenu(self, event):
         """右键弹出菜单"""
-        StrategyMenu(self.control, self.root_tree).popupmenu(event)
+        StrategyMenu(self.control, self).popupmenu(event)
 
     def loadTree(self, parent, rootpath):
         for path in os.listdir(rootpath):  # 遍历当前目录
@@ -265,6 +269,7 @@ class QuantEditor(StrategyTree):
             if os.path.isfile(path):
                 # 获取策略内容
                 # self.editor_file = path
+
                 self.control.setEditorTextCode(path)
                 header = self.root_tree.item(idx)['text']
                 # self.updateEditorHead(header)
@@ -381,7 +386,7 @@ class QuantEditor(StrategyTree):
     def insertEditorWidget(self, data):
 
         self.editor_text = EditorText(self.editor_text_frame, self, relief=FLAT, borderwidth=10,
-                                      background=rgb_to_hex(255, 255, 255), wrap='none')
+                                      background=rgb_to_hex(255, 255, 255), wrap='none', undo=True)
         self.editor_text_scroll = self.addScroll(self.editor_text_frame, self.editor_text)
         self.editor_text.pack(fill=BOTH, expand=YES)
         # ctrl+s

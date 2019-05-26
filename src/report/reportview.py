@@ -11,6 +11,7 @@ from matplotlib import ticker
 
 import tkinter as tk
 import tkinter.ttk as ttk
+from dateutil.parser import parse
 
 from capi.com_types import *
 from report.handler import EventHandler
@@ -319,7 +320,7 @@ class Analyse(BaseFrame):
             self.tree.delete(child)
         text = (
             '资金', '合约信息', '周期', '计算开始时间', '计算结束时间', '测试天数', '最终权益', '空仓周期数',
-            '最长连续空仓周期', '最长交易周期', '标准离差', '标准离差率', '夏普比率',
+            '最长连续空仓周期', '标准离差', '标准离差率', '夏普比率',
             '盈亏总平均/亏损平均', '权益最大回撤',   '权益最大回撤时间', '权益最大回撤比', '权益最大回测比时间',
             '风险率', '收益率/风险率', '盈利率', '实际盈利率', '年化单利收益率', '月化单利收益率', '年化复利收益率',
             '月化复利收益率', '胜率', '平均盈利/平均亏损', '平均盈利率/平均亏损率', '净利润', '总盈利',
@@ -341,7 +342,6 @@ class Analyse(BaseFrame):
             '{:.2f}'.format(float(detail["FinalEquity"])),
             detail["EmptyPeriod"],
             detail["MaxContinueEmpty"],
-            detail["MaxTradePeriod"],
             '{:.2f}'.format(float(detail["StdDev"])),
             detail["StdDevRate"] if isinstance(detail["StdDevRate"], str) else '{:.2f}'.format(float(detail["StdDevRate"])),
             '{:.2f}'.format(float(detail["Sharpe"])),
@@ -445,19 +445,36 @@ class StageStatis(BaseFrame):
                  self.monthDis.statisTree, self.weekDis.statisTree, self.dailyDis.statisTree)
         stage_data = data['Stage']
         for g, sd in zip(graph, stage_data.values()):
-            # ------------------------------------
             children = g.get_children()
             for child in children:
                 g.delete(child)
 
+            # 封装成函数
             for d in sd:
-                g.insert('', 'end', values=(d['Time'],
+                # 根据不同阶段显示不同时间格式
+                ret = parse(str(d['Time']))
+                if g == self.yearDis.statisTree:
+                    time = str(ret.year) + '年'
+                elif g == self.monthDis.statisTree:
+                    time = str(ret.year) + '年' + str(ret.month) + '月'
+                elif g == self.quarterDis.statisTree:
+                    time = str(ret.year) + '年第' + str((ret.month-1)//3+1) + "季度"
+                elif g == self.weekDis.statisTree:
+                    time = str(ret.year) + '年第' + str(ret.isocalendar()[1]) + "周"
+                else:
+                    time = str(d['Time'])
+
+                g.insert('', 'end', values=(time,
                                             '{:.2f}'.format(float(d['Equity'])),
                                             '{:.2f}'.format(float(d['NetProfit'])),
                                             '{:.2%}'.format(float(d['Returns'])),
                                             '{:.2%}'.format(float(d['WinRate'])),
                                             '{:.2f}'.format(float(d['MeanReturns'])),
                                             '{:.2%}'.format(float(d['IncSpeed']))))
+
+    def parseTime(self, time):
+        pass
+
 
 
 class Trade(BaseFrame):

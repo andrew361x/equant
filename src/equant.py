@@ -48,5 +48,4 @@ def main():
         engine_process.join()
         log_process.terminate()
         log_process.join()
-        
     atexit.register(exitHandler)

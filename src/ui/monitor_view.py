@@ -115,10 +115,12 @@ class QuantMonitor(object):
         try:
             Id = dataDict['StrategyId']
             StName = dataDict['StrategyName']
-            BenchCon = dataDict['Config']['Contract'][0]
-
-            kLineType = FrequencyDict[dataDict['Config']['Sample']['KLineType']]
-            kLineSlice = dataDict['Config']['Sample']['KLineSlice']
+            #BenchCon = dataDict['Config']['Contract'][0]
+            BenchCon = dataDict['Config']['Sample']['Display']['ContractNo']
+            #kLineType = FrequencyDict[dataDict['Config']['Sample']['Display']['KLineType']]
+            
+            kLineType = dataDict['Config']['Sample']['Display']['KLineType']
+            kLineSlice = dataDict['Config']['Sample']['Display']['KLineSlice']
 
             Frequency = str(kLineSlice) + kLineType
             RunType = "是" if dataDict['Config']['RunMode']['Actual']['SendOrder2Actual'] else "否"

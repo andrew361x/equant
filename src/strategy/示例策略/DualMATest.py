@@ -14,7 +14,7 @@ def handle_data(context):
     
     #记录指标
     PlotNumeric('MA1', ma1[-1])
-    PlotNumeric('MA2', ma2[-1], color=0x00aa00)
+    PlotNumeric('MA2', ma2[-1], color=RGB_Green())
     
     if len(ma1) <= 5 or len(ma2) <= 20:
         return

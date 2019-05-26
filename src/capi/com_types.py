@@ -182,21 +182,20 @@ TM_STATUS_POSITION                = 5               #持仓查询完成
 ST_STATUS_NONE                    = 'N'             #初始状态
 ST_STATUS_HISTORY                 = 'H'             #回测状态
 ST_STATUS_CONTINUES               = 'C'             #运行状态
-ST_STATUS_CONTINUES_AS_REALTIME   = "CAR"
-ST_STATUS_CONTINUES_AS_HISTORY    = "CAH"
 ST_STATUS_PAUSE                   = 'P'             #暂停状态
 ST_STATUS_QUIT                    = 'Q'             #停止状态
 ST_STATUS_REMOVE                  = 'R'             #移除状态
 
 # 策略触发事件定义
-ST_TRIGGER_TIMER                  = 1               #定时触发
-ST_TRIGGER_CYCLE                  = 2               #周期性触发
-ST_TRIGGER_KLINE                  = 3               #K线触发
-ST_TRIGGER_SANPSHOT               = 4               #即时行情触发
-ST_TRIGGER_TRADE                  = 5               #交易触发
-ST_TRIGGER_FILL_DATA              = 6
-ST_TRIGGER_NONE                   = 7
-ST_TRIGGER_HIS_KLINE              = 8
+ST_TRIGGER_TIMER                  = 'T'              # 定时触发
+ST_TRIGGER_CYCLE                  = 'C'              # 周期性触发
+ST_TRIGGER_KLINE                  = 'K'              # K线触发
+ST_TRIGGER_SANPSHOT               = 'S'              # 即时行情触发
+ST_TRIGGER_TRADE_ORDER            = 'O'              # 交易触发
+ST_TRIGGER_TRADE_MATCH            = 'M'              # 交易触发
+ST_TRIGGER_FILL_DATA              = 'F'
+ST_TRIGGER_NONE                   = 'N'
+ST_TRIGGER_HIS_KLINE              = 'H'
 
 #策略触发操作定义
 ST_EVENT_TRIGGER                  = 0               #触发操作
@@ -287,6 +286,10 @@ EEQU_ISNOT_AXIS                  = '1'			     #非独立坐标
 EEQU_IS_MAIN                     = '0'		         #主图
 EEQU_ISNOT_MAIN                  = '1'			     #副图
 
+EEQU_STATE_RUN                   = '0';			     #运行
+EEQU_STATE_SUSPEND               = '1';		         #挂起
+EEQU_STATE_STOP                  = '2';			     #停止
+
 EEQU_VERTLINE                    = 0			     #竖直直线
 EEQU_INDICATOR                   = 1			     #指标线
 EEQU_BAR                         = 2				 #柱子
@@ -296,6 +299,25 @@ EEQU_PARTLINE                    = 5				 #线段
 EEQU_ICON                        = 6				 #图标
 EEQU_DOT                         = 7				 #点
 EEQU_ANY                         = 8				 #位置格式
+EEQU_TEXT                        = 9;				 #文本
+
+
+EQU_ICON_NORMAL                  = 0;	             #正常表情
+EQU_ICON_SMILE                   = 1;		         #笑脸
+EQU_ICON_CRYING                  = 2;	             #哭脸
+EQU_ICON_UP                      = 3;	             #上箭头
+EQU_ICON_DOWN                    = 4;		         #下箭头	
+EQU_ICON_UP2                     = 5;		         #上箭头2
+EQU_ICON_DOWN2                   = 6;		         #下箭头2
+EQU_ICON_HORN                    = 7;		         #喇叭
+EQU_ICON_LOCK                    = 8;		         #加锁
+EQU_ICON_UNLOCK                  = 9;	             #解锁
+EQU_ICON_MONEYADD                = 10;	             #货币+
+EQU_ICON_MONEYSUB                = 11;	             #货币-		
+EQU_ICON_ADD                     = 12;		         #加号
+EQU_ICON_SUB                     = 13;		         #减号
+EQU_ICON_WARNING                 = 14;	             #叹号
+EQU_ICON_ERROR                   = 15;	             #叉号
 
 
 # trade type
@@ -493,6 +515,18 @@ VIsConOpenTimes              = "30"     # 最大连续同向开仓次数标志
 VConOpenTimes                = "31"     # 最大连续同向开仓次数
 VCanClose                    = "32"     # 开仓的当前K线不允许平仓
 VCanOpen                     = "33"     # 平仓的当前K线不允许开仓
+
+# K线数据类型
+BarDataClose        = 'C' # 收盘价
+BarDataOpen         = 'O' # 开盘价
+BarDataHigh         = 'H' # 最高价
+BarDataLow          = 'L' # 最低价
+BarDataMedian       = 'M' # 中间价
+BarDataTypical      = 'B' # 标准价
+BarDataWeighted     = 'W' # 加权收盘价
+BarDataVol          = 'V' # 成交量
+BarDataOpi          = 'I' # 持仓量
+BarDataTime         = 'T' # Bar线时间
 
 #
 OrderSuccess                 = 0
@@ -795,6 +829,13 @@ class EEquKLineSeriesStruct4(Structure):
         ('LineValue', c_double),
         ('LinWid', c_uint),
     ]
+    
+class EEquKLineSeriesStruct5(Structure):
+    """图标类型,点类型"""
+    _pack_ = 1
+    _fields_ = [
+        ('Text', c_char*20)
+    ]
 
 
 class EEquKLineSeriesUnion(Union):
@@ -806,7 +847,7 @@ class EEquKLineSeriesUnion(Union):
         ('_KLineSeriesStructure2', EEquKLineSeriesStruct2),
         ('_KLineSeriesStructure3', EEquKLineSeriesStruct3),
         ('_KLineSeriesStructure4', EEquKLineSeriesStruct4),
-
+        ('_KLineSeriesStructure5', EEquKLineSeriesStruct5),
     ]
 
 
@@ -867,6 +908,14 @@ class EEquStrategyDataUpdateNotice(Structure):
     _pack_ = 1
     _fields_ = [
         ('StrategyId', c_uint)                            # 策略ID
+    ]
+    
+class EEquKlineStrategyStateNotice(Structure):
+    """策略状态推送"""
+    _pack_ = 1
+    _fields_ = [
+        ('StrategyId', c_uint),                            # 策略ID
+        ('StrategyState', c_ubyte)                         # 策略状态
     ]
 
 
@@ -1097,7 +1146,7 @@ class EEquPositionNotice(Structure):
     """持仓数据查询应答、通知"""
     _pack_ = 1
     _fields_ = [
-        ('PositionNo', c_char*21),
+        ('PositionNo', c_char*51),
         ('UserNo', c_char*21),
         ('Sign', c_char*21),
         ('Cont', c_char*101),				              # 行情合约
