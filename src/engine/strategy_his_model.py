@@ -213,11 +213,12 @@ class StrategyHisQuote(object):
         
         kLineHisData = self._kLineRspData[multiContKey]['KLineData']
         firstIndex = kLineHisData[0]['KLineIndex']
-        lastIndex  = KLineHisData[-1]['KLineIndex']
+        lastIndex  = kLineHisData[-1]['KLineIndex']
         
         if multiContKey in self._kLineNoticeData:
             kLineNoticeData = self._kLineNoticeData[multiContKey]['KLineData']
-            lastIndex = kLineNoticeData[-1]['KLineIndex']
+            if len(kLineNoticeData) > 0:
+                lastIndex = kLineNoticeData[-1]['KLineIndex']
 
         curBar = self._curBarDict[multiContKey].getCurBar()
         curBarIndex = curBar['KLineIndex']
@@ -239,7 +240,7 @@ class StrategyHisQuote(object):
         if multiContKey not in self._curBarDict:
             return 0
         curBar = self._curBarDict[multiContKey].getCurBar()
-        return str(curBar['DateTimeStamp'] / 1000000000)
+        return str(int(curBar['DateTimeStamp']) / 1000000000)
 
     def getBarTime(self, multiContKey):
         if multiContKey not in self._curBarDict:

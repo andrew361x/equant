@@ -5,9 +5,15 @@ from copy import deepcopy
 import talib
 import time, sys
 import datetime
+from dateutil.relativedelta import relativedelta
 import copy
 import math
 import pandas as pd
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
+
+
+from datetime import datetime, timedelta
 
 class StrategyConfig(object):
     '''
@@ -338,19 +344,15 @@ class StrategyConfig(object):
                 if len(timeStr) != 14 or not self.isVaildDate(timeStr, "%Y%m%d%H%M%S"):
                     return -1
 
-        self._metaData['SubContract'].append(contNo)
+        if len(contNo) > 0:
+            self._metaData['SubContract'].append(contNo)
         trigger = self._metaData['Trigger']
-        # if type == 1:
-        #     trigger['KLine'] = True
-        # el
-        if type == 1:
-            trigger['SnapShot'] = True
-        elif type == 2:
-            trigger['Trade'] = True
-        elif type == 3:
-            trigger['Cycle'] = value
-        elif value:
-            trigger['Timer'] = value
+
+        trigger['SnapShot'] = True if type == 1 else False
+        trigger['Trade'] = True if type == 2 else False
+        trigger['Cycle'] = value if type == 3 else None
+        trigger['Timer'] = value if type ==4 else None
+
         return 0
 
     def setSample(self, sampleType, sampleValue):

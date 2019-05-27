@@ -1,4 +1,5 @@
 from capi.event import *
+from copy import *
 
 # #####################################交易数据模型#########################################
 class TLogoinModel:
