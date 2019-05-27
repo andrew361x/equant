@@ -792,9 +792,9 @@ class PyAPI(object):
         sessionId = c_uint()
         req = EEquKlineStrategyStateNotice()
         req.StrategyId = event.getStrategyId()
-        req.StrategyStatus = ord(event.getData())
+        req.StrategyState = ord(event.getData())
         self._cDll.E_KLineStrategyStateNotice(byref(sessionId), byref(req))
-        self._setSessionId(sessionId.value, event.getStrategyId())    
+        self._setSessionId(sessionId.value, event.getStrategyId())
     
         
     #////////////////////////////交易数据请求///////////////////////
@@ -927,9 +927,12 @@ class PyAPI(object):
                 }
             }
         '''
+
         sessionId = c_uint()
         data = event.getData()
         req = EEquOrderInsertReq()
+        print("55555555555555555 ")
+        print(data['Cont'])
         req.UserNo = data['UserNo'].encode()
         req.Sign = data['Sign'].encode()
         req.Cont = data['Cont'].encode()
@@ -1122,8 +1125,7 @@ class PyAPI(object):
             self.logger.info("request contract data over(%d)!"%(self._contractCount))
         else:
             pass
-            
-            
+
     def _onSnapshot(self, apiEvent):
         '''即时行情应答'''
         dataAddr   = apiEvent.getData()
@@ -1166,7 +1168,6 @@ class PyAPI(object):
             fieldDataDict['FieldData'] = fieldDict
             
             dataList.append(fieldDataDict)
-        
         # 发送到引擎
         apiEvent.setData(dataList)
         sid = apiEvent.getSessionId()
@@ -1361,7 +1362,6 @@ class PyAPI(object):
             buf = string_at(dataAddr + fieldSize * i, fieldSize)
             data = EEquOrderDataNotice()
             memmove(addressof(data), buf, sizeof(EEquOrderDataNotice))
-            
             idict = {
                 'SessionId'        : data.SessionId,
                 'UserNo'           : data.UserNo.decode('utf-8'),
@@ -1398,6 +1398,7 @@ class PyAPI(object):
 
         # 委托通知
         if apiEvent.getEventCode() == EEQU_SRVEVENT_TRADE_ORDER and len(apiEvent.getData()) > 0:
+            print(apiEvent.getData()[0])
             apiSessionId = apiEvent.getData()[0]["SessionId"]
             # print(apiEvent.getData()[0]["SessionId"], apiEvent.getData()[0]["OrderId"], apiEvent.getEventCode(), apiEvent.getData()[0]["OrderState"])
             if apiSessionId in self._apiSessionIdMap:
@@ -1405,6 +1406,8 @@ class PyAPI(object):
                 apiEvent.setStrategyId(strategyId)
                 apiEvent.setESessionId(eSessionId)
                 # print("Strategy id = ",apiEvent.getStrategyId(),"Esession id =", apiEvent.getESessionId())
+            else:
+                apiEvent.setStrategyId(0)
         self._api2egQueue.put(apiEvent)
 
     def _onMatchData(self, apiEvent):

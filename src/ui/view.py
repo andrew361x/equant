@@ -146,21 +146,22 @@ class QuantApplication(object):
 
     def createRunWin(self):
         """弹出量化设置界面"""
+        self.setLoadState("disabled")
         self.runWin = RunWin(self.control, self.root)
         self.runWin.display()
+        self.setLoadState("normal")
 
-    def setLoadState(self):
-        self.quant_editor.setLoadBtnState()
+    def setLoadState(self, state):
+        self.quant_editor.setLoadBtnState(state)
 
     def quantExit(self):
         """量化界面关闭处理"""
         # 向引擎发送主进程退出信号
-        self.control.sendExitRequest()
+        if messagebox.askokcancel("关闭?", "确定退出么?\n请确认保存当前的内容"):
+            self.control.sendExitRequest()
 
-        # 退出子线程和主线程
-        self.control.quitThread()
-        # 主线程在子线程之后退出
-        #self.root.destroy()
+            # 退出子线程和主线程
+            self.control.quitThread()
 
     def reportDisplay(self, data, id):
         """

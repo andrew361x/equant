@@ -39,12 +39,13 @@ class WidgetRedirector:
         self.widget = widget            # widget instance
         self.tk = tk = widget.tk        # widget's root
         w = widget._w                   # widget's (full) Tk pathname
+        # self.orig = self.widget.orig
         self.orig = w + "_orig"
         # Rename the Tcl command within Tcl:
-        tk.call("rename", w, self.orig)
+        # self.tk.call("rename", w, self.orig)
         # Create a new Tcl command whose name is the widget's pathname, and
         # whose action is to dispatch on the operation passed to the widget:
-        tk.createcommand(w, self.dispatch)
+        self.tk.createcommand(w, self.dispatch)
 
     def __repr__(self):
         return "%s(%s<%s>)" % (self.__class__.__name__,

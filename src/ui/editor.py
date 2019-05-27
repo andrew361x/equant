@@ -1,4 +1,5 @@
-
+import threading
+import time
 import builtins
 import keyword
 import re
@@ -181,10 +182,39 @@ class ModifiedMixin(object):
             self._resettingModifiedFlag = False
 
 
+class TextLineNumbers(Canvas):
+    """line numbers"""
+
+    def __init__(self, *args, **kwargs):
+        Canvas.__init__(self, *args, **kwargs)
+        self.textwidget = None
+
+    def attach(self, textWidget):
+        self.textwidget = textWidget
+
+    def redraw(self, *args):
+        '''redraw line numbers'''
+        self.delete("all")
+
+        i = self.textwidget.index("@0,0")
+        while True :
+            dline= self.textwidget.dlineinfo(i)
+            if dline is None: break
+            y = dline[1] + 7
+            linenum = str(i).split(".")[0]
+            self.create_text(2, y, anchor="nw", text=linenum)
+            i = self.textwidget.index("%s+1line" % i)
+
+        self.after(200, self.redraw)
+
 class EditorText(ParentText, ModifiedMixin):
     def __init__(self, master, view, **kw):
         ParentText.__init__(self, master, **kw)
         self._init()
+
+        self._orig = self._w + "_orig"
+        self.tk.call("rename", self._w, self._orig)
+        self.tk.createcommand(self._w, self._proxy)
 
         self._view = view
         self._controller = view.control
@@ -202,17 +232,42 @@ class EditorText(ParentText, ModifiedMixin):
 
         self.config(state="normal")
 
+        #TODO: 增加行号
+        self.linenumbers = TextLineNumbers(self.master, width=30)
+        self.linenumbers.attach(self)
+
+        self.bind("<<Change>>", self._onChange)
+        self.bind("<Configure>", self._onChange)
+        self.linenumbers.pack(side=LEFT, fill="y")
+
+    def _onChange(self, event):
+        self.linenumbers.redraw()
+
+    def _proxy(self, *args):
+        # let the actual widget perform the requested action
+        cmd = (self._orig,) + args
+        try:
+            result = self.tk.call(cmd)
+        except Exception:
+            return None
+
+        # generate an event if something was added or deleted,
+        # or the cursor position changed
+        if (args[0] in ("insert", "replace", "delete") or
+            args[0:3] == ("mark", "set", "insert") or
+            args[0:2] == ("xview", "moveto") or
+            args[0:2] == ("xview", "scroll") or
+            args[0:2] == ("yview", "moveto") or
+            args[0:2] == ("yview", "scroll")
+        ):
+            self.event_generate("<<Change>>", when="tail")
+
+        # return what the actual widget returned
+        return result
+        # return None
+
     def beenModified(self, event=None):
-        # print("--------modified------")
-        # 获取选中的策略名
-        # if not self._view.doubleClickFlag():
-        #     strategyPath = self._controller.getEditorText()["path"]
-        #     text = os.path.basename(strategyPath)
-        #     self._view.updateEditorHead(text+"*")
-        # return
-
         if not self._view.doubleClickFlag():
-
             if self.edit_modified():
                 if not self._view.doubleClickFlag():
                     strategyPath = self._controller.getEditorText()["path"]
@@ -220,8 +275,8 @@ class EditorText(ParentText, ModifiedMixin):
                     self._view.updateEditorHead(text+"*")
                 return
 
-    def insert(self, index, chars, tags=None):
-        self.percolator.insert(index, chars, tags=None)
+    # def insert(self, index, chars, tags=None):
+    #     self.percolator.insert(index, chars, tags=None)
 
     def config_colors(self):
         for tag, cnf in self.tagdefs.items():
@@ -235,19 +290,8 @@ class EditorText(ParentText, ModifiedMixin):
     def show_arrow_cursor(self,event):
         self.config(cursor="hand2")
 
-        # index1 = self.index("current").split(".")
-        # range1 = self.tag_ranges("ESUNNY")
-        # for i, pos in enumerate(range1):
-        #     posit = pos.string.split(".")
-        #     if int(index1[0]) == int(posit[0]) and int(index1[1]) <= int(posit[1]):
-        #         self.tag_configure("current_line", background="green")
-        #         self.tag_remove(pos, 1.0, "end")
-        #         self.tag_add(pos, "insert linestart", "insert lineend+1c")
-
-
     def show_xterm_cursor(self, event):
         self.config(cursor='xterm')
-
 
     def click(self, event):
         index1 = self.index("current").split(".")
@@ -553,4 +597,18 @@ class ContractText(ParentText):
             insertbackground="black",
             selectforeground="#000000"
         )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

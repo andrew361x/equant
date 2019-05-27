@@ -140,7 +140,7 @@ class StrategyModel(object):
     #////////////////////////K线函数/////////////////////////////
     def getKey(self, contNo, kLineType, kLineValue):
         #空合约取默认展示的合约
-        if contNo == "":
+        if contNo == "" or kLineType =='' or kLineValue == 0:
             return self._cfgModel.getDefaultKey()
     
         # if contNo not in 合约没有订阅
@@ -150,7 +150,7 @@ class StrategyModel(object):
                               EEQU_KLINE_WEEK, EEQU_KLINE_MONTH,
                               EEQU_KLINE_YEAR):
             raise Exception("输入K线类型异常，请参阅枚举函数-周期类型枚举函数")
-        if not isinstance(kLineValue, int) or kLineValue <= 0:
+        if not isinstance(kLineValue, int) or kLineValue < 0:
             raise Exception("输入K线周期异常，请确保输入的K线周期是正整数")
         return (contNo, kLineType, kLineValue)
 
@@ -633,15 +633,19 @@ class StrategyModel(object):
         # 发送下单信号,K线触发、即时行情触发
         # 未选择实盘运行
         if not self._cfgModel.isActualRun():
-            return ""
-            
+            return -1, '未选择实盘运行，请在设置界面勾选"实盘运行"，或者在策略代码中调用SetActual()方法选择实盘运行'
+
         if not self._strategy.isRealTimeStatus():
-            return ""
+            return -2, "策略当前状态不是实盘运行状态，请勿在历史回测阶段调用该函数"
                
         # 账户错误
         if not userNo or userNo == 'Default':
-            return ""
-        
+            return -3, "未指定下单账户信息"
+
+        # 指定的用户未登录
+        if self._trdModel.getSign(userNo) is None:
+            return -4, "输入的账户没有在极星客户端登录"
+
         # 发送定单到实盘
         aOrder = {
             'UserNo': userNo,
@@ -675,7 +679,7 @@ class StrategyModel(object):
         # 更新策略的订单信息
         self._strategy.setESessionId(self._strategy.getESessionId() + 1)
         self._strategy.updateLocalOrder(eId, aOrder)
-        return eId
+        return 0, eId
 
     # def addOrder2CalcCenter(self, userNo, contNo, direct, offset, price, share, curBar):
     #     if not curBar:
@@ -1019,6 +1023,25 @@ class StrategyModel(object):
         }]
         self._plotNumeric(name, value, color, main, axis, type, barsback, data)
         
+    def setPlotVertLine(self, color, main, axis, barsback):
+        main = '0' if main else '1'
+        axis = '0' if axis else '1'
+        
+        curBar = self._hisModel.getCurBar()
+        klineIndex = curBar['KLineIndex'] - barsback
+        
+        if klineIndex <= 0:
+            return
+        
+        value = curBar['LastPrice']
+        data = [{
+            'KLineIndex' : klineIndex,
+            'Value'      : value,
+            'ClrK'       : color
+        }]
+
+        self._plotNumeric(self._strategyName, value, color, main, axis, EEQU_VERTLINE, barsback, data)
+        
 
     def formatArgs(self, args):
         if len(args) == 0:
@@ -1288,6 +1311,9 @@ class StrategyModel(object):
     def getAvgEntryPrice(self, contNo):
         '''当前持仓的平均建仓价格'''
         posInfo = self._calcCenter.getPositionInfo(contNo)
+        if not posInfo:
+            return 0
+
         totalPrice = 0
         totalQty = 0
         if not contNo:
@@ -1324,6 +1350,9 @@ class StrategyModel(object):
             contNo = self._cfgModel.getBenchmark()
 
         positionInfo = self._calcCenter.getPositionInfo(contNo)
+        if not positionInfo:
+            return -1
+
         buy = positionInfo['TotalBuy']
         sell = positionInfo['TotalSell']
         if buy == sell:

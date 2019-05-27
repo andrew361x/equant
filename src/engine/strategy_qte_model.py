@@ -166,7 +166,7 @@ class StrategyQuote(QuoteModel):
     def getQAskPrice(self, contNo, level=1):
         quoteDataModel = self._contractData[contNo]
         if level == 1:
-            return quoteDataModel._metaData["Lv1Data"][17]
+            return quoteDataModel.getLv1Data(17, 0.0)
 
         lv2AskData = quoteDataModel._metaData["Lv2AskData"]
         if (level > len(lv2AskData)) or (not isinstance(lv2AskData[level-1], dict)):
@@ -185,7 +185,7 @@ class StrategyQuote(QuoteModel):
     def getQAskVol(self, contNo, level=1):
         quoteDataModel = self._contractData[contNo]
         if level == 1:
-            return quoteDataModel._metaData["Lv1Data"][18]
+            return quoteDataModel.getLv1Data(18, 0)
 
         lv2AskData = quoteDataModel._metaData["Lv2AskData"]
         if (level > len(lv2AskData)) or (not isinstance(lv2AskData[level - 1], dict)):
@@ -197,14 +197,14 @@ class StrategyQuote(QuoteModel):
     @paramValidatorFactory(0)
     def getQAvgPrice(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][15]
+        return quoteDataModel.getLv1Data(15, 0.0)
 
     # 合约最新买价
     @paramValidatorFactory(0)
     def getQBidPrice(self, contNo, level):
         quoteDataModel = self._contractData[contNo]
         if level == 1:
-            return quoteDataModel._metaData["Lv1Data"][19]
+            return quoteDataModel.getLv1Data(19, 0.0)
 
         lv2BidData = quoteDataModel._metaData["Lv2BidData"]
         if (level > len(lv2BidData)) or (not isinstance(lv2BidData[level-1], dict)):
@@ -223,7 +223,7 @@ class StrategyQuote(QuoteModel):
     def getQBidVol(self, contNo, level):
         quoteDataModel = self._contractData[contNo]
         if level == 1:
-            return quoteDataModel._metaData["Lv1Data"][20]
+            return quoteDataModel.getLv1Data(20, 0)
 
         lv2BidData = quoteDataModel._metaData["Lv2BidData"]
         if (level > len(lv2BidData)) or (not isinstance(lv2BidData[level - 1], dict)):
@@ -235,25 +235,33 @@ class StrategyQuote(QuoteModel):
     @paramValidatorFactory(0)
     def getQClose(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][0] if quoteDataModel._metaData["Lv1Data"][14] == 0 else quoteDataModel._metaData["Lv1Data"][14]
+
+        if 14 in quoteDataModel._metaData["Lv1Data"] and quoteDataModel._metaData["Lv1Data"][14] >= 0:
+            if quoteDataModel._metaData["Lv1Data"][14] > 0:
+                return quoteDataModel._metaData["Lv1Data"][14]
+            elif 0 in quoteDataModel._metaData["Lv1Data"]:
+                return quoteDataModel._metaData["Lv1Data"][0]
+            return 0.0
+
+        return 0.0
 
     # 当日最高价
     @paramValidatorFactory(0)
     def getQHigh(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][5]
+        return quoteDataModel.getLv1Data(5, 0.0)
 
     # 历史最高价
     @paramValidatorFactory(0)
     def getQHisHigh(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][7]
+        return quoteDataModel.getLv1Data(7, 0.0)
 
     # 历史最低价
     @paramValidatorFactory(0)
     def getQHisLow(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][8]
+        return quoteDataModel.getLv1Data(8, 0.0)
 
     # 内盘量，买入价成交为内盘
     @paramValidatorFactory(0)
@@ -265,7 +273,7 @@ class StrategyQuote(QuoteModel):
     @paramValidatorFactory(0)
     def getQLast(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][4]
+        return quoteDataModel.getLv1Data(4, 0.0)
 
     # 最新成交日期
     @paramValidatorFactory(None)
@@ -295,25 +303,25 @@ class StrategyQuote(QuoteModel):
     @paramValidatorFactory(0)
     def getQLow(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][6]
+        return quoteDataModel.getLv1Data(6, 0.0)
 
     # 当日跌停板价
     @paramValidatorFactory(0)
     def getQLowLimit(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][10]
+        return quoteDataModel.getLv1Data(10, 0.0)
 
     # 当日开盘价
     @paramValidatorFactory(0)
     def getQOpen(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][3]
+        return quoteDataModel.getLv1Data(3, 0.0)
 
     # 持仓量
     @paramValidatorFactory(0)
     def getQOpenInt(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][12]
+        return quoteDataModel.getLv1Data(12, 0)
 
     # 持仓量变化标志
     @paramValidatorFactory(0)
@@ -331,25 +339,25 @@ class StrategyQuote(QuoteModel):
     @paramValidatorFactory(0)
     def getQPreOpenInt(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][2]
+        return quoteDataModel.getLv1Data(2, 0)
 
     # 昨结算
     @paramValidatorFactory(0)
     def getQPreSettlePrice(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][1]
+        return quoteDataModel.getLv1Data(1, 0.0)
 
     # 当日涨跌
     @paramValidatorFactory(0)
     def getQPriceChg(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][112]
+        return quoteDataModel.getLv1Data(112, 0.0)
 
     # 当日涨跌幅
     @paramValidatorFactory(0)
     def getQPriceChgRadio(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][113]
+        return quoteDataModel.getLv1Data(113, 0)
 
     # 当日开仓量
     @paramValidatorFactory(0)
@@ -367,22 +375,23 @@ class StrategyQuote(QuoteModel):
     @paramValidatorFactory(0)
     def getQTotalVol(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][11]
+        return quoteDataModel.getLv1Data(11, 0)
 
     # 当日成交额
     @paramValidatorFactory(0)
     def getQTurnOver(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][27]
+        return quoteDataModel.getLv1Data(27, 0.0)
 
     # 当日涨停板价
     @paramValidatorFactory(0)
     def getQUpperLimit(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel._metaData["Lv1Data"][9]
+        return quoteDataModel.getLv1Data(9, 0.0)
+
 
     # 行情数据是否有效
     @paramValidatorFactory(False)
     def getQuoteDataExist(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return True if len(quoteDataModel._metaData["Lv1Data"]) else False
+        return True if len(quoteDataModel._metaData["Lv1Data"]) > 0 else False

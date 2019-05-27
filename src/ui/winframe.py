@@ -59,7 +59,6 @@ class MixedCancas(CanvasFrame):
         self.master.master.state("normal")
 
     def on_click(self, event):
-        print("haha")
         if self.flag:
             self.delete("max")
             self.flag = not self.flag

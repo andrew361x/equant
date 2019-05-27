@@ -314,7 +314,7 @@ class GetEgData(object):
         userInfo = event.getData()
         self._userNo.extend(userInfo)
 
-        self._app.setLoadState()
+        self._app.setLoadState("normal")
 
     def _onEgStrategyStatus(self, event):
         """接收引擎推送策略状态改变信息"""

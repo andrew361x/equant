@@ -14,6 +14,7 @@ import importlib
 import queue
 import datetime
 from datetime import datetime
+import copy
 
 
 class StartegyManager(object):
@@ -75,53 +76,45 @@ class StrategyContext:
         self._dateTimeStamp = None
         self._triggerData = None
 
-    @property
     def strategyStatus(self):
         return self._strategyStatus
 
-    @property
     def triggerType(self):
         return self._triggerType
 
-    @property
     def contractNo(self):
         return self._conTractNo
 
-    @property
     def kLineType(self):
         return self._kLineType
 
-    @property
     def kLineSlice(self):
         return self._kLineSlice
 
-    @property
     def tradeDate(self):
         if self._tradeDate is not None:
             return str(self._tradeDate)
         else:
             return None
 
-    @property
     def dateTimeStamp(self):
         if self._dateTimeStamp is not None:
             return str(self._dateTimeStamp)
         else:
             return None
 
-    @property
     def triggerData(self):
         return self._triggerData
 
     def setCurTriggerSourceInfo(self, args):
-        self._strategyStatus = args["Status"]
-        self._triggerType = args["TriggerType"]
-        self._conTractNo = args["ContractNo"]
-        self._kLineType = args["KLineType"]
-        self._kLineSlice = args["KLineSlice"]
-        self._tradeDate = args["TradeDate"]
-        self._dateTimeStamp = args["DateTimeStamp"]
-        self._triggerData = args["TriggerData"]
+        self._strategyStatus = copy.deepcopy(args["Status"])
+        self._triggerType = copy.deepcopy(args["TriggerType"])
+        self._conTractNo = copy.deepcopy(args["ContractNo"])
+        self._kLineType = copy.deepcopy(args["KLineType"])
+        self._kLineSlice = copy.deepcopy(args["KLineSlice"])
+        self._tradeDate = copy.deepcopy(args["TradeDate"])
+        self._dateTimeStamp = copy.deepcopy(args["DateTimeStamp"])
+        self._triggerData = copy.deepcopy(args["TriggerData"])
 
 
 class TradeRecord(object):
@@ -524,8 +517,6 @@ class Strategy:
             "StrategyId":self._strategyId,
             "Data":{
                 "Result":data,
-                "BeginTradeDate":self._dataModel.getHisQuoteModel().getBeginDate(),
-                "EndTradeDate":self._dataModel.getHisQuoteModel().getEndDate(),
             }
         })
         self.sendEvent2UI(responseEvent)
@@ -795,7 +786,7 @@ class Strategy:
             return
 
         if apiEvent.getEventCode() == EEQU_SRVEVENT_TRADE_ORDER and str(apiEvent.getStrategyId()) == str(self._strategyId):
-            contractNo = apiEvent.getData[0]["Cont"]
+            contractNo = apiEvent.getData()[0]["Cont"]
             dateTimeStamp, tradeDate, lv1Data = self.getTriggerTimeAndData(contractNo)
 
             tradeTriggerEvent = Event({

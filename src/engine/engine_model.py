@@ -285,8 +285,12 @@ class QuoteDataModel:
         # 9.5传递全量深度，直接拷贝
         self._metaData['Lv2BidData'] = oneDict['Bid'][:]
         self._metaData['Lv2AskData'] = oneDict['Ask'][:]
-        
-            
+
+    def getLv1Data(self, key, errRet):
+        if key not in self._metaData['Lv1Data']:
+            return errRet
+        return self._metaData['Lv1Data'][key]
+
 # 历史行情
 class HisQuoteModel:
     '''K线Model中不缓存，直接分发'''

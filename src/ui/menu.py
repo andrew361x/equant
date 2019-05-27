@@ -32,7 +32,7 @@ class StrategyMenu(object):
         new_menu.add_command(label=self.language.get_text(41), command=self.newStrategy)
         new_menu.add_command(label=self.language.get_text(42), command=self.newDir)
         if len(self._lClickSelectedItem) == 1:
-            self.menu.add_command(label="修改名称", command=self.rename)
+            self.menu.add_command(label="重命名", command=self.rename)
 
         # self.menu.add_command(label="移动分组", command=self.move_strategy)
         self.menu.add_command(label="删除", command=self.delete_)

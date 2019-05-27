@@ -90,7 +90,10 @@ class StrategyConfig(object):
         if ret > 0:
             raise Exception(ret)
 
-        self._metaData = self.convertArgsDict(argsDict)
+        if 'Default' in argsDict['Sample']:
+            self._metaData = argsDict
+        else:
+            self._metaData = self.convertArgsDict(argsDict)
 
     def convertArgsDict(self, argsDict):
         resDict = {}
@@ -178,7 +181,8 @@ class StrategyConfig(object):
 
     def getBenchmark(self):
         '''获取基准合约'''
-        return self._metaData['Contract'][0]
+        showInfo = self.getKLineShowInfo()
+        return showInfo['ContractNo']
         
     def getDefaultKey(self):
         '''获取基准合约配置'''
@@ -1001,7 +1005,7 @@ class StrategyHisQuote(object):
 
         numArray = methodMap[dataType](multiContKey)
 
-        return numArray if len(numArray) <= maxLength else numArray[(len(numArray) - maxLength - 1):]
+        return numArray if len(numArray) <= maxLength else numArray[-maxLength : ]
         
     #//////////////////////////////////内部接口//////////////////////////////////
 
@@ -1054,7 +1058,7 @@ class StrategyHisQuote(object):
         high = self.getBarHigh(contNo)
         low = self.getBarLow(contNo)
         close = self.getBarClose(contNo)
-        minLength = min(len(high), min(low), len(close))
+        minLength = min(len(high), len(low), len(close))
         if minLength == 0:
             return []
         typicalList = []
@@ -1068,7 +1072,7 @@ class StrategyHisQuote(object):
         low = self.getBarLow(contNo)
         open = self.getBarOpen(contNo)
         close = self.getBarClose(contNo)
-        minLength = min(len(high), min(low), len(open), len(close))
+        minLength = min(len(high), len(low), len(open), len(close))
         if minLength == 0:
             return []
         weightedList = []
@@ -2298,7 +2302,8 @@ class StrategyTrade(TradeModel):
         if not orderNo:
             # 委托单号 为空
             lastOrderTime = self.convertDateToTimeStamp('1970-01-01 08:00:00')
-            for orderModel in tUserInfoModel._order.values():
+            for orderNo in list(tUserInfoModel._order.keys()):
+                orderModel = tUserInfoModel._order[orderNo]
                 insertTimeStamp = self.convertDateToTimeStamp(orderModel._metaData['InsertTime'])
                 updateTimeStamp = self.convertDateToTimeStamp(orderModel._metaData['UpdateTime'])
                 orderTime = insertTimeStamp if insertTimeStamp >= updateTimeStamp else updateTimeStamp

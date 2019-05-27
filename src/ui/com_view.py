@@ -35,7 +35,7 @@ class QuantFrame(object):
             xsb.pack(fill=tk.X, side=tk.BOTTOM)
 
         if yscroll:
-            ysb = tk.Scrollbar(frame,bg=rgb_to_hex(255,0,0))
+            ysb = tk.Scrollbar(frame, orient="vertical")
             widgets.config(yscrollcommand=ysb.set)
             ysb.config(command=widgets.yview, bg=rgb_to_hex(255,0,0))
             ysb.pack(fill=tk.Y, side=tk.RIGHT)
@@ -96,8 +96,8 @@ class NewFileToplevel(QuantToplevel):
         self.type_chosen["values"] = [".py"]
         self.type_chosen.current(0)
 
-        self.saveBtn = tk.Button(f3, text=self.language.get_text(19), bd=0)
-        self.cancelBtn = tk.Button(f3, text=self.language.get_text(20), bd=0)
+        self.saveBtn = tk.Button(f3, text=self.language.get_text(19))
+        self.cancelBtn = tk.Button(f3, text=self.language.get_text(20))
         name_label.pack(side=tk.LEFT, expand=tk.NO)
         self.nameEntry.pack(side=tk.LEFT, fill=tk.X, expand=tk.YES, padx=15)
         type_label.pack(side=tk.LEFT, expand=tk.NO)
@@ -133,8 +133,8 @@ class NewDirToplevel(QuantToplevel):
 
         nameLabel = tk.Label(f1, text="输入分组名称：")
         self.nameEntry = tk.Entry(f2)
-        self.saveBtn = tk.Button(f4, text="保存", bd=0)
-        self.cancelBtn = tk.Button(f5, text="取消", bd=0)
+        self.saveBtn = tk.Button(f4, text="保存")
+        self.cancelBtn = tk.Button(f5, text="取消")
 
         nameLabel.pack(side=tk.LEFT, fill=tk.X, expand=tk.NO, padx=15)
         self.nameEntry.pack(side=tk.LEFT, fill=tk.X, expand=tk.YES, padx=15)
@@ -168,8 +168,8 @@ class RenameToplevel(QuantToplevel):
             self.newEntry = tk.Entry(f1, width=15)
             self.newEntry.insert(tk.END, os.path.basename(self.path))
 
-            self.saveBtn = tk.Button(f2, text="确定", bd=0)
-            self.cancelBtn = tk.Button(f2, text="取消", bd=0)
+            self.saveBtn = tk.Button(f2, text="确定")
+            self.cancelBtn = tk.Button(f2, text="取消")
 
             newLabel.pack(side=tk.LEFT, fill=tk.X, expand=tk.NO, padx=15)
             self.newEntry.pack(side=tk.LEFT, fill=tk.X, expand=tk.YES, padx=15)
@@ -226,8 +226,8 @@ class DeleteToplevel(QuantToplevel):
                                 os.path.join(os.path.basename(os.path.dirname(self.path[0])),
                                              os.path.basename(self.path[0])) + "?"
 
-        self.saveBtn = tk.Button(f2, text=self.language.get_text(33), bd=0)
-        self.cancelBtn = tk.Button(f2, text=self.language.get_text(20), bd=0)
+        self.saveBtn = tk.Button(f2, text=self.language.get_text(33))
+        self.cancelBtn = tk.Button(f2, text=self.language.get_text(20))
 
         label.pack(side=tk.LEFT, fill=tk.X, expand=tk.NO, padx=15, pady=15)
         self.cancelBtn.pack(side=tk.RIGHT, expand=tk.NO, ipadx=5, padx=15, pady=10)

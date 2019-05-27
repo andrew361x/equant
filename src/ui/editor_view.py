@@ -269,7 +269,6 @@ class QuantEditor(StrategyTree):
             if os.path.isfile(path):
                 # 获取策略内容
                 # self.editor_file = path
-
                 self.control.setEditorTextCode(path)
                 header = self.root_tree.item(idx)['text']
                 # self.updateEditorHead(header)
@@ -289,9 +288,11 @@ class QuantEditor(StrategyTree):
         self.titleLabel.config(text=text)
 
     def updateEditorText(self, text):
+
         editor_text_code = text
-        self.editor_text.delete(0.0, END)
+        self.editor_text.delete(0.0, END+"-1c")
         self.editor_text.insert(END, editor_text_code)
+        self.editor_text.delete(END + "-1c")
         self.editor_text.update()
         self.editor_text.focus_set()
         self.editor_text.tag_add("TODO", "0.0", "end")
@@ -347,13 +348,14 @@ class QuantEditor(StrategyTree):
         saveBtn.pack(side=RIGHT)
         self.loadingBtn.pack(side=RIGHT)
 
-    def setLoadBtnState(self):
-        self.loadingBtn.config(state="normal")
+    def setLoadBtnState(self, state):
+        self.loadingBtn.config(state=state)
 
     def tab_key(self, event):
         self.editor_text.insert(INSERT, " " * 4)
         return 'break'
 
+    #TODO: 先暂时屏蔽掉
     def return_key(self, event):
         line_column = self.editor_text.index('insert')  # 获取当前光标所在行号列号
         line, column = line_column.split(".")
@@ -368,7 +370,6 @@ class QuantEditor(StrategyTree):
                 continue
             break
 
-        # self.editor_text.delete(self.start, self.stop)
         self.editor_text.insert("%s.%s" % (line, column), "\n" + " " * space_num)  # 插入空格
         return 'break'  # 阻断自身的换行操作
 
@@ -395,7 +396,7 @@ class QuantEditor(StrategyTree):
         # tab
         self.editor_text.bind("<Tab>", self.tab_key)
         # 回车键
-        self.editor_text.bind("<Return>", self.return_key)
+        # self.editor_text.bind("<Return>", self.return_key)
 
         # TODO：事件绑定有问题---回车键有bug
         # self.editor_text.bind("<Button-1>", self.buttonDown)

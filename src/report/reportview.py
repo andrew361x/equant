@@ -247,7 +247,7 @@ class Fund(BaseFrame):
 
     def make_widgets(self):
         self.fig, self.ax = plt.subplots()
-        self.ax.yaxis.grid(False, linestyle="-.", color='silver')
+        self.ax.yaxis.grid(linestyle="-.", color='silver')
         self.canvas = FigureCanvasTkAgg(self.fig, self)
         # self.draw()
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
@@ -628,8 +628,8 @@ class Graph(BaseFrame):
         self.ax.cla()
         self.ax.clear()
         x, y = self.get_plot_data('年度分析', 'Equity')
-        self.ax.xaxis.grid(False, linestyle="-.", color="silver")
-        self.ax.yaxis.grid(False, linestyle="-.", color="silver")
+        self.ax.xaxis.grid(linestyle="-.", color="silver")
+        self.ax.yaxis.grid(linestyle="-.", color="silver")
         self.ax.bar(range(len(y)), y)
         self.ax.set_title('Equity')
         self.ax.set_xlabel("a")
@@ -667,8 +667,8 @@ class Graph(BaseFrame):
                 self.ax.cla()
                 self.ax.clear()
 
-                self.ax.xaxis.grid(False, linestyle="-.", color="silver")
-                self.ax.yaxis.grid(False, linestyle="-.", color="silver")
+                self.ax.xaxis.grid(linestyle="-.", color="silver")
+                self.ax.yaxis.grid(linestyle="-.", color="silver")
                 self.ax.bar(range(len(y)), y)
                 self.ax.set_title(children_item)
                 self.ax.set_xlabel("a")

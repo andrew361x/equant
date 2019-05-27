@@ -93,7 +93,7 @@ _all_func_ = {
                 
     '策略状态': [
                     ['AvgEntryPrice'       , '当前持仓平均建仓价格'],
-                    ['BarsSinceEntry'      , '当前持仓的第一个建仓位置到当前位置的Bar计数'],
+                    ## ['BarsSinceEntry'      , '当前持仓的第一个建仓位置到当前位置的Bar计数'],
                     # ['BarsSinceExit'       , '最近平仓位置到当前位置的Bar计数'],
     #                 ['BarsSinceLastEntry'  , '当前持仓的最后一个建仓位置到当前位置的Bar计数'],
     #                 ['ContractProfit'      , '当前持仓位置的每手浮动盈亏'],
@@ -267,6 +267,7 @@ _all_func_ = {
                     ['PlotNumeric'          ,'绘制指标线'],
                     ['PlotIcon'             ,'绘制系统图标'],
                     ['PlotText'             ,'绘制字符串'],
+                    ['PlotVertLine'         ,'绘制竖线段'],
                     ['UnPlotText'           ,'取消绘制的字符串'],
                     ['LogDebug'             ,'打印调试信息'],
                     ['LogInfo'              ,'打印普通信息'],
