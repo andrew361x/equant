@@ -95,7 +95,7 @@ class StrategyQuote(QuoteModel):
         '''
         data = event.getData()
 
-        if not isinstance(type(data), dict):
+        if not isinstance(data, dict):
             return
 
         contractNo = event.getContractNo()
@@ -166,7 +166,7 @@ class StrategyQuote(QuoteModel):
     def getQAskPrice(self, contNo, level=1):
         quoteDataModel = self._contractData[contNo]
         if level == 1:
-            return quoteDataModel.getLv1Data(17, 0.0)
+            return quoteDataModel.getLv1Data(19, 0.0)
 
         lv2AskData = quoteDataModel._metaData["Lv2AskData"]
         if (level > len(lv2AskData)) or (not isinstance(lv2AskData[level-1], dict)):
@@ -185,7 +185,7 @@ class StrategyQuote(QuoteModel):
     def getQAskVol(self, contNo, level=1):
         quoteDataModel = self._contractData[contNo]
         if level == 1:
-            return quoteDataModel.getLv1Data(18, 0)
+            return quoteDataModel.getLv1Data(20, 0)
 
         lv2AskData = quoteDataModel._metaData["Lv2AskData"]
         if (level > len(lv2AskData)) or (not isinstance(lv2AskData[level - 1], dict)):
@@ -204,7 +204,7 @@ class StrategyQuote(QuoteModel):
     def getQBidPrice(self, contNo, level):
         quoteDataModel = self._contractData[contNo]
         if level == 1:
-            return quoteDataModel.getLv1Data(19, 0.0)
+            return quoteDataModel.getLv1Data(17, 0.0)
 
         lv2BidData = quoteDataModel._metaData["Lv2BidData"]
         if (level > len(lv2BidData)) or (not isinstance(lv2BidData[level-1], dict)):
@@ -223,7 +223,7 @@ class StrategyQuote(QuoteModel):
     def getQBidVol(self, contNo, level):
         quoteDataModel = self._contractData[contNo]
         if level == 1:
-            return quoteDataModel.getLv1Data(20, 0)
+            return quoteDataModel.getLv1Data(18, 0)
 
         lv2BidData = quoteDataModel._metaData["Lv2BidData"]
         if (level > len(lv2BidData)) or (not isinstance(lv2BidData[level - 1], dict)):

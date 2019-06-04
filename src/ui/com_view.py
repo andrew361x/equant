@@ -289,6 +289,9 @@ class RunWin(QuantToplevel, QuantFrame):
         self.setPos()
         self.protocol("WM_DELETE_WINDOW", self.cancel)
 
+        # 用于保存用户所选的用户合约
+        self.userContList = []
+
         # 将函数包装一下(初始资金只能输入数字、浮点数)
         self.testContent = self.register(self.testDigit)
         self.testFlt     = self.register(self.testFloat)
@@ -437,8 +440,8 @@ class RunWin(QuantToplevel, QuantFrame):
 
     def setDefaultConfigure(self):
         conf = self.getTextConfigure()
-        # if conf:
-        if None:
+        if conf:
+        # if None:
             # self.user.set(conf[VUser]),
             self.initFund.set(conf[VInitFund]),
             self.defaultType.set(conf[VDefaultType]),
@@ -454,7 +457,13 @@ class RunWin(QuantToplevel, QuantFrame):
             self.dir.set(conf[VDirection]),
             self.slippage.set(conf[VSlippage]),
 
-            self.contract.set(conf[VContract])
+            # 合约设置
+            # self.contract.set(conf[VContract])
+            if len(conf[VContract]) > 1:
+                self.contract.set(conf[VContract][0] + ", ...")
+            else:
+                self.contract.set(conf[VContract])
+            self.userContList = conf[VContract]
             # self.setText(self.contractInfo, conf[VContract])
 
             self.isCycle.set(conf[VIsCycle]),
@@ -484,7 +493,8 @@ class RunWin(QuantToplevel, QuantFrame):
             self.canClose.set(conf[VCanClose]),
             self.canOpen.set(conf[VCanOpen]),
 
-        if True:
+        # if True:
+        else:
             # 设置默认值
             self.isCycle.set(0),
             self.cycle.set(200),
@@ -564,7 +574,12 @@ class RunWin(QuantToplevel, QuantFrame):
 
     def getUserContract(self):
         """获取用户所选的数据合约信息"""
-        return self.contract.get()
+        # return self.contract.get()
+        return self.userContList
+
+    def setUserContract(self, contList):
+        """设置用户所选数据合约"""
+        self.userContList = contList
 
     def setPos(self):
         # 获取主窗口大小和位置，根据主窗口调整输入框位置
@@ -1225,7 +1240,7 @@ class RunWin(QuantToplevel, QuantFrame):
         self.conTimesFrame.pack(fill=tk.X, pady=6)
 
         self.conCheck = tk.Checkbutton(self.conTimesFrame, text="最大连续同向开仓次数:", bg=rgb_to_hex(255, 255, 255),
-                                       anchor=tk.W, variable=self.isConOpenTimes)
+                                       anchor=tk.W, onvalue=1, offvalue=0, variable=self.isConOpenTimes)
         self.conCheck.pack(side=tk.LEFT, padx=10)
 
         self.conTimesEntry = tk.Entry(self.conTimesFrame, relief=tk.GROOVE, bd=2, width=8, textvariable=self.conOpenTimes,
@@ -1352,8 +1367,9 @@ class RunWin(QuantToplevel, QuantFrame):
 
         tradeDirection = self.dir.get()
         slippage = self.slippage.get()
-        #TODO: contract
-        contractInfo = self.contract.get()
+        #TODO: contract另外保存了一个变量，不再分解了
+        # contractInfo = self.contract.get()
+
         # contract = (contractInfo.rstrip("\n")).split("\n")
 
         # if len(contract) == 0:
@@ -1361,6 +1377,7 @@ class RunWin(QuantToplevel, QuantFrame):
         #     return
         # else:
         #     contractInfo = (contract.rstrip(", ")).split(", ")
+        contractInfo = self.userContList
 
         timer = self.timerText.get('1.0', "end-1c")   # 时间
 
@@ -1385,6 +1402,7 @@ class RunWin(QuantToplevel, QuantFrame):
         openTimes = self.openTimes.get()
 
         isConOpenTimes = self.isConOpenTimes.get()
+
         conOpenTimes = self.conOpenTimes.get()
         canClose = self.canClose.get()
         canOpen = self.canOpen.get()
@@ -1441,8 +1459,9 @@ class RunWin(QuantToplevel, QuantFrame):
                 self.toSampFrame()
                 return
 
-        self.config["Contract"] = (contractInfo,)
-        # self.config["Contract"] = tuple(contractInfo)
+        # self.config["Contract"] = (contractInfo,)
+        self.config["Contract"] = tuple(contractInfo)
+
         self.config["Trigger"]["Cycle"] = int(cycle) if isCycle else None
         self.config["Trigger"]["Timer"] = timerFormatter if timer else None
         self.config["Trigger"]["KLine"] = True if isKLine else False
@@ -1732,12 +1751,17 @@ class SelectContractWin(QuantToplevel, QuantFrame):
         self.contractText.pack(side=tk.LEFT, fill=tk.Y)
         # 选择合约界面增加原始信息
         contractText = self._master.getUserContract()
-        con = contractText.strip("\n")
-        if len(con) != 0:
-            contractInfo = con.split("\n")
-            for contract in contractInfo:
-                self._selectCon.append(contract)
-                self.contractText.setText(contract)
+        # con = contractText.strip("\n")
+        # if len(con) != 0:
+        #     contractInfo = con.split("\n")
+        #     for contract in contractInfo:
+        #         self._selectCon.append(contract)
+        #         self.contractText.setText(contract)
+
+        for contract in contractText:
+            self._selectCon.append(contract)
+            self.contractText.setText(contract)
+
         # self.addScroll(frame, self.contractText, xscroll=False)
         self.contractText.bind("<Double-Button-1>", self.deleteSelectedContract)
 
@@ -1760,8 +1784,17 @@ class SelectContractWin(QuantToplevel, QuantFrame):
     def enter(self):
         self._master.contractEntry.config(state="normal")
         self._master.contractEntry.delete('0', tk.END)
-        for con in self._selectCon:
-            self._master.contractEntry.insert(tk.END, con)
+
+        # 多合约
+        # for con in self._selectCon:
+        #     self._master.contractEntry.insert(tk.END, con)
+        if len(self._selectCon) > 1:
+            self._master.contractEntry.insert(tk.END, self._selectCon[0] + ", ...")
+        else:
+            # self._master.contractEntry.insert(tk.END, self._selectCon[0])
+            self._master.contractEntry.insert(tk.END, self._selectCon)
+        self._master.setUserContract(self._selectCon)
+
         self._master.contractEntry.config(state="disabled")
 
         # 不加focus会出现选择合约确定后设置窗口后移
@@ -1792,11 +1825,11 @@ class SelectContractWin(QuantToplevel, QuantFrame):
         select = event.widget.selection()
         # cont = self.contractText.get_text()
         # contList = (self.contractText.get_text()).strip("\n")
-        # contList = ((self.contractText.get_text()).strip("\n")).split("\n")
-        contList = ((self.contractText.get_text()).strip("\n")).split()
+        contList = ((self.contractText.get_text()).strip("\n")).split("\n")
+        # contList = ((self.contractText.get_text()).strip("\n")).split()
 
-        if len(contList) > 0:
-            messagebox.showinfo("提示", "选择合约数量不能超过1个", parent=self)
+        if len(contList) > 9:
+            messagebox.showinfo("提示", "选择合约数量不能超过10个", parent=self)
             return
 
         for idx in select:

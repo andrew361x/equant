@@ -13,11 +13,11 @@ class RightClickMenu(object):
         self.menu = tk.Menu(parent, tearoff=0)
 
         self.menu.add_command(label="删除", command=self.on_delete)
-        # self.menu.add_command(label="Paste", command=self.on_paste)
-        # self.menu.add_separator()
-        # self.menu.add_command(label="Cut", command=self.on_cut)
 
     def popupmenu(self, event):
+        # select = self.widget.identify_row(event.y)
+        # self._ClickSelectedItem = event.widget.selection()
+
         self.menu.post(event.x_root, event.y_root)
 
     def on_delete(self):

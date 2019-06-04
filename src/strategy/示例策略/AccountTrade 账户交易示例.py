@@ -129,8 +129,3 @@ def handle_data(context):
         LogInfo("不操作, 总仓位:%d, 多头仓位:%d, 空头仓位:%d\n" % (A_TotalPosition(), A_BuyPosition(), A_SellPosition()))
 
 
-
-
-
-
-

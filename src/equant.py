@@ -38,7 +38,7 @@ def main():
     # 等待界面事件
     app.run()
 
-    time.sleep(1)
+    time.sleep(3)
     import atexit
     def exitHandler():
         # 1. 先关闭策略进程, 现在策略进程会成为僵尸进程

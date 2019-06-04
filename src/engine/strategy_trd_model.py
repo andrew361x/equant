@@ -32,6 +32,25 @@ class StrategyTrade(TradeModel):
         '''
         return self._selectedUserNo
 
+    def getAllPositionSymbol(self):
+        '''
+        :return:所有持仓合约
+        '''
+        if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
+            return []
+
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+        if len(tUserInfoModel._position) == 0:
+            return []
+
+        contList = []
+        for positionNo in list(tUserInfoModel._position.keys()):
+            position = tUserInfoModel._position[positionNo]
+            contNo = position._metaData['Cont']
+            if contNo not in contList:
+                contList.append(contNo)
+        return contList
+
     def getDataFromTMoneyModel(self, key):
         '''
         获取self._userInfo中当前账户指定的资金信息
@@ -90,6 +109,9 @@ class StrategyTrade(TradeModel):
         :return:当前公式应用的交易帐户的浮动盈亏
         '''
         return self.getDataFromTMoneyModel('FloatProfitTBT')
+
+    def getCoverProfit(self):
+        return self.getDataFromTMoneyModel('CoverProfitTBT')
 
     def getTotalFreeze(self):
         '''

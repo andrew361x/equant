@@ -58,7 +58,7 @@ class Directory(tk.Frame):
         self.detail_frame = Detail(self.data, self.parent)
 
     def make_widgets(self):
-        self.data_tree = ttk.Treeview(self, height=30, selectmode="browse", show=['tree'], style="Filter.Treeview")
+        self.data_tree = ttk.Treeview(self, height=30, selectmode="extended", show=['tree'], style="Filter.Treeview")
         self.menu = RightClickMenu(self.data_tree, self.parent)
 
         self.data_tree.column('#0', stretch=False, width=200)  # width应该根据显示文字的长度进行变化
@@ -130,14 +130,15 @@ class Directory(tk.Frame):
 
     def right_click_callback(self, event):
         select = self.data_tree.identify_row(event.y)
+
         if select:
             self.data_tree.focus(select)
             self.data_tree.selection_set(select)
-            # self.focus_set()
             self.menu.popupmenu(event)
-            # self.data_tree.selection_toggle(select)
             self.update_idletasks()
-            # self.data_tree.selection_remove(select)
+
+        # self.menu.popupmenu(event)
+
 
     # 弃用
     def focus_out_event(self, event):

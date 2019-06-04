@@ -101,7 +101,7 @@ class TkinterController(object):
 
     def getStManager(self):
         """获取策略管理器"""
-        return self.model.getStrategyManaegr()
+        return self.model.getStrategyManager()
 
     def saveStrategy(self):
         """保存当前策略"""
@@ -231,12 +231,13 @@ class TkinterController(object):
             # self._request.strategyRemove(id)
             strategyDict = self.strategyManager.getStrategyDict()
             if id in strategyDict:
-                if strategyDict[id]["StrategyState"] == ST_STATUS_QUIT:  # 策略已经停止
+                if strategyDict[id]["StrategyState"] == ST_STATUS_QUIT or \
+                        strategyDict[id]["StrategyState"] == ST_STATUS_EXCEPTION:  # 策略已经停止或策略异常
                     self.strategyManager.removeStrategy(id)
                     self.app.delUIStrategy(id)
                     # return
                 self._request.strategyRemove(id)
-            else:  # 策略已经停止， 直接删除
+            else:
                 self.app.delUIStrategy(id)
 
     def signalDisplay(self, strategyIdList):

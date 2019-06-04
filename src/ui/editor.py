@@ -140,6 +140,12 @@ class ParentText(Text):
         self.see("insert")
         return "break"
 
+    def clear_all(self, event=None):
+        self.config(state="normal")
+        self.delete('1.0', 'end+1c')
+        self.config(state="disabled")
+        self.update()
+
     def undo(self, event=None):
         self.edit_undo()
 
@@ -420,6 +426,7 @@ class SignalText(ParentText):
         menu = Menu(self, tearoff=0)
         menu.add_command(label="复制", command=self.copy)
         menu.add_command(label="全选", command=self.select_all)
+        menu.add_command(label="清除", command=self.clear_all)
         menu.post(event.x_root, event.y_root)
 
     # TODO:setText重写
@@ -470,6 +477,7 @@ class MonitorText(ParentText):
         menu = Menu(self, tearoff=0)
         menu.add_command(label="复制", command=self.copy)
         menu.add_command(label="全选", command=self.select_all)
+        menu.add_command(label="清除", command=self.clear_all)
         menu.post(event.x_root, event.y_root)
 
     def setConfig(self, fontSize=10):
@@ -553,6 +561,7 @@ class ErrorText(ParentText):
         menu = Menu(self, tearoff=0)
         menu.add_command(label="复制", command=self.copy)
         menu.add_command(label="全选", command=self.select_all)
+        menu.add_command(label="清除", command=self.clear_all)
         menu.post(event.x_root, event.y_root)
 
     # TODO:setText重写

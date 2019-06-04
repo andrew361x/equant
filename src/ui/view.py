@@ -201,4 +201,31 @@ class QuantApplication(object):
         """
         self.quant_monitor.deleteStrategy(strategyId)
 
+    def setConnect(self, src):
 
+        if src == 'Q':
+            self.quant_editor_head.stateLabel.config(text="即时行情连接成功")
+        if src == 'H':
+            self.quant_editor_head.stateLabel.config(text="历史行情连接成功")
+
+        if src == 'T':
+            self.quant_editor_head.stateLabel.config(text="交易服务连接成功")
+
+        if src == 'S':
+            self.quant_editor_head.stateLabel.config(text="极星9.5连接成功")
+
+    def setDisconnect(self, src):
+        if src == 'Q':
+            self.quant_editor_head.stateLabel.config(text="即时行情断连")
+        if src == 'H':
+            self.quant_editor_head.stateLabel.config(text="历史行情断连")
+
+        if src == 'T':
+            self.quant_editor_head.stateLabel.config(text="交易服务断连")
+
+        if src == 'S':
+            self.quant_editor_head.stateLabel.config(text="极星9.5退出")
+
+    def clearError(self):
+        """清除错误信息"""
+        self.quant_monitor.clearErrorText("")

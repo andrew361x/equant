@@ -144,3 +144,6 @@ class Event:
     def setSessionI(self, sessionId):
         self._record['SessionId'] = sessionId
 
+    def getUserNo(self):
+        return self._record['UserNo']
+

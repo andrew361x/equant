@@ -15,6 +15,7 @@ import queue
 import datetime
 from datetime import datetime
 import copy
+from collections import OrderedDict
 
 
 class StartegyManager(object):
@@ -28,41 +29,159 @@ class StartegyManager(object):
 
         # 进程字典，{'id', Strategy}
         self._strategyDict = {}
-        self._strategyProcess = {}
+        self._strategyInfo = {}
+        self._strategyAttribute = {}
+        self._isEquantExitStage = False
+        self._isEquantExitCom = False
 
     @staticmethod
     def run(strategy):
         strategy.run()
-        
-    def stop(self, strategyId=0, mode='S'):
-        '''
-        说明: 停止策略线程
-        参数:
-              strategyId, 策略id，为0则停止所有策略
-              mode,停止的线程,A-停止进程,S-停止策略线程
-        '''
-        pass
+
+    def getStrategyState(self, strategyId):
+        assert strategyId in self._strategyInfo, 'error '
+        return self._strategyInfo[strategyId]["StrategyState"]
+
+    def handleStrategyException(self, event):
+        strategyId = event.getStrategyId()
+        if strategyId not in self._strategyInfo:
+            return
+        self._strategyInfo[strategyId]["StrategyState"] = ST_STATUS_EXCEPTION
+        # self.destroyProcessByStrategyId(event.getStrategyId())
+        # self._strategyInfo[strategyId]["Process"] = None
 
     def create(self, strategyId, eg2stQueue, eg2uiQueue, st2egQueue, event):
         qdict = {'eg2st': eg2stQueue, 'st2eg': st2egQueue, 'st2ui':eg2uiQueue}
         strategy = Strategy(self.logger, strategyId, qdict, event)
         self._strategyDict[strategyId] = strategy
-
         process = Process(target=self.run, args=(strategy,))
         process.daemon = True
         process.start()
-        self._strategyProcess[id] = process
 
-    def sendEvent2Strategy(self, id, event):
-        if id not in self._strategyDict:
-            self.logger.info("策略 %d 不存在" % id)
-            return
-        strategy = self._strategyDict[id]
-        eg2stQueue, _ = strategy.getQueues()
-        eg2stQueue.put(event)
-        
-    def _stopStrategy(self, strategyId, mode):
+        args = {
+            "Config": event.getData()["Args"],
+            # "UIConfig": copy.deepcopy(event.getData()["Args"]),
+            "Path": event.getData()["Path"],
+            "StrategyName": None,
+            "StrategyId": strategyId,
+        }
+
+        self.insertNewStrategy(strategyId, process, args)
+
+    # 新建策略、恢复策略调用
+    def insertNewStrategy(self, strategyId, process, args):
+        self._strategyInfo[strategyId] = {
+            "StrategyId": strategyId,
+            "Process": process,
+            "StrategyState": ST_STATUS_NONE,
+        }
+        self._strategyAttribute[strategyId] = args
+
+    def insertResumedStrategy(self, strategyId, args):
+        self._strategyInfo[strategyId] = {
+            "StrategyId": strategyId,
+            "Process": None,
+            "StrategyState": ST_STATUS_QUIT,
+        }
+        # 策略恢复的时候用
+        self._strategyAttribute[strategyId] = args
+
+    def quitStrategy(self, event):
+        strategyId = event.getStrategyId()
+        assert strategyId in self._strategyInfo and self._strategyInfo[strategyId]["Process"].is_alive(), " error "
+        strategyInfo = self._strategyInfo[strategyId]
+        strategyInfo["StrategyState"] = ST_STATUS_QUIT
+        self.destroyProcess(self._strategyInfo[strategyId]["Process"], strategyId)
+        strategyInfo["Process"] = None
+
+    def removeQuitedStrategy(self, event):
+        assert event.getStrategyId() in self._strategyInfo, "error"
+        self._strategyInfo.pop(event.getStrategyId())
+        self._strategyAttribute.pop(event.getStrategyId())
+
+    def removeRunningStrategy(self, event):
+        strategyId = event.getStrategyId()
+        assert strategyId in self._strategyInfo, "error"
+        self.destroyProcess(self._strategyInfo[strategyId]['Process'], strategyId)
+        self._strategyInfo.pop(strategyId)
+        self._strategyAttribute.pop(event.getStrategyId())
+
+    def removeExceptionStrategy(self, event):
+        self.removeRunningStrategy(event)
+
+    def restartStrategy(self, engineLoadFunc, event):
+        assert event.getStrategyId() in self._strategyInfo, "error"
+        strategyInfo = self._strategyAttribute[event.getStrategyId()]
+        loadStrategyEvent = Event({
+            'EventSrc': EEQU_EVSRC_UI,
+            'EventCode': EV_UI2EG_LOADSTRATEGY,
+            'SessionId': None,
+            'StrategyId': 0,
+            'UserNo': '',
+            'Data': {
+                'Path': strategyInfo["Path"],
+                'Args': strategyInfo["Config"],
+            }
+        })
+        engineLoadFunc(loadStrategyEvent, strategyId=event.getStrategyId())
+
+    def singleStrategyExitComEquantExit(self, event):
+        self._isEquantExitStage = True
+        strategyId = event.getStrategyId()
+        assert strategyId in self._strategyInfo, " error "
+        strategyInfo = self._strategyInfo[event.getStrategyId()]
+        strategyInfo["StrategyState"] = ST_STATUS_QUIT
+        #
+
+    def isAllStrategyQuit(self):
+        result = True
+        for k, v in self._strategyInfo.items():
+            if v["StrategyState"] != ST_STATUS_QUIT and v["StrategyState"] != ST_STATUS_EXCEPTION:
+                result = False
+                break
+        # print("now is equant exit complete ", result)
+        return result
+
+    def stopStrategy(self, strategyId):
         pass
+
+    def resumeStrategy(self, strategyId):
+        pass
+
+    def destroyProcessByStrategyId(self, strategyId):
+        assert strategyId in self._strategyInfo, " error "
+        process = self._strategyInfo[strategyId]["Process"]
+        self.destroyProcess(process, strategyId)
+
+    def destroyProcess(self, process, strategyId):
+        assert process.is_alive(), " error "
+        try:
+            process.terminate()
+            process.join(timeout=1)
+            self.logger.debug("strategy %d exit success" % strategyId)
+        except Exception as e:
+            # traceback.print_exc()
+            self.logger.debug("strategy %d exit fail" % strategyId)
+
+    def syncStrategyConfig(self, event):
+        strategyId = event.getStrategyId()
+        self._strategyAttribute[strategyId] = event.getData()
+
+    def getStrategyConfig(self):
+        result = {}
+        for strategyId, value in self._strategyInfo.items():
+            if value["StrategyState"] == ST_STATUS_EXCEPTION:
+                continue
+            v = self._strategyAttribute[strategyId]
+            result[strategyId] = {
+                "Config":v["Config"],
+                "Path":v["Path"],
+                "StrategyName":v["StrategyName"],
+                "StrategyId":strategyId,
+                #"UIConfig":v["UIConfig"]
+            }
+        result = OrderedDict(sorted(result.items(), key=lambda obj: str(obj[0])))
+        return result
 
 
 class StrategyContext:
@@ -125,6 +244,8 @@ class TradeRecord(object):
         self._sessionId = orderData['SessionId'] if 'SessionId' in orderData else None
         # 合约编号
         self._contNo = orderData['Cont'] if 'Cont' in orderData else None
+        # 定单号
+        self._orderId = orderData['OrderId'] if 'OrderId' in orderData else None
         # 委托单号
         self._orderNo = orderData['OrderNo'] if 'OrderNo' in orderData else None
         # 方向
@@ -146,6 +267,8 @@ class TradeRecord(object):
             self._sessionId = orderData['SessionId']
         if 'Cont' in orderData:
             self._contNo = orderData['Cont']
+        if 'OrderId' in orderData:
+            self._orderId = orderData['OrderId']
         if 'OrderNo' in orderData:
             self._orderNo = orderData['OrderNo']
         if 'Direct' in orderData:
@@ -162,17 +285,17 @@ class TradeRecord(object):
     def getBarInfo(self):
         return self._barInfo
 
+
 class Strategy:
     def __init__(self, logger, id, args, event):
         self._strategyId = id
         self.logger = logger
+        self._dataModel = None
         
         data = event.getData()
         self._filePath = data['Path']
         self._argsDict = data['Args']
-        self._isInitialize = True
-        if "NoInitialize" in data:
-            self._isInitialize = False
+        self._uiConfig = copy.deepcopy(data['Args'])
 
         # print("now config is")
         # for k, v in self._argsDict.items():
@@ -180,6 +303,7 @@ class Strategy:
 
         self._eg2stQueue = args['eg2st']
         self._st2egQueue = args['st2eg']
+        self._isSt2EgQueueEffective = True
         self._st2uiQueue = args['st2ui']
         moduleDir, moduleName = os.path.split(self._filePath)
         self._strategyName = ''.join(moduleName.split('.')[:-1])
@@ -207,45 +331,38 @@ class Strategy:
 
         if moduleDir not in sys.path:
             sys.path.insert(0, moduleDir)
-        try:
-            # 1. 加载用户策略
-            userModule = importlib.import_module(moduleName)
-            
-            # 2. 创建策略上下文
-            self._context = StrategyContext()
-            
-            # 3. 创建数据模块
-            self._dataModel = StrategyModel(self)
-            
-            # 4. 初始化系统函数
-            self._baseApi = base_api.baseApi.updateData(self, self._dataModel)
-            userModule.__dict__.update(base_api.__dict__)
-            
-            # 5. 初始化用户策略参数
-            if self._isInitialize:
-                userModule.initialize(self._context)
-                # print("strategy config is ")
-                # print(self._dataModel.getConfigModel().getConfig())
-            self._userModule = userModule
-            
-            # 6. 初始化model
-            self._dataModel.initialize()
 
-            # 7.  注册处理函数
-            self._regEgCallback()
-            
-            # 8. 启动策略运行线程
-            self._triggerQueue = queue.Queue()
-            self._startStrategyThread()
-            
-            # 9. 启动策略心跳线程
-            self._startStrategyTimer()
+        # 1. 加载用户策略
+        userModule = importlib.import_module(moduleName)
 
-        except Exception as e:
-            errorText = traceback.format_exc()
-            # traceback.print_exc()
-            self._strategyState = StrategyStatusExit
-            self._exit(-1, errorText)
+        # 2. 创建策略上下文
+        self._context = StrategyContext()
+
+        # 3. 创建数据模块
+        self._dataModel = StrategyModel(self)
+
+        # 4. 初始化系统函数
+        self._baseApi = base_api.baseApi.updateData(self, self._dataModel)
+        userModule.__dict__.update(base_api.__dict__)
+
+        # 5. 初始化用户策略参数
+        userModule.initialize(self._context)
+        self._userModule = userModule
+        # 5.1 同步配置
+        self._sendConfig2Engine()
+
+        # 6. 初始化model
+        self._dataModel.initialize()
+
+        # 7.  注册处理函数
+        self._regEgCallback()
+
+        # 8. 启动策略运行线程
+        self._triggerQueue = queue.Queue()
+        self._startStrategyThread()
+
+        # 9. 启动策略心跳线程
+        self._startStrategyTimer()
 
     def run(self):
         try:
@@ -262,6 +379,8 @@ class Strategy:
             # 5. 数据处理
             self._mainLoop()
         except Exception as e:
+            self._strategyState = StrategyStatusExit
+            self._isSt2EgQueueEffective = False
             errorText = traceback.format_exc()
             # traceback.print_exc()
             self._exit(-1, errorText)
@@ -275,20 +394,32 @@ class Strategy:
 
     # 从engine进程接受事件并处理
     def _mainLoop(self):
-        while not self._isExit():
+        while True:
+            if self._isExit():
+                time.sleep(0.2)
+                self._clearQueue(self._eg2stQueue)
+                continue
             event = self._eg2stQueue.get()
             code = event.getEventCode()
             if code not in self._egCallbackDict:
                 self.logger.error("_egCallbackDict code(%d) not register!"%code)
                 continue
             self._egCallbackDict[code](event) 
-        
-    def _runStrategy(self):
-        # 等待回测阶段
-        self._runStatus = ST_STATUS_HISTORY
-        self._send2UIStatus(self._runStatus)
-        # runReport中会有等待
+
+    def _clearQueue(self, someQueue):
         try:
+            while True:
+                someQueue.get_nowait()
+        except queue.Empty:
+            pass
+
+    def _runStrategy(self):
+        try:
+            # 等待回测阶段
+            self._runStatus = ST_STATUS_HISTORY
+            self._send2UIStatus(self._runStatus)
+            # runReport中会有等待
+
             self._dataModel.runReport(self._context, self._userModule.handle_data)
 
             # 持续运行阶段
@@ -297,6 +428,7 @@ class Strategy:
             # self._runStatus = ST_STATUS_HISTORY
             # self._send2UIStatus(self._runStatus)
             #
+
             while not self._isExit():
                 try:
                     event = self._triggerQueue.get_nowait()
@@ -310,9 +442,11 @@ class Strategy:
                     else:
                         time.sleep(0.1)
         except Exception as e:
-            errorText = traceback.format_exc()
-            # traceback.print_exc()
-            self._exit(-1, errorText)
+                self._strategyState = StrategyStatusExit
+                self._isSt2EgQueueEffective = False
+                errorText = traceback.format_exc()
+                # traceback.print_exc()
+                self._exit(-1, errorText)
 
     def _startStrategyThread(self):
         '''历史数据准备完成后，运行策略'''
@@ -325,7 +459,7 @@ class Strategy:
             return
 
         nowStr = datetime.now().strftime("%Y%m%d%H%M%S")
-        for i,timeSecond in enumerate(self._dataModel.getConfigData()['Trigger']['Timer']):
+        for i,timeSecond in enumerate(self._dataModel.getConfigTimer()):
             if 0<=(int(nowStr)-int(timeSecond))<1 and not self._isTimeTriggered[i]:
                 self._isTimeTriggered[i] = True
                 key = self._dataModel.getConfigModel().getKLineShowInfoSimple()
@@ -336,7 +470,7 @@ class Strategy:
                     "KLineType" : None,
                     "KLineSlice": None,
                     "Data":{
-                        "TradeDate"  : tradeDate,
+                        "TradeDate": tradeDate,
                         "DateTimeStamp": dateTimeStamp,
                         "Data":timeSecond
                     }
@@ -352,7 +486,7 @@ class Strategy:
             return
 
         nowTime = datetime.now()
-        cycle = self._dataModel.getConfigData()['Trigger']['Cycle']
+        cycle = self._dataModel.getConfigCycle()
         if (nowTime - self._nowTime).total_seconds()*1000>cycle:
             self._nowTime = nowTime
             key = self._dataModel.getConfigModel().getKLineShowInfoSimple()
@@ -387,7 +521,7 @@ class Strategy:
             
         
     def _runTimer(self):
-        timeList = self._dataModel.getConfigData()['Trigger']['Timer']
+        timeList = self._dataModel.getConfigTimer()
         if timeList is None:
             timeList = []
         self._isTimeTriggered = [False for i in timeList]
@@ -416,7 +550,7 @@ class Strategy:
                 'Status' : status
             }
         })
-        self.sendEvent2Engine(event)
+        self.sendEvent2UI(event)
     
     def _regEgCallback(self):
         self._egCallbackDict = {
@@ -527,16 +661,20 @@ class Strategy:
     def _onLoadStrategyResponse(self, event):
         '''向界面返回策略加载应答'''
         cfg = self._dataModel.getConfigData()
-        
+
+        key = self._dataModel.getConfigModel().getKLineShowInfoSimple()
         revent = Event({
             "EventCode" : EV_EG2UI_LOADSTRATEGY_RESPONSE,
             "StrategyId": self._strategyId,
-            "ErrorCode" : 0,
-            "ErrorText" : "",
             "Data":{
                 "StrategyId"   : self._strategyId,
                 "StrategyName" : self._strategyName,
                 "StrategyState": self._runStatus,
+                "ContractNo"   : key[0],
+                "KLineType"    : key[1],
+                "KLinceSlice"  : key[2],
+                "IsActualRun"  : self._dataModel.getConfigModel().isActualRun(),
+                "InitialFund"  : self._dataModel.getConfigModel().getInitCapital(),
                 "Config"       : cfg,
             }
         })
@@ -663,6 +801,12 @@ class Strategy:
         tradeRecord = self._localOrder[eSessionId]
         return tradeRecord._orderNo
 
+    def getOrderId(self, eSessionId):
+        if eSessionId not in self._localOrder:
+            return 0
+        tradeRecord = self._localOrder[eSessionId]
+        return tradeRecord._orderId
+
     def getStrategyName(self):
         return self._strategyName
 
@@ -676,6 +820,10 @@ class Strategy:
         return self._runStatus
 
     def sendEvent2Engine(self, event):
+        if self._isSt2EgQueueEffective:
+            self._st2egQueue.put(event)
+
+    def sendEvent2EngineForce(self, event):
         self._st2egQueue.put(event)
 
     def sendEvent2UI(self, event):
@@ -693,57 +841,72 @@ class Strategy:
                 "ErrorText": errorText,
             }
         })
-        self.sendEvent2Engine(event)
-        self._onStrategyQuit(None)
+        self.sendEvent2EngineForce(event)
+        self._onStrategyQuit(None, ST_STATUS_EXCEPTION)
+        # 保证该进程is_alive， 使得队列可用
+        while True:
+            time.sleep(2)
 
     # 停止策略
-    def _onStrategyQuit(self, event):
+    def _onStrategyQuit(self, event=None, status=ST_STATUS_QUIT):
+        self._isSt2EgQueueEffective = False
         self._strategyState = StrategyStatusExit
+        config = None if self._dataModel is None else self._dataModel.getConfigData()
+        result = None
+        if self._dataModel and self._dataModel.getCalcCenter():
+            result = self._dataModel.getCalcCenter().testResult()
         quitEvent = Event({
             "EventCode": EV_EG2UI_STRATEGY_STATUS,
             "StrategyId": self._strategyId,
             "Data":{
-                "Status":ST_STATUS_QUIT,
-                "Config":self._dataModel.getConfigData(),
+                "Status":status,
+                "Config":config,
                 "Pid":os.getpid(),
                 "Path":self._filePath,
                 "StrategyName": self._strategyName,
+                "Result":result
             }
         })
-        self.sendEvent2Engine(quitEvent)
+        self.sendEvent2UI(quitEvent)
+        self.sendEvent2EngineForce(quitEvent)
 
     def _onEquantExit(self, event):
+        self._isSt2EgQueueEffective = False
         self._strategyState = StrategyStatusExit
+        config = None if self._dataModel is None else self._dataModel.getConfigData()
         responseEvent = Event({
             "EventCode": EV_EG2UI_STRATEGY_STATUS,
             "StrategyId": self._strategyId,
             "Data": {
                 "Status": event.getEventCode(),
-                "Config": self._dataModel.getConfigData(),
+                "Config": config,
                 "Pid": os.getpid(),
                 "Path": self._filePath,
                 "StrategyName":self._strategyName,
             }
         })
-        self.sendEvent2Engine(responseEvent)
+        self.sendEvent2EngineForce(responseEvent)
 
     def _switchStrategy(self, event):
         self._dataModel.getHisQuoteModel()._switchKLine()
 
     def _onStrategyRemove(self, event):
+        self._isSt2EgQueueEffective = False
         self._strategyState = StrategyStatusExit
+        config = None if self._dataModel is None else self._dataModel.getConfigData()
         responseEvent = Event({
             "EventCode": EV_EG2UI_STRATEGY_STATUS,
             "StrategyId": self._strategyId,
             "Data": {
                 "Status": ST_STATUS_REMOVE,
-                "Config": self._dataModel.getConfigData(),
+                "Config": config,
                 "Pid": os.getpid(),
                 "Path": self._filePath,
                 "StrategyName": self._strategyName,
             }
         })
-        self.sendEvent2Engine(responseEvent)
+        self.sendEvent2UI(event)
+        self.sendEvent2EngineForce(responseEvent)
 
     def _snapShotTrigger(self, event):
         # 未选择即时行情触发
@@ -808,7 +971,7 @@ class Strategy:
             return
 
         if apiEvent.getEventCode() == EEQU_SRVEVENT_TRADE_MATCH and str(apiEvent.getStrategyId()) == str(self._strategyId):
-            contractNo = apiEvent.getData[0]["Cont"]
+            contractNo = apiEvent.getData()[0]["Cont"]
             dateTimeStamp, tradeDate, lv1Data = self.getTriggerTimeAndData(contractNo)
 
             tradeTriggerEvent = Event({
@@ -838,3 +1001,21 @@ class Strategy:
             lv1Data = None
 
         return dateTimeStamp, tradeDate, lv1Data
+
+    def _sendConfig2Engine(self):
+        event = Event({
+            "EventCode": ST_ST2EG_SYNC_CONFIG,
+            "StrategyId": self._strategyId,
+            "ContractNo": None,
+            "KLineType": None,
+            "KLineSlice": None,
+            "Data": {
+                "UIConfig": self._uiConfig,
+                "Config": self._dataModel.getConfigModel().getConfig(),
+                "Path": self._filePath,
+                "StrategyName": self._strategyName,
+                "StrategyId": self._strategyId,
+            }
+        })
+        self.sendEvent2Engine(event)
+

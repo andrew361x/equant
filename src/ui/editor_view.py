@@ -18,8 +18,8 @@ class QuantEditorHead(object):
         self.head_frame = Frame(frame, bg=rgb_to_hex(245, 245, 245), height=30)
         Label(self.head_frame, bg=rgb_to_hex(245, 245, 245), text=self.language.get_text(1)).pack(side=LEFT)
 
-        # self.stateLabel = Label(self.head_frame, bg=rgb_to_hex(245, 245, 245), text=self.language.get_text(1))
-        # self.stateLabel.pack(side=RIGHT, fill=X, expand=YES, anchor=E)
+        self.stateLabel = Label(self.head_frame, bg=rgb_to_hex(245, 245, 245))
+        self.stateLabel.pack(side=RIGHT, fill=X, expand=YES, anchor=E)
 
         self.head_frame.pack_propagate(0)
         self.head_frame.pack(fill=X)

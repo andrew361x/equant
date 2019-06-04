@@ -115,17 +115,15 @@ class QuantMonitor(object):
         try:
             Id = dataDict['StrategyId']
             StName = dataDict['StrategyName']
-            #BenchCon = dataDict['Config']['Contract'][0]
-            BenchCon = dataDict['Config']['Sample']['Display']['ContractNo']
-            #kLineType = FrequencyDict[dataDict['Config']['Sample']['Display']['KLineType']]
-            
-            kLineType = dataDict['Config']['Sample']['Display']['KLineType']
-            kLineSlice = dataDict['Config']['Sample']['Display']['KLineSlice']
+            BenchCon = dataDict['ContractNo']
+            kLineType = dataDict['KLineType']
+            kLineSlice = dataDict['KLinceSlice']
 
             Frequency = str(kLineSlice) + kLineType
-            RunType = "是" if dataDict['Config']['RunMode']['Actual']['SendOrder2Actual'] else "否"
+
+            RunType = "是" if dataDict['IsActualRun'] else "否"
             Status = StrategyStatus[dataDict["StrategyState"]]
-            InitFund = dataDict['Config']['Money']['InitFunds']
+            InitFund = dataDict['InitialFund']
 
             if 'RunningData' in dataDict:
                 # Available =  "{:.2f}".format(dataDict['RunningData']['Fund'][-1]['Available'])
@@ -215,6 +213,9 @@ class QuantMonitor(object):
         else:
             self.toErrFrame()
             self.errText.setText(errData)
+
+    def clearErrorText(self):
+        self.errText.setText("")
 
     def toMonFrame(self):
         self.runBtn.config(bg="white")

@@ -19,6 +19,7 @@ _all_func_ = {
                     ['TradeDate'           , '当前Bar的交易日'],
                     ['HistoryDataExist'    , '历史数据是否存在'],
                     ['HisData'             , '获取各种历史数据数组'],
+                    ['HisBarsInfo'         , '获取历史K线详细数据'],
                 ],
                 
     '即时行情': [
@@ -62,7 +63,10 @@ _all_func_ = {
                     ['Buy'                 , '多头建仓'],
                     ['BuyToCover'          , '空头平仓'],
                     ['Sell'                , '多头平仓'],
-                    ['SellShort'           , '空头建仓']
+                    ['SellShort'           , '空头建仓'],
+                    ['StartTrade'          , '开启实盘交易'],
+                    ['StopTrade'           , '暂停实盘交易'],
+                    ['IsTradeAllowed'      , '是否允许实盘交易'],
                 ],
                 
     '属性函数': [
@@ -74,9 +78,11 @@ _all_func_ = {
                     ['ExchangeName'        , '交易所名称'],
                     # ['ExpiredDate'         , '最后交易日'],
                     ['GetSessionCount'     , '交易时段个数'],
-                    ['GetSessionEndTime'   , '交易时段结束时间'],
                     ['GetSessionStartTime' , '交易时段起始时间'],
+                    ['GetSessionEndTime'   , '交易时段结束时间'],
                     ['GetNextTimeInfo'     , '获取下一个时间点信息'],
+                    ['CurrentTime'         , '获取当前时间'],
+                    ['IsInSession'         , '当前时间是否为交易时间'],
                     ['MarginRatio'         , '保证金比例'],
                     ['MaxBarsBack'         , '最大回溯Bar数'],
                     ['MaxSingleTradeSize'  , '单笔交易限量'],
@@ -93,21 +99,23 @@ _all_func_ = {
                 
     '策略状态': [
                     ['AvgEntryPrice'       , '当前持仓平均建仓价格'],
-                    ## ['BarsSinceEntry'      , '当前持仓的第一个建仓位置到当前位置的Bar计数'],
-                    # ['BarsSinceExit'       , '最近平仓位置到当前位置的Bar计数'],
-    #                 ['BarsSinceLastEntry'  , '当前持仓的最后一个建仓位置到当前位置的Bar计数'],
-    #                 ['ContractProfit'      , '当前持仓位置的每手浮动盈亏'],
-    #                 ['CurrentContracts'    , '当前持仓的持仓合约数'],
+                    ['BarsSinceEntry'      , '当前持仓的第一个建仓位置到当前位置的Bar计数'],
+                    ['BarsSinceExit'       , '最近平仓位置到当前位置的Bar计数'],
+                    ['BarsSinceLastEntry'  , '当前持仓的最后一个建仓位置到当前位置的Bar计数'],
+                    ['ContractProfit'      , '当前持仓位置的每手浮动盈亏'],
+                    ['CurrentContracts'    , '当前持仓的持仓合约数'],
+                    ['BuyPosition'         , '当前持仓的买入持仓量'],
+                    ['SellPosition'        , '当前持仓的卖出持仓量'],
     #                 ['CurrentEntries'      , '当前持仓的建仓次数'],
-    #                 ['EntryDate'           , '当前持仓的第一个建仓位置的日期'],
-    #                 ['EntryPrice'          , '当前持仓的第一个建仓价格'],
-    #                 ['EntryTime'           , '当前持仓的第一个建仓位置的时间'],
-    #                 ['ExitDate'            , '最近平仓位置Bar日期'],
-    #                 ['ExitPrice'           , '最近平仓位置的平仓价格'],
-    #                 ['ExitTime'            , '最近平仓位置Bar时间'],
-    #                 ['LastEntryDate'       , '当前持仓的最后一个建仓位置的日期'],
-    #                 ['LastEntryPrice'      , '当前持仓的最后一个建仓价格'],
-    #                 ['LastEntryTime'       , '当前持仓的最后一个建仓位置的时间'],
+                    ['EntryDate'           , '当前持仓的第一个建仓位置的日期'],
+                    ['EntryPrice'          , '当前持仓的第一个建仓价格'],
+                    ['EntryTime'           , '当前持仓的第一个建仓位置的时间'],
+                    ['ExitDate'            , '最近平仓位置Bar日期'],
+                    ['ExitPrice'           , '最近平仓位置的平仓价格'],
+                    ['ExitTime'            , '最近平仓位置Bar时间'],
+                    ['LastEntryDate'       , '当前持仓的最后一个建仓位置的日期'],
+                    ['LastEntryPrice'      , '当前持仓的最后一个建仓价格'],
+                    ['LastEntryTime'       , '当前持仓的最后一个建仓位置的时间'],
                     ['MarketPosition'      , '当前持仓状态'],
     #                 ['MaxContracts'        , '当前持仓的最大持仓合约数'],
     #                 ['MaxEntries'          , '最大的建仓次数'],
@@ -119,6 +127,7 @@ _all_func_ = {
                 
     '策略性能': [
                     ['Available'           , '策略当前可用虚拟资金'],
+                    ['CurrentEquity'       , '账户权益'],
                     ['FloatProfit'         , '浮动盈亏'],
                     ['GrossLoss'           , '累计总亏损'],
                     ['GrossProfit'         , '累计总利润'],
@@ -138,10 +147,12 @@ _all_func_ = {
                 
     '账户函数': [
                     ['A_AccountID'         , '交易账户ID'],
+                    ['A_GetAllPositionSymbol', '所有持仓合约'],
                     ['A_Cost'              , '手续费'],
                     ['A_CurrentEquity'     , '账户权益'],
                     ['A_FreeMargin'        , '可用资金'],
                     ['A_ProfitLoss'        , '浮动盈亏'],
+                    ['A_CoverProfit'       , '平仓盈亏'],
                     ['A_TotalFreeze'       , '冻结资金'],
                     ['A_BuyAvgPrice'       , '买入均价'],
                     ['A_BuyPosition'       , '买持仓量'],
@@ -163,7 +174,8 @@ _all_func_ = {
                     ['A_OrderStatus'       , '定单状态'],
                     ['A_OrderTime'         , '下单时间'],
                     ['A_SendOrder'         , '下单'],
-                    ['A_DeleteOrder'       , '撤单']
+                    ['A_DeleteOrder'       , '撤单'],
+                    ['A_GetOrderNo'        , '获取定单号和委托号'],
                 ],
                 
     '枚举函数': [
@@ -247,7 +259,6 @@ _all_func_ = {
                 ],
 
     '设置函数': [
-                    ## ['SetBenchmark'        , '设置基准合约'],
                     ## ['AddUserNo'           , '添加交易账号'],
                     ['SetBarInterval'      , '设置K线类型'],
                     ['SetInitCapital'      , '设置初始资金'],
@@ -263,27 +274,43 @@ _all_func_ = {
                     ['SetTriggerType'      , '设置触发方式'],
                 ],
 
-    '其他函数': [
-                    ['PlotNumeric'          ,'绘制指标线'],
-                    ['PlotIcon'             ,'绘制系统图标'],
-                    ['PlotText'             ,'绘制字符串'],
-                    ['PlotVertLine'         ,'绘制竖线段'],
-                    ['UnPlotText'           ,'取消绘制的字符串'],
-                    ['LogDebug'             ,'打印调试信息'],
-                    ['LogInfo'              ,'打印普通信息'],
-                    ['LogWarn'              ,'打印警告信息'],
-                    ['LogError'             ,'打印错误信息'],
+    '绘图函数': [
+                    ['PlotNumeric'         ,'绘制指标线'],
+                    ['PlotIcon'            ,'绘制系统图标'],
+                    ['PlotDot'             ,'绘制点'],
+                    ['PlotBar'             ,'绘制柱子'],
+                    ['PlotText'            ,'绘制字符串'],
+                    ['PlotVertLine'        ,'绘制竖线'],
+                    ['PlotPartLine'        ,'绘制斜线段'],
+                    ['PlotStickLine'       ,'绘制竖线段'],
+                    ['UnPlotText'          ,'取消绘制的字符串'],
+                    ['UnPlotIcon'          ,'取消绘制的图标'],
+                    ['UnPlotDot'           ,'取消绘制的点'],
+                    ['UnPlotBar'           ,'取消绘制的柱子'],
+                    ['UnPlotNumeric'       ,'取消绘制的指标线'],
+                    ['UnPlotVertLine'      ,'取消绘制竖线'],
+                    ['UnPlotPartLine'      ,'取消绘制斜线段'],
+                    ['UnPlotStickLine'     ,'取消绘制竖线段'],
                 ],
-                
+
     'context函数': [
-                    ['strategyStatus'       ,'获取当前策略状态'],
-                    ['triggerType'          ,'获取当前触发类型'],
-                    ['contractNo'           ,'获取当前触发合约'],
-                    ['kLineType'            ,'获取当前触发的K线类型'],
-                    ['kLineSlice'           ,'获取当前触发的K线周期'],
-                    ['tradeDate'            ,'获取当前触发的交易日'],
-                    ['dateTimeStamp'        ,'获取当前触发的时间戳'],
-                    ['triggerData'          ,'获取当前触发类型对应的数据'],
+                    ['strategyStatus'      ,'获取当前策略状态'],
+                    ['triggerType'         ,'获取当前触发类型'],
+                    ['contractNo'          ,'获取当前触发合约'],
+                    ['kLineType'           ,'获取当前触发的K线类型'],
+                    ['kLineSlice'          ,'获取当前触发的K线周期'],
+                    ['tradeDate'           ,'获取当前触发的交易日'],
+                    ['dateTimeStamp'       ,'获取当前触发的时间戳'],
+                    ['triggerData'         ,'获取当前触发类型对应的数据'],
+                ],
+
+    '其他函数': [
+                    ['SMA'                 ,'计算加权移动平均值'],
+                    ['ParabolicSAR'        ,'计算抛物线转向'],
+                    ['LogDebug'            ,'打印调试信息'],
+                    ['LogInfo'             ,'打印普通信息'],
+                    ['LogWarn'             ,'打印警告信息'],
+                    ['LogError'            ,'打印错误信息'],
                 ],
 
 }
