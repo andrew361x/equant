@@ -1327,7 +1327,7 @@ class StrategyModel(object):
         }
         contractNo = contNo
         if not contNo:
-            contractTuple = self._cfgModel.getBenchmark()
+            contractNo = self._cfgModel.getBenchmark()
 
         contList = contractNo.split('|')
         if len(contList) == 0:
