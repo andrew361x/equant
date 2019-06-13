@@ -270,7 +270,7 @@ class StrategyConfig(object):
 
     def getKLineShowInfo(self):
         # 1、取界面设置的 2、取SetBarinterval第一个设置的
-        if 'ContractNo' not in self._metaData['Sample']['Display'] or not self._metaData['Sample']['Display']['ContractNo']:
+        if 'Display' not in self._metaData['Sample'] or not self._metaData['Sample']['Display']['ContractNo']:
             raise Exception("请确保在设置界面或者在策略中调用SetBarInterval方法设置展示的合约、K线类型和周期")
         return self._metaData['Sample']['Display']
 
