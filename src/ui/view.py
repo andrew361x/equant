@@ -6,7 +6,7 @@ from .language import Language
 from .editor_view import QuantEditor,QuantEditorHead
 from .helper_view import QuantHelper,QuantHelperHead, QuantHelperText
 from .monitor_view import QuantMonitor
-from .com_view import RunWin
+from .run_view import RunWin
 
 from report.reportview import ReportView
 from .com_view import HistoryToplevel
@@ -33,7 +33,11 @@ class QuantApplication(object):
         self.quant_editor_head = None
         self.quant_helper_head = None
         self.quant_monitor = None
-        self.runWin = None  # 运行按钮弹出窗口
+        # 运行按钮弹出窗口
+        self.runWin = None
+
+        # 历史回测窗口
+        self.hisTop = None
 
     def mainloop(self):
         self.root.mainloop()
@@ -113,9 +117,6 @@ class QuantApplication(object):
         self.quant_monitor.createSignal()
         self.quant_monitor.createErr()
 
-        # 历史回测窗口
-        self.hisTop = None
-
     def updateLogText(self):
         self.quant_monitor.updateLogText()
 
@@ -144,10 +145,10 @@ class QuantApplication(object):
     def updateSingleExecute(self, dataDict):
         self.quant_monitor.updateSingleExecute(dataDict)
 
-    def createRunWin(self):
+    def createRunWin(self, param):
         """弹出量化设置界面"""
         self.setLoadState("disabled")
-        self.runWin = RunWin(self.control, self.root)
+        self.runWin = RunWin(self.control, self.root, param)
         self.runWin.display()
         self.setLoadState("normal")
 

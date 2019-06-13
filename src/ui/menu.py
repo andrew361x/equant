@@ -108,10 +108,10 @@ class StrategyMenu(object):
             else:
                 file = file_name + file_type
                 if not os.path.exists(os.path.join(dir_path, file)):
-                    filePath = os.path.join(dir_path, file)
-                    self._controller.newStrategy(filePath)
                     # TODO：怎么把文件按文件名插入到合适的位置呢？
                     newFileWin.destroy()
+                    filePath = os.path.join(dir_path, file)
+                    self._controller.newStrategy(filePath)
                 else:
                     messagebox.showinfo(self.language.get_text(8),
                                         self.language.get_text(17) + file + self.language.get_text(18), parent=newFileWin)
@@ -128,25 +128,31 @@ class StrategyMenu(object):
         newTop = NewDirToplevel(self._controller.top)
 
         def save():
-            # 新建策略前先保存当前选中的策略
+            # 新建前先保存当前选中的策略
             self._controller.saveStrategy()
 
             tempPath = self.get_file_path()
             path =tempPath[0]
+
             if os.path.isdir(path):
+                #TODO: 新建策略有问题
                 dir_path = path
+                # dir_path = os.path.dirname(path)
+
             if os.path.isfile(path):
                 dir_path = os.path.dirname(path)
+                # dir_path = os.path.dirname(par_path)
             file_name = newTop.nameEntry.get()
             if file_name == "":
                 messagebox.showinfo(self.language.get_text(8), self.language.get_text(22), parent=newTop)
             else:
                 if not os.path.exists(os.path.join(dir_path, file_name)):
-                    filePath = os.path.join(dir_path, file_name)
                     # TODO: insert的位置问题。。。
                     # TODO：新建目录和新建文件在目录树种无法区别
-                    self._controller.newDir(filePath)
                     newTop.destroy()
+
+                    filePath = os.path.join(dir_path, file_name)
+                    self._controller.newDir(filePath)
                 else:
                     messagebox.showinfo(self.language.get_text(8),
                                         self.language.get_text(23) + file_name + self.language.get_text(24), parent=newTop)
@@ -242,6 +248,10 @@ class StrategyMenu(object):
         def enter():
             # 新建策略前先保存当前选中的策略
             self._controller.saveStrategy()
+            
+            # 先关闭窗口
+            deleteTop.destroy()
+
             for path, select in zip(tempPath, selected_item):
                 if os.path.exists(path):
                     if os.path.isdir(path):
@@ -268,8 +278,6 @@ class StrategyMenu(object):
                         self.widget.delete(select)
                 else:  # 文件不存在（本地文件已经删除）
                     self.widget.delete(select)
-
-            deleteTop.destroy()
 
         def cancel():
             deleteTop.destroy()
@@ -299,6 +307,7 @@ class RunMenu(object):
         self.menu.add_command(label="删除", command=self.onDelete)
         self.menu.add_command(label="投资报告", command=self.onReport)
         self.menu.add_command(label="图表展示", command=self.onSignal)
+        self.menu.add_command(label="属性设置", command=self.onParam)
 
     def popupmenu(self, event):
         select = self.widget.identify_row(event.y)
@@ -358,3 +367,11 @@ class RunMenu(object):
         """查看信号图"""
         # 当查看信号图时，如果策略选择多个，则只显示第一个
         self._controller.signalDisplay(self._strategyId)
+
+    def onParam(self):
+        """属性设置"""
+        # 选择多个时，则选择第一个策略生效
+        self._controller.paramSetting(self._strategyId)
+        # param = self._controller.getUserParam(self._strategyId)
+        # path = self._controller.getEditorText()["path"]
+        # self._controller.load(path, param)

@@ -19,87 +19,100 @@ class StrategyConfig(object):
     '''
     功能：策略配置模块
     参数：
-    {
-        'Contract' : (  #合约设置,第一个元素为基准合约
-            'ZCE|F|SR|905', 
-        ),
-        
-        'Trigger'  : {  #触发方式设置
-            '1' : '201904016100001'  定时触发       ST_TRIGGER_TIMER
-            '2' : 300                周期触发(毫秒) ST_TRIGGER_CYCLE
-            '3' : None,              K线触发        ST_TRIGGER_KLINE
-            '4' : None,              即时行情触发   ST_TRIGGER_SANPSHOT
-            '5' : None,              交易触发       ST_TRIGGER_TRADE
-        },
-        
-        'Sample'   : {  #样本设置
-            'ZCE|F|SC|906'  :   {
-                'KLineType'     : 'M',   K线类型
-                'KLineSlice'    : 1,     K线周期
-
-                'UseSample'     : True,  是否使用样本
-                'KLineCount'    : 0,     K线数量
-                'BeginTime'     : '',    起始日期， 目前支持到天
-            }
-            'KLineType'     : 'M',   K线类型
-            'KLineSlice'    : 1,     K线周期
-            'UseSample'     : True,  是否使用样本
-            'KLineCount'    : 0,     K线数量
-            'BeginTime'     : '',    起始日期， 目前支持到天
-        },
-        
-        'RunMode'  : {  #运行模式
-            'Simulate' : {
-                'Continues' : True,  连续运行
-            }
-            'Actual'   : {
-                'SendOrder' : '1'    发单模式,1-实时发单,2-K线完成后发单
-            }
-        },
-        
-        'Money'    : {   #资金设置
-            'ET001'  : {    #资金账号
-                'UserNo'    : 'ET001',
-                'InitFunds' : '1000000'   初始资金
-                'ZCE|F|SC|906'  :   {
-                    'OrderQty'  : {
-                        'Type'  : '1'-固定手数, '2'-固定资金，'3'-资金比例
-                        'Count' : 设置的值
-                    }
-                    'Hedge'     : T-投机,B-套保,S-套利,M-做市
-                    'MARGIN'    : {'Type':'F', 'Value':value} 'F'-固定值,'R'-比例
-                    'OpenFee'   : {'Type':'F', 'Value':value} 开仓手续费
-                    'CloseFee'  : {'Type':'F', 'Value':value} 平仓手续费
-                    'CloseTodayFee' : {'Type':'F', 'Value':value} 平今手续费
-                }
-            }
-        }
-        
-        'Limit'   : {   #下单限制
-            'OpenTimes' : 1, 每根K线同向开仓次数(-1,1-100)
-            'ContinueOpenTimes' :-1, (-1, 1-100)
-            'OpenAllowClose' : True  开仓的当前K线不允许平仓
-            'CloseAllowOpen' : True  平仓的当前K线不允许开仓
-        }
-        
-        'Other' : None                
-      }
+        {
+	'Contract': ('ZCE|F|AP|911', ),
+	'Trigger': {
+		'Timer': None,
+		'Cycle': None,
+		'KLine': True,
+		'SnapShot': True,
+		'Trade': False
+	},
+	'Sample': {
+		'KLineCount': 2000
+	},
+	'DefaultSample': {
+		'ZCE|F|AP|911': [{
+			'KLineType': 'M',
+			'KLineSlice': 1
+		}, {
+			'KLineType': 'D',
+			'KLineSlice': 1
+		}],
+		'ZCE|F|CY|910': [{
+			'KLineType': 'M',
+			'KLineSlice': 1
+		}],
+		'ZCE|F|CJ|912': [{
+			'KLineType': 'D',
+			'KLineSlice': 1
+		}]
+	},
+	'RunMode': {
+		'SendOrder': '1',
+		'Simulate': {
+			'Continues': True,
+			'UseSample': True
+		},
+		'Actual': {
+			'SendOrder2Actual': False
+		}
+	},
+	'Money': {
+		'UserNo': 'ET001',
+		'InitFunds': 10000000.0,
+		'MinQty': 1,
+		'OrderQty': {
+			'Type': '1',
+			'Count': 1
+		},
+		'Hedge': 'T',
+		'Margin': {
+			'Type': 'R',
+			'Value': 0.01
+		},
+		'OpenFee': {
+			'Type': 'F',
+			'Value': 1.0
+		},
+		'CloseFee': {
+			'Type': 'F',
+			'Value': 1.0
+		},
+		'CloseTodayFee': {
+			'Type': 0,
+			'Value': 0
+		}
+	},
+	'Limit': {
+		'OpenTimes': -1,
+		'ContinueOpenTimes': -1,
+		'OpenAllowClose': 0,
+		'CloseAllowOpen': 0
+	},
+	'Other': {
+		'Slippage': 1.0,
+		'TradeDirection': 0
+	},
+	'Params': {}
+    }
     '''
     def __init__(self, argsDict):
         ret = self._chkConfig(argsDict)
         if ret > 0:
             raise Exception(ret)
 
-        if 'Default' in argsDict['Sample']:
+        if 'Display' in argsDict['Sample']:
             self._metaData = argsDict
         else:
             self._metaData = self.convertArgsDict(argsDict)
 
     def convertArgsDict(self, argsDict):
+        # print("sun --------", argsDict)
         resDict = {}
         contList = argsDict['Contract']
         for key, value in argsDict.items():
-            if key in ('Sample'):
+            if key in ('Sample', 'DefaultSample'):
                 continue
             resDict[key] = deepcopy(value)
 
@@ -109,31 +122,42 @@ class StrategyConfig(object):
         # Sample
         sample = argsDict['Sample']
         useSample = ('BeginTime' in sample) or ('KLineCount' in sample) or ('AllK' in sample)
-        defaultSample = {
-            'KLineType' : sample['KLineType'],
-            'KLineSlice': sample['KLineSlice'],
+        sampleInfo = {
+            # 'KLineType' : sample['KLineType'],
+            # 'KLineSlice': sample['KLineSlice'],
             'BeginTime' : sample['BeginTime'] if 'BeginTime' in sample else '',
             'KLineCount': sample['KLineCount'] if 'KLineCount' in sample else 0,
             'AllK'      : sample['AllK'] if 'AllK' in sample else False,
             'UseSample' : useSample,
             'Trigger': True,
         }# 界面设置信息
-        resDict['Sample'] = {
-            'Default': [deepcopy(defaultSample)],
-        }
 
-        benchmark = ''
-        if len(contList) > 0 and len(contList[0]) > 0:
-            # 界面设置了基准合约和K线信息
-            benchmark = contList[0]
-            resDict['Sample'][benchmark] = [deepcopy(defaultSample)]
-            resDict['SubContract'] = [benchmark]
+        # DefaultSample
+        subContract = []
+        defaultSample = argsDict['DefaultSample']
+        if len(defaultSample) == 0:
+            # 界面未设置
+            pass
         else:
-            resDict['SubContract'] = []
+            for contNo, kLineInfoList in defaultSample.items():
+                subContract.append(contNo)
+                for kLineInfo in kLineInfoList:
+                    kLineInfo.update(sampleInfo)
 
-        resDict['Sample']['Display'] = {"ContractNo" : benchmark, "KLineType": sample['KLineType'], "KLineSlice": sample['KLineSlice']}
 
-        # print("sun ------- ", resDict)
+        resDict['DefaultSample'] = defaultSample
+        resDict['Sample'] = defaultSample
+
+        # 合约列表
+        resDict['SubContract'] = subContract
+
+        if len(contList) > 0 and len(contList[0]) > 0:
+        # 界面设置了基准合约和K线信息
+            benchmark = contList[0]
+            kLineInfo = defaultSample[benchmark][0]
+            resDict['Sample']['Display'] = {"ContractNo": benchmark, "KLineType": kLineInfo['KLineType'], "KLineSlice": kLineInfo['KLineSlice']}
+
+        # print("sun ======== ", resDict)
         return resDict
 
     def updateBarInterval(self, contNo, inDict, fromDict):
@@ -176,6 +200,9 @@ class StrategyConfig(object):
             
         if 'Limit' not in argsDict:
             return 6
+
+        if 'DefaultSample' not in argsDict:
+            return 7
             
         return 0
 
@@ -243,7 +270,7 @@ class StrategyConfig(object):
 
     def getKLineShowInfo(self):
         # 1、取界面设置的 2、取SetBarinterval第一个设置的
-        if not self._metaData['Sample']['Display']['ContractNo']:
+        if 'ContractNo' not in self._metaData['Sample']['Display'] or not self._metaData['Sample']['Display']['ContractNo']:
             raise Exception("请确保在设置界面或者在策略中调用SetBarInterval方法设置展示的合约、K线类型和周期")
         return self._metaData['Sample']['Display']
 
@@ -345,6 +372,56 @@ class StrategyConfig(object):
         trigger['Timer'] = value if type ==4 else None
 
         return 0
+
+    def setWinPoint(self, winPoint, nPriceType, nAddTick, contractNo):
+        if 'WinPoint' not in self._metaData:
+            self._metaData['WinPoint'] = {}
+
+        if nPriceType not in (0, 1, 2, 3, 4):
+            raise Exception("参数nPriceType代表的平仓下单价格类型必须为0: 最新价，1：对盘价，2：挂单价，3：市价，4：停板价中的一个")
+
+        if nAddTick not in (0, 1, 2):
+            raise Exception("参数nAddTick代表的超价点数仅能为0，1，2")
+
+        self._metaData['WinPoint'][contractNo] = {
+            "StopPoint": winPoint,
+            "AddPoint": nAddTick,
+            "CoverPosOrderType": nPriceType,
+        }
+        return 0
+
+    def getStopWinParams(self, contractNo=None):
+        contNo = self.getBenchmark() if not contractNo else contractNo
+
+        if 'WinPoint' not in self._metaData or contNo not in self._metaData['WinPoint']:
+            return None
+
+        return self._metaData['WinPoint'][contNo]
+
+    def setStopPoint(self, stopPoint, nPriceType, nAddTick, contractNo):
+        if 'StopPoint' not in self._metaData:
+            self._metaData['StopPoint'] = {}
+
+        if nPriceType not in (0, 1, 2, 3, 4):
+            raise Exception("参数nPriceType代表的平仓下单价格类型必须为0: 最新价，1：对盘价，2：挂单价，3：市价，4：停板价中的一个")
+
+        if nAddTick not in (0, 1, 2):
+            raise Exception("参数nAddTick代表的超价点数仅能为0，1，2")
+
+        self._metaData['StopPoint'][contractNo] = {
+            "StopPoint": stopPoint,
+            "AddPoint": nAddTick,
+            "CoverPosOrderType": nPriceType,
+        }
+        return 0
+
+    def getStopLoseParams(self, contractNo=None):
+        contNo = self.getBenchmark() if not contractNo else contractNo
+
+        if 'StopPoint' not in self._metaData or contNo not in self._metaData['StopPoint']:
+            return None
+
+        return self._metaData['StopPoint'][contNo]
 
     def setSample(self, sampleType, sampleValue):
         '''设置样本数据'''
@@ -471,13 +548,14 @@ class StrategyConfig(object):
         contract = self._metaData['Contract']
         defaultBenchmark = contract[0] if len(contract) > 0 and len(contract[0]) else ""
         if len(defaultBenchmark) > 0:
-            if defaultBenchmark in self._metaData['Sample']:
-                del self._metaData['Sample'][defaultBenchmark]
-            self._metaData['Sample']['Display']['ContractNo'] = None
+            self._metaData['Contract'] = ()
+            self._metaData['Sample'] = {}
             self._metaData['SubContract'] = []
+            self._metaData['Sample']['Display'] = {}
 
         # 添加订阅合约
-        self._metaData['SubContract'].append(contNo)
+        if contNo not in self._metaData['SubContract']:
+            self._metaData['SubContract'].append(contNo)
 
         # 记录展示的合约和K线信息
         if barType == EEQU_KLINE_SECOND:
@@ -487,17 +565,25 @@ class StrategyConfig(object):
             barInterval = barInterval * 60
         elif barType == EEQU_KLINE_TICK:
             barInterval = 0
-        if not self._metaData['Sample']['Display']['ContractNo']:
+        if 'Display' not in self._metaData['Sample'] or not self._metaData['Sample']['Display']:
             self._metaData['Sample']['Display'] = {"ContractNo" : contNo, "KLineType": barType, "KLineSlice": barInterval}
 
         # 更新回测起始点信息
+        kLineCount = 1
+        if isinstance(sampleConfig, int):
+            if sampleConfig == 0:
+                kLineCount = 1
+            elif sampleConfig > 0:
+                kLineCount = sampleConfig
+        elif sampleConfig == 'N':
+            kLineCount = 1
         sampleInfo = {
             'KLineType': barType,
             'KLineSlice': barInterval,
             'BeginTime' : sampleConfig if isinstance(sampleConfig, str) and self.isVaildDate(sampleConfig, "%Y%m%d") else '',
-            'KLineCount' : sampleConfig if isinstance(sampleConfig, int) and sampleConfig > 0 else (1 if sampleConfig == 'N' else 0),
+            'KLineCount' : kLineCount,
             'AllK' : True if sampleConfig == 'A' else False,
-            'UseSample' : False if sampleConfig == 'N' else True,
+            'UseSample' : True,
             'Trigger' : trigger,
         }
 
@@ -715,3 +801,11 @@ class StrategyConfig(object):
 
     def getLimit(self):
         return self._metaData['Limit']
+
+    def setParams(self, params):
+        self._metaData["Params"] = params
+
+    def getParams(self):
+        if "Params" not in self._metaData:
+            return {}
+        return self._metaData["Params"]

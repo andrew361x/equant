@@ -23,7 +23,7 @@ class TkinterController(object):
         self._eg2uiQueue = eg2ui_q
 
         # UI2EG发送请求对象
-        self._request = SendRequest(self._ui2egQueue)
+        self._request = SendRequest(self._ui2egQueue, self.logger)
 
         # 创建主窗口
         self.top = Tk()
@@ -107,9 +107,15 @@ class TkinterController(object):
         """保存当前策略"""
         self.app.quant_editor.saveEditor()
 
-    def load(self, strategyPath):
-        """加载合约事件"""
-        self.app.createRunWin()
+    def load(self, strategyPath, param={}):
+        #TODO：新增param参数，用于接收用户策略的参数
+        """
+        加载合约事件
+        :param strategyPath: 策略路径
+        :param param: 策略参数信息
+        :return:
+        """
+        self.app.createRunWin(param)
 
         config = self.app.runWin.getConfig()
         if config:   # 获取到config
@@ -118,6 +124,17 @@ class TkinterController(object):
             return
 
         return
+
+    def paramLoad(self, id):
+        """用户参数修改后策略重新启动"""
+        param = self.getUserParam(id)
+        self.app.createRunWin(param)
+
+        config = self.app.runWin.getConfig()
+        if config:  # 获取到config
+            self._request.strategyParamRestart(id, config)
+            self.logger.info("Restarting strategy by new paramters")
+            return
 
     def generateReportReq(self, strategyIdList):
         """发送生成报告请求"""
@@ -241,10 +258,21 @@ class TkinterController(object):
                 self.app.delUIStrategy(id)
 
     def signalDisplay(self, strategyIdList):
-        # 查看策略的信号及指标图(默认查看一个)
+        """查看策略的信号及指标图(默认查看一个)"""
         if len(strategyIdList) >= 1:
             id = strategyIdList[0]
             self._request.strategySignal(id)
+
+    def getUserParam(self, id):
+        """获取用户设置的参数信息"""
+        return self.strategyManager.getStrategyParamData(id)
+
+    def paramSetting(self, strategyIdList):
+        """发送属性设置事件"""
+        if len(strategyIdList) >= 1:
+            id = strategyIdList[0]
+
+            self.paramLoad(id)
 
 
 class ChildThread(threading.Thread):

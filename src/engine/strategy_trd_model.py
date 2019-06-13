@@ -104,6 +104,9 @@ class StrategyTrade(TradeModel):
         '''
         return self.getDataFromTMoneyModel('Available')
 
+    def getAMargin(self):
+        return self.getDataFromTMoneyModel('Deposit')
+
     def getProfitLoss(self):
         '''
         :return:当前公式应用的交易帐户的浮动盈亏
@@ -215,170 +218,307 @@ class StrategyTrade(TradeModel):
         '''
         return self.getItemSumFromPositionModel('S', contNo, 'PositionQty') - self.getItemSumFromPositionModel('S', contNo, 'PrePositionQty')
 
-    def convertDateToTimeStamp(self, date):
-        '''
-        将日期转换为时间戳
-        :param date: 日期
-        :return:
-        '''
-        if not date:
-            return 0
-
-        struct_time = time.strptime(date, "%Y-%m-%d %H:%M:%S")
-        timeStamp = time.mktime(struct_time)
-        return timeStamp
-
-    def getDataFromTOrderModel(self, orderNo, key):
-        '''
-        获取当前账号下的指定订单信息
-        :param orderNo: 订单的委托编号，为空时，取最后提交的订单信息
-        :param key: 指定信息对应的key，不可为空
-        :return: 当前账号下的指定订单信息
-        '''
-        if not key:
-            return 0
-
-        if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
-            return 0
-
-        tUserInfoModel = self._userInfo[self._selectedUserNo]
-
-        if len(tUserInfoModel._order) == 0:
-            return 0
-
-        if orderNo and orderNo not in tUserInfoModel._order:
-            return 0
-
-        tOrderModel = None
-        if not orderNo:
-            # 委托单号 为空
-            lastOrderTime = self.convertDateToTimeStamp('1970-01-01 08:00:00')
-            for orderNo in list(tUserInfoModel._order.keys()):
-                orderModel = tUserInfoModel._order[orderNo]
-                insertTimeStamp = self.convertDateToTimeStamp(orderModel._metaData['InsertTime'])
-                updateTimeStamp = self.convertDateToTimeStamp(orderModel._metaData['UpdateTime'])
-                orderTime = insertTimeStamp if insertTimeStamp >= updateTimeStamp else updateTimeStamp
-                if orderTime > lastOrderTime:
-                    lastOrderTime = orderTime
-                    tOrderModel = orderModel
-        else:
-            tOrderModel = tUserInfoModel._order[orderNo]
-
-        if not tOrderModel or key not in tOrderModel._metaData:
-            return 0
-
-        return tOrderModel._metaData[key]
-
     def getOrderBuyOrSell(self, eSession):
         '''
         返回当前公式应用的帐户下当前商品的某个委托单的买卖类型。
-        :param orderNo: 委托单号，为空时，使用当日最后提交的委托编号作为查询依据
+        :param orderNo: 委托单号
         :return: 当前公式应用的帐户下当前商品的某个委托单的买卖类型
         '''
-        orderNo = self._strategy.getOrderNo(eSession)
-        return self.getDataFromTOrderModel(orderNo, 'Direct')
+        if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
+            raise Exception("请确保您的账号已经在客户端登录")
+
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+
+        tMatchModel = None
+        if isinstance(eSession, str) and '-' in eSession:
+            orderNo = self._strategy.getOrderNo(eSession)
+            if not orderNo or orderNo not in tUserInfoModel._order:
+                return 'N'
+            tMatchModel = tUserInfoModel._order[orderNo]
+            return tMatchModel._metaData['Direct']
+        else:
+            for orderNo in list(tUserInfoModel._order.keys()):
+                tMatchModel = tUserInfoModel._order[orderNo]
+                if tMatchModel._metaData['OrderId'] == eSession:
+                    return tMatchModel._metaData['Direct']
+        return 'N'
+
 
     def getOrderEntryOrExit(self, eSession):
         '''
         返回当前公式应用的帐户下当前商品的某个委托单的开平仓状态
-        :param orderNo: 委托单号，为空时，使用当日最后提交的委托编号作为查询依据
+        :param orderNo: 委托单号
         :return: 当前公式应用的帐户下当前商品的某个委托单的开平仓状态
         '''
-        orderNo = self._strategy.getOrderNo(eSession)
-        return self.getDataFromTOrderModel(orderNo, 'Offset')
-
-    def getDataFromTMatchModel(self, orderNo, key):
-        '''
-        获取当前账号下的指定成交信息
-        :param orderNo: 订单的委托编号，为空时，取最后提交的订单信息
-        :param key: 指定信息对应的key，不可为空
-        :return: 当前账号下的指定成交信息
-        '''
-
-        if not key:
-            return 0
-
         if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
-            return 0
-
+            raise Exception("请确保您的账号已经在客户端登录")
         tUserInfoModel = self._userInfo[self._selectedUserNo]
 
-        if len(tUserInfoModel._match) == 0:
-            return 0
-
-        if orderNo and orderNo not in tUserInfoModel._match:
-            return 0
-
-        tMatchModel = None
-        if not orderNo:
-            # 委托单号 为空
-            lastMatchTime = self.convertDateToTimeStamp('1970-01-01 08:00:00')
-            for matchModel in tUserInfoModel._match.values():
-                matchTime = self.convertDateToTimeStamp(matchModel._metaData['MatchDateTime'])
-                if matchTime > lastMatchTime:
-                    lastMatchTime = matchTime
-                    tMatchModel = matchModel
-        else:
+        if isinstance(eSession, str) and '-' in eSession:
+            orderNo = self._strategy.getOrderNo(eSession)
+            if not orderNo or orderNo not in tUserInfoModel._order:
+                return 'N'
             tMatchModel = tUserInfoModel._order[orderNo]
-
-        if not tMatchModel or key not in tMatchModel._metaData:
-            return 0
-
-        return tMatchModel._metaData[key]
+            return tMatchModel._metaData['Offset']
+        else:
+            for orderNo in list(tUserInfoModel._order.keys()):
+                tMatchModel = tUserInfoModel._order[orderNo]
+                if tMatchModel._metaData['OrderId'] == eSession:
+                    return tMatchModel._metaData['Offset']
+        return 'N'
 
     def getOrderFilledLot(self, eSession):
         '''
         返回当前公式应用的帐户下当前商品的某个委托单的成交数量
-        :param orderNo: 委托单号，为空时，使用当日最后提交的委托编号作为查询依据
+        :param orderNo: 委托单号
         :return: 当前公式应用的帐户下当前商品的某个委托单的成交数量
         '''
-        orderNo = self._strategy.getOrderNo(eSession)
-        return self.getDataFromTMatchModel(orderNo, 'MatchQty')
+        if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
+            raise Exception("请确保您的账号已经在客户端登录")
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+
+        if isinstance(eSession, str) and '-' in eSession:
+            orderNo = self._strategy.getOrderNo(eSession)
+            if not orderNo or orderNo not in tUserInfoModel._order:
+                return 0
+
+            tMatchModel = tUserInfoModel._order[orderNo]
+            return tMatchModel._metaData['MatchQty']
+        else:
+            for orderNo in list(tUserInfoModel._order.keys()):
+                tMatchModel = tUserInfoModel._order[orderNo]
+                if tMatchModel._metaData['OrderId'] == eSession:
+                    return tMatchModel._metaData['MatchQty']
+        return 0
 
     def getOrderFilledPrice(self, eSession):
         '''
         返回当前公式应用的帐户下当前商品的某个委托单的成交价格
-        :param orderNo: 委托单号，为空时，使用当日最后提交的委托编号作为查询依据
+        :param orderNo: 委托单号
         :return: 当前公式应用的帐户下当前商品的某个委托单的成交价格
         '''
-        orderNo = self._strategy.getOrderNo(eSession)
-        return self.getDataFromTMatchModel(orderNo, 'MatchPrice')
+        if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
+            raise Exception("请确保您的账号已经在客户端登录")
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+
+        if isinstance(eSession, str) and '-' in eSession:
+            orderNo = self._strategy.getOrderNo(eSession)
+            if not orderNo or orderNo not in tUserInfoModel._order:
+                return 0
+
+            tMatchModel = tUserInfoModel._order[orderNo]
+            return tMatchModel._metaData['MatchPrice']
+        else:
+            for orderNo in list(tUserInfoModel._order.keys()):
+                tMatchModel = tUserInfoModel._order[orderNo]
+                if tMatchModel._metaData['OrderId'] == eSession:
+                    return tMatchModel._metaData['MatchPrice']
+        return 0
+
 
     def getOrderLot(self, eSession):
         '''
         返回当前公式应用的帐户下当前商品的某个委托单的委托数量
-        :param orderNo: 委托单号，为空时，使用当日最后提交的委托编号作为查询依据
+        :param orderNo: 委托单号
         :return: 当前公式应用的帐户下当前商品的某个委托单的委托数量
         '''
-        orderNo = self._strategy.getOrderNo(eSession)
-        return self.getDataFromTOrderModel(orderNo, 'OrderQty')
+        if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
+            raise Exception("请确保您的账号已经在客户端登录")
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+
+        if isinstance(eSession, str) and '-' in eSession:
+            orderNo = self._strategy.getOrderNo(eSession)
+            if not orderNo or orderNo not in tUserInfoModel._order:
+                return 0
+
+            tOrderModel = tUserInfoModel._order[orderNo]
+            return tOrderModel._metaData['OrderQty']
+        else:
+            for orderNo in list(tUserInfoModel._order.keys()):
+                tMatchModel = tUserInfoModel._order[orderNo]
+                if tMatchModel._metaData['OrderId'] == eSession:
+                    return tMatchModel._metaData['OrderQty']
+        return 0
 
     def getOrderPrice(self, eSession):
         '''
         返回当前公式应用的帐户下当前商品的某个委托单的委托价格
-        :param orderNo: 委托单号，为空时，使用当日最后提交的委托编号作为查询依据
+        :param orderNo: 委托单号
         :return: 当前公式应用的帐户下当前商品的某个委托单的委托价格
         '''
-        orderNo = self._strategy.getOrderNo(eSession)
-        return self.getDataFromTOrderModel(orderNo, 'OrderPrice')
+        if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
+            raise Exception("请确保您的账号已经在客户端登录")
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+
+        if isinstance(eSession, str) and '-' in eSession:
+            orderNo = self._strategy.getOrderNo(eSession)
+            if not orderNo or orderNo not in tUserInfoModel._order:
+                return 0
+
+            tOrderModel = tUserInfoModel._order[orderNo]
+            return tOrderModel._metaData['OrderPrice']
+        else:
+            for orderNo in list(tUserInfoModel._order.keys()):
+                tMatchModel = tUserInfoModel._order[orderNo]
+                if tMatchModel._metaData['OrderId'] == eSession:
+                    return tMatchModel._metaData['OrderPrice']
+        return 0
 
     def getOrderStatus(self, eSession):
         '''
         返回当前公式应用的帐户下当前商品的某个委托单的状态
-        :param orderNo: 委托单号，为空时，使用当日最后提交的委托编号作为查询依据
+        :param orderNo: 委托单号
         :return: 当前公式应用的帐户下当前商品的某个委托单的状态
         '''
-        orderNo = self._strategy.getOrderNo(eSession)
-        return self.getDataFromTOrderModel(orderNo, 'OrderState')
+        if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
+            raise Exception("请确保您的账号已经在客户端登录")
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+
+        if isinstance(eSession, str) and '-' in eSession:
+            orderNo = self._strategy.getOrderNo(eSession)
+            if not orderNo or orderNo not in tUserInfoModel._order:
+                return 'N'
+            tOrderModel = tUserInfoModel._order[orderNo]
+            return tOrderModel._metaData['OrderState']
+        else:
+            for orderNo in list(tUserInfoModel._order.keys()):
+                tMatchModel = tUserInfoModel._order[orderNo]
+                if tMatchModel._metaData['OrderId'] == eSession:
+                    return tMatchModel._metaData['OrderState']
+        return 'N'
 
     def getOrderTime(self, eSession):
         '''
         返回当前公式应用的帐户下当前商品的某个委托单的委托时间
-        :param orderNo: 委托单号，为空时，使用当日最后提交的委托编号作为查询依据
+        :param orderNo: 委托单号
         :return: 当前公式应用的帐户下当前商品的某个委托单的委托时间
         '''
-        orderNo = self._strategy.getOrderNo(eSession)
-        return self.getDataFromTOrderModel(orderNo, 'InsertTime')
+        if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
+            raise Exception("请确保您的账号已经在客户端登录")
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+
+        insertTime = ''
+        if isinstance(eSession, str) and '-' in eSession:
+            orderNo = self._strategy.getOrderNo(eSession)
+            if not orderNo or orderNo not in tUserInfoModel._order:
+                return 0
+            tOrderModel = tUserInfoModel._order[orderNo]
+
+            if 'InsertTime' not in tOrderModel._metaData:
+                return 0
+
+            insertTime = tOrderModel._metaData['InsertTime']
+        else:
+            for orderNo in list(tUserInfoModel._order.keys()):
+                tMatchModel = tUserInfoModel._order[orderNo]
+                if tMatchModel._metaData['OrderId'] == eSession:
+                    insertTime = tMatchModel._metaData['InsertTime']
+                    break
+        if not insertTime:
+            return 0
+        struct_time = time.strptime(insertTime, "%Y-%m-%d %H:%M:%S")
+        timeStamp = time.strftime("%Y%m%d.%H%M%S", struct_time)
+        return float(timeStamp)
+
+    def getFirstOrderNo(self, contNo1, contNo2):
+        if self._selectedUserNo not in self._userInfo:
+            raise Exception("请先在极星客户端登录您的交易账号")
+
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+        if len(tUserInfoModel._order) == 0:
+            return -1
+
+        orderId = -1
+        for orderNo in list(tUserInfoModel._order.keys()):
+            orderModel = tUserInfoModel._order[orderNo]
+            if not contNo1 or contNo1 == orderModel._metaData['Cont']:
+                if orderId == -1 or orderId > orderModel._metaData['OrderId']:
+                    orderId = orderModel._metaData['OrderId']
+
+        return orderId
+
+    def getNextOrderNo(self, orderId, contNo1, contNo2):
+        if self._selectedUserNo not in self._userInfo:
+            raise Exception("请先在极星客户端登录您的交易账号")
+
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+        if len(tUserInfoModel._order) == 0:
+            return -1
+
+        minOrderId = -1
+        for orderNo in list(tUserInfoModel._order.keys()):
+            orderModel = tUserInfoModel._order[orderNo]
+            if not contNo1 or contNo1 == orderModel._metaData['Cont']:
+                if orderModel._metaData['OrderId'] <= orderId:
+                    continue
+                # 获取大于orderId的值
+                if minOrderId == -1:
+                    minOrderId = orderModel._metaData['OrderId']
+                # 找到大于orderId并最接近orderId的值
+                if orderModel._metaData['OrderId'] < minOrderId:
+                    minOrderId = orderModel._metaData['OrderId']
+
+        return minOrderId
+
+    def getFirstQueueOrderNo(self, contNo1, contNo2):
+        if self._selectedUserNo not in self._userInfo:
+            raise Exception("请先在极星客户端登录您的交易账号")
+
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+        if len(tUserInfoModel._order) == 0:
+            return -1
+
+        orderId = -1
+        for orderNo in list(tUserInfoModel._order.keys()):
+            orderModel = tUserInfoModel._order[orderNo]
+            if not contNo1 or contNo1 == orderModel._metaData['Cont']:
+                # 排队中
+                if orderModel._metaData['OrderState'] != osQueued:
+                    continue
+                if orderId == -1 or orderId > orderModel._metaData['OrderId']:
+                    orderId = orderModel._metaData['OrderId']
+
+        return orderId
+
+    def getNextQueueOrderNo(self, orderId, contNo1, contNo2):
+        if self._selectedUserNo not in self._userInfo:
+            raise Exception("请先在极星客户端登录您的交易账号")
+
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+        if len(tUserInfoModel._order) == 0:
+            return -1
+
+        minOrderId = -1
+        for orderNo in list(tUserInfoModel._order.keys()):
+            orderModel = tUserInfoModel._order[orderNo]
+            if not contNo1 or contNo1 == orderModel._metaData['Cont']:
+                # 排队中
+                if orderModel._metaData['OrderState'] != osQueued:
+                    continue
+                if orderModel._metaData['OrderId'] <= orderId:
+                    continue
+                # 获取大于orderId的值
+                if minOrderId == -1:
+                    minOrderId = orderModel._metaData['OrderId']
+                # 找到大于orderId并最接近orderId的值
+                if orderModel._metaData['OrderId'] < minOrderId:
+                    minOrderId = orderModel._metaData['OrderId']
+
+        return minOrderId
+
+    def getOrderContractNo(self, orderId):
+        if self._selectedUserNo not in self._userInfo:
+            raise Exception("请先在极星客户端登录您的交易账号")
+
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+        if len(tUserInfoModel._order) == 0:
+            return ""
+
+        for orderNo in list(tUserInfoModel._order.keys()):
+            orderModel = tUserInfoModel._order[orderNo]
+            if orderModel._metaData['OrderId'] == orderId:
+                return orderModel._metaData['Cont']
+        return ""
 
     def deleteOrder(self, eSession):
         '''
@@ -400,6 +540,9 @@ class StrategyTrade(TradeModel):
             if orderModel._metaData['OrderNo'] == orderNo:
                 orderId = orderModel._metaData['OrderId']
 
+        return self.deleteOrderByOrderId(orderId)
+
+    def deleteOrderByOrderId(self, orderId):
         if not orderId:
             return False
 

@@ -63,6 +63,8 @@ EV_UI2EG_EQUANT_EXIT              = 0x005           # 量化退出
 EV_UI2EG_STRATEGY_QUIT            = 0x006           # 策略停止
 EV_UI2EG_STRATEGY_FIGURE          = 0x007           # 策略信号和指标图
 EV_UI2EG_STRATEGY_REMOVE          = 0x008           # 删除策略
+EV_UI2EG_STRATEGY_RESTART         = 0x009           # 更改参数启动策略
+
 
 #////////////////////引擎->界面事件定义////////////////////////
 EV_EG2UI_LOADSTRATEGY_RESPONSE    = 0x101           # 策略加载应答
@@ -120,10 +122,10 @@ EV_EG2ST_LOGINNO_RSP              = 0x330           #请求登录账号
 EV_EG2ST_USERNO_RSP               = 0x331           #请求资金账号
 
 EV_EG2ST_TRADEINFO_RSP            = 0x340           #交易信息应答
+EV_EG2ST_STRATEGY_SYNC            = 0x350           # 引擎向策略同步信息
 
-        
 
-#/////////////CAPI->PyAPI、PyAPi->引擎事件定义////////////////
+# /////////////CAPI->PyAPI、PyAPi->引擎事件定义////////////////
 EEQU_SRVEVENT_CONNECT             = 0x01		    #连接	Q H T S
 EEQU_SRVEVENT_DISCONNECT          = 0x02	        #断开
                                                     
@@ -191,7 +193,9 @@ ST_STATUS_EXCEPTION               = 'E'
 ST_TRIGGER_TIMER                  = 'T'              # 定时触发
 ST_TRIGGER_CYCLE                  = 'C'              # 周期性触发
 ST_TRIGGER_KLINE                  = 'K'              # K线触发
-ST_TRIGGER_SANPSHOT               = 'S'              # 即时行情触发
+# 即时行情到来了,  处理的时候才决定是否触发
+ST_TRIGGER_SANPSHOT_FILL          = 'S'
+# *****************************************
 ST_TRIGGER_TRADE_ORDER            = 'O'              # 交易触发
 ST_TRIGGER_TRADE_MATCH            = 'M'              # 交易触发
 ST_TRIGGER_FILL_DATA              = 'F'
@@ -519,6 +523,8 @@ VIsConOpenTimes              = "30"     # 最大连续同向开仓次数标志
 VConOpenTimes                = "31"     # 最大连续同向开仓次数
 VCanClose                    = "32"     # 开仓的当前K线不允许平仓
 VCanOpen                     = "33"     # 平仓的当前K线不允许开仓
+VParams                      = "34"     # 用户设置的参数
+VContSettings                = "35"     # 多合约设置信息
 
 # K线数据类型
 BarDataClose        = 'C' # 收盘价

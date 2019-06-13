@@ -6,10 +6,14 @@ _all_func_ = {
                 
     'K线数据': [
                     ['BarCount'            , 'Bar总数'],
-                    ['Close'               , '收盘价,简写C'],
                     ['Open'                , '开盘价,简写O'],
+                    ['Close'               , '收盘价,简写C'],
                     ['High'                , '最高价,简写H'],
                     ['Low'                 , '最低价,简写L'],
+                    ['OpenD'               , 'N天前的开盘价'],
+                    ['CloseD'              , 'N天前的收盘价'],
+                    ['HighD'               , 'N天前的最高价'],
+                    ['LowD'                , 'N天前的最低价'],
                     ['Vol'                 , '成交量,简写V'],
                     ['OpenInt'             , '持仓量'],
                     ['BarStatus'           , '当前Bar状态值'],
@@ -102,6 +106,7 @@ _all_func_ = {
                     ['BarsSinceEntry'      , '当前持仓的第一个建仓位置到当前位置的Bar计数'],
                     ['BarsSinceExit'       , '最近平仓位置到当前位置的Bar计数'],
                     ['BarsSinceLastEntry'  , '当前持仓的最后一个建仓位置到当前位置的Bar计数'],
+                    ['BarsSinceToday'      , '当天的第一根Bar到当前的Bar个数'],
                     ['ContractProfit'      , '当前持仓位置的每手浮动盈亏'],
                     ['CurrentContracts'    , '当前持仓的持仓合约数'],
                     ['BuyPosition'         , '当前持仓的买入持仓量'],
@@ -149,8 +154,9 @@ _all_func_ = {
                     ['A_AccountID'         , '交易账户ID'],
                     ['A_GetAllPositionSymbol', '所有持仓合约'],
                     ['A_Cost'              , '手续费'],
-                    ['A_CurrentEquity'     , '账户权益'],
-                    ['A_FreeMargin'        , '可用资金'],
+                    ['A_Assets'            , '账户权益'],
+                    ['A_Available'         , '可用资金'],
+                    ['A_Margin'            , '持仓保证金'],
                     ['A_ProfitLoss'        , '浮动盈亏'],
                     ['A_CoverProfit'       , '平仓盈亏'],
                     ['A_TotalFreeze'       , '冻结资金'],
@@ -173,9 +179,16 @@ _all_func_ = {
                     ['A_OrderPrice'        , '委托价格'],
                     ['A_OrderStatus'       , '定单状态'],
                     ['A_OrderTime'         , '下单时间'],
+                    ['A_FirstOrderNo'      , '当前账户第一个订单号'],
+                    ['A_NextOrderNo'       , '当前账户下一个订单号'],
+                    ['A_FirstQueueOrderNo' , '当前账户第一个排队(可撤)订单'],
+                    ['A_NextQueueOrderNo'  , '当前账户下一个排队(可撤)订单'],
+                    ['A_AllQueueOrderNo'   , '当前账户所有排队(可撤)订单'],
+                    ['A_OrderContractNo'   , '订单的合约号'],
                     ['A_SendOrder'         , '下单'],
                     ['A_DeleteOrder'       , '撤单'],
                     ['A_GetOrderNo'        , '获取定单号和委托号'],
+                    ['DeleteAllOrders'     , '批量撤单'],
                 ],
                 
     '枚举函数': [
@@ -272,6 +285,8 @@ _all_func_ = {
                     ['SetHedge'            , '设置投保标志'],
                     ['SetSlippage'         , '设置滑点损耗'],
                     ['SetTriggerType'      , '设置触发方式'],
+                    ['SetWinPoint'         , '设置策略的止盈点'],
+                    ['SetStopPoint'        , '设置策略的止损点'],
                 ],
 
     '绘图函数': [
@@ -304,9 +319,14 @@ _all_func_ = {
                     ['triggerData'         ,'获取当前触发类型对应的数据'],
                 ],
 
-    '其他函数': [
+    '数学函数': [
                     ['SMA'                 ,'计算加权移动平均值'],
                     ['ParabolicSAR'        ,'计算抛物线转向'],
+                    ['Highest'             ,'求最高'],
+                    ['Lowest'              ,'求最低'],
+                ],
+
+    '日志函数': [
                     ['LogDebug'            ,'打印调试信息'],
                     ['LogInfo'             ,'打印普通信息'],
                     ['LogWarn'             ,'打印警告信息'],

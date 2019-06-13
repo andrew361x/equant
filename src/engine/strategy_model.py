@@ -35,7 +35,7 @@ class StrategyModel(object):
         self._calcCenter = CalcCenter(self.logger)
 
         self._qteModel = StrategyQuote(strategy, self._cfgModel)
-        self._hisModel = StrategyHisQuote(strategy, self._cfgModel, self._calcCenter)
+        self._hisModel = StrategyHisQuote(strategy, self._cfgModel, self._calcCenter, self)
         self._trdModel = StrategyTrade(strategy, self._cfgModel)
         self._staModel = StatisticsModel(strategy, self._cfgModel)
 
@@ -111,7 +111,6 @@ class StrategyModel(object):
             self._hisModel.runVirtualReport(context, handle_data, event)
         else:
             self._hisModel.runRealTime(context, handle_data, event)
-
 
     # ///////////////////////即时行情接口//////////////////////////
     def reqExchange(self):
@@ -206,6 +205,26 @@ class StrategyModel(object):
     def getBarClose(self, contractNo, kLineType, kLineValue):
         multiContKey = self.getKey(contractNo, kLineType, kLineValue)
         return self._hisModel.getBarClose(multiContKey)
+
+    def getOpenD(self, daysAgo, contractNo):
+        contNo = self._cfgModel.getBenchmark() if not contractNo else contractNo
+        multiContKey = self.getKey(contNo, 'D', 1)
+        return self._hisModel.getOpenD(daysAgo, multiContKey)
+
+    def getCloseD(self, daysAgo, contractNo):
+        contNo = self._cfgModel.getBenchmark() if not contractNo else contractNo
+        multiContKey = self.getKey(contNo, 'D', 1)
+        return self._hisModel.getCloseD(daysAgo, multiContKey)
+
+    def getHighD(self, daysAgo, contractNo):
+        contNo = self._cfgModel.getBenchmark() if not contractNo else contractNo
+        multiContKey = self.getKey(contNo, 'D', 1)
+        return self._hisModel.getHighD(daysAgo, multiContKey)
+
+    def getLowD(self, daysAgo, contractNo):
+        contNo = self._cfgModel.getBenchmark() if not contractNo else contractNo
+        multiContKey = self.getKey(contNo, 'D', 1)
+        return self._hisModel.getLowD(daysAgo, multiContKey)
 
     def getBarVol(self, contractNo, kLineType, kLineValue):
         multiContKey = self.getKey(contractNo, kLineType, kLineValue)
@@ -522,6 +541,16 @@ class StrategyModel(object):
     def setTriggerMode(self, contNo, type, value):
         return self._cfgModel.setTrigger(contNo, type, value)
 
+    def setWinPoint(self, winPoint, nPriceType, nAddTick, contNo):
+        if not contNo:
+            contNo = self._cfgModel.getBenchmark()
+        return self._cfgModel.setWinPoint(winPoint, nPriceType, nAddTick, contNo)
+
+    def setStopPoint(self, stopPoint, nPriceType, nAddTick, contNo):
+        if not contNo:
+            contNo = self._cfgModel.getBenchmark()
+        return self._cfgModel.setStopPoint(stopPoint, nPriceType, nAddTick, contNo)
+
     # ///////////////////////账户函数///////////////////////////
     def getAccountId(self):
         return self._trdModel.getAccountId()
@@ -537,6 +566,9 @@ class StrategyModel(object):
 
     def getFreeMargin(self):
         return self._trdModel.getFreeMargin()
+
+    def getAMargin(self):
+        return self._trdModel.getAMargin()
 
     def getProfitLoss(self):
         return self._trdModel.getProfitLoss()
@@ -603,6 +635,32 @@ class StrategyModel(object):
 
     def getOrderTime(self, eSession):
         return self._trdModel.getOrderTime(eSession)
+
+    def getFirstOrderNo(self, contNo1, contNo2):
+        return self._trdModel.getFirstOrderNo(contNo1, contNo2)
+
+    def getNextOrderNo(self, orderId, contNo1, contNo2):
+        return self._trdModel.getNextOrderNo(orderId, contNo1, contNo2)
+
+    def getFirstQueueOrderNo(self, contNo1, contNo2=''):
+        return self._trdModel.getFirstQueueOrderNo(contNo1, contNo2)
+
+    def getNextQueueOrderNo(self, orderId, contNo1, contNo2=''):
+        return self._trdModel.getNextQueueOrderNo(orderId, contNo1, contNo2)
+
+    def getAllQueueOrderNo(self, contNo):
+        orderIdList = []
+        orderId = self.getFirstQueueOrderNo(contNo)
+        if orderId != -1:
+            orderIdList.append(orderId)
+        while (orderId != -1):
+            orderId = self.getNextQueueOrderNo(orderId, contNo)
+            if orderId != -1:
+                orderIdList.append(orderId)
+        return orderIdList
+
+    def getOrderContractNo(self, orderId):
+        return self._trdModel.getOrderContractNo(orderId)
 
     def deleteOrder(self, eSession):
         return self._trdModel.deleteOrder(eSession)
@@ -671,7 +729,7 @@ class StrategyModel(object):
         '''A账户下单函数，不经过calc模块，不产生信号，直接发单'''
         # 是否暂停实盘下单
         if self._cfgModel.getPending():
-            return -5, "用户调用StartTrade方法停止实盘下单功能"
+            return -5, "请调用StartTrade方法开启实盘下单功能"
 
         # 发送下单信号,K线触发、即时行情触发
         # 未选择实盘运行
@@ -718,7 +776,7 @@ class StrategyModel(object):
             "ESessionId": eId,
         })
         self._strategy.sendEvent2Engine(aOrderEvent)
-
+        # self.logger.trade_info(self._strategy.getStrategyId(), aOrder)
         # 更新策略的订单信息
         self._strategy.setESessionId(self._strategy.getESessionId() + 1)
         self._strategy.updateLocalOrder(eId, aOrder)
@@ -729,7 +787,7 @@ class StrategyModel(object):
         '''A账户下单函数，不经过calc模块，不产生信号，直接发单'''
         # 是否暂停实盘下单
         if self._cfgModel.getPending():
-            return -5, "用户调用StartTrade方法停止实盘下单功能"
+            return -5, "请调用StartTrade方法开启实盘下单功能"
 
         # 发送下单信号,K线触发、即时行情触发
         # 未选择实盘运行
@@ -744,7 +802,7 @@ class StrategyModel(object):
             return -3, "未指定下单账户信息"
 
         # 指定的用户未登录
-        if self._trdModel.getSign(userNo) is None:
+        if not self._trdModel.getSign(userNo):
             return -4, "输入的账户没有在极星客户端登录"
 
         # 发送定单到实盘
@@ -776,13 +834,16 @@ class StrategyModel(object):
             "ESessionId": eId,
         })
         self._strategy.sendEvent2Engine(aOrderEvent)
-
+        # self.logger.trade_info(self._strategy.getStrategyId(), aOrder)
         # 更新策略的订单信息
         self._strategy.setESessionId(self._strategy.getESessionId() + 1)
         self._strategy.updateLocalOrder(eId, aOrder)
         return 0, eId
 
     def getAOrderNo(self, eId):
+        if not (isinstance(eId, str) and '-' in eId):
+            return ('', '')
+
         orderId = self._strategy.getOrderId(eId)
         if not orderId:
             orderId = ''
@@ -790,6 +851,16 @@ class StrategyModel(object):
         if not orderNo:
             orderNo = ''
         return orderId, orderNo
+
+    def deleteAllOrders(self, contNo):
+        orderList = self.getAllQueueOrderNo(contNo)
+        if len(orderList) == 0:
+            return True
+
+        for orderId in orderList:
+            self._trdModel.deleteOrderByOrderId(orderId)
+
+        return True
 
     # ///////////////////////枚举函数///////////////////////////
     def getEnumBuy(self):
@@ -1197,17 +1268,17 @@ class StrategyModel(object):
 
         self._plotNumeric(self._strategyName, np.nan, 0, main, EEQU_ISNOT_AXIS, EEQU_VERTLINE, barsback, data)
 
-    def setPlotPartLine(self, name, index1, price1, index2, price2, color, main, axis, width):
+    def setPlotPartLine(self, name, index1, price1, count, price2, color, main, axis, width):
         main = '0' if main else '1'
         axis = '0' if axis else '1'
 
-        if index1<= 0 or index2 <= 0:
+        if index1<= 0 or count <= 0:
             return
 
         data = [{
             'KLineIndex' : index1,
             'Value'      : price1,
-            'Idx2'       : index2,
+            'Idx2'       : count,
             'LineValue'  : price2,
             'ClrLine'    : color,
             'LinWid'     : width
@@ -1215,16 +1286,16 @@ class StrategyModel(object):
 
         self._plotNumeric(name, 0, color, main, axis, EEQU_PARTLINE, 0, data)
 
-    def setUnPlotPartLine(self, name, index1, index2, main):
+    def setUnPlotPartLine(self, name, index1, count, main):
         main = '0' if main else '1'
 
-        if index1<= 0 or index2 <= 0:
+        if index1<= 0 or count <= 0:
             return
 
         data = [{
             'KLineIndex' : index1,
             'Value'      : np.nan,
-            'Idx2'       : index2,
+            'Idx2'       : count,
             'LineValue'  : np.nan,
             'ClrLine'    : 0,
             'LinWid'     : 1
@@ -1593,6 +1664,18 @@ class StrategyModel(object):
         curBar = self._hisModel.getCurBar()
         return (int(curBar['KLineIndex']) - barIndex)
 
+    def getBarsSinceToday(self, contractNo, barType, barValue):
+        key = self.getKey(contractNo, barType, barValue)
+        curBar = self._hisModel.getCurBar(key)
+        tradeDate = curBar['TradeDate']
+        barList = self._hisModel._curBarDict[key].getTradeDateKLine(tradeDate)
+        if len(barList) == 0:
+            return 0
+
+        firstBar = barList[0]
+        res = curBar['KLineIndex'] - firstBar['KLineIndex']
+        return res if res > 0 else 0
+
     def getPositionValue(self, contNo, key):
         if not contNo:
             contNo = self._cfgModel.getBenchmark()
@@ -1828,3 +1911,23 @@ class StrategyModel(object):
     def ParabolicSAR(self, high, low, afstep, aflimit):
         '''计算抛物线转向'''
         return self._staModel.ParabolicSAR(high, low, afstep, aflimit)
+
+    def getHighest(self, price, length):
+        if not isinstance(price, list) or len(price) == 0:
+            return np.array([])
+
+        if length <= 1:
+            return np.array(price)
+
+        arr = np.array(price)
+        return talib.MAX(arr, length)
+
+    def getLowest(self, price, length):
+        if not isinstance(price, list) or len(price) == 0:
+            return np.array([])
+
+        if length <= 1:
+            return np.array(price)
+
+        arr = np.array(price)
+        return talib.MIN(arr, length)

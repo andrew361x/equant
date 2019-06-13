@@ -14,15 +14,15 @@ def handle_data(context):
     #UnPlotBar("BarExample1")
     #PlotStickLine("StickLine", Close()[-1], Open()[-1], RGB_Blue(), True, True, 0)
     #UnPlotStickLine("StickLine")
-    '''
+    #'''
     idx1 = CurrentBar()
     p1 = Close()[-1]
     if idx1 >= 100:
-        idx2 = 1
+        count = 1
         p2 = Close()[-2]
-        PlotPartLine("PartLine", idx1, p1, idx2, p2, RGB_Red(), True, True, 1)
-        UnPlotPartLine("PartLine", idx1, idx2, True)
-    '''
+        PlotPartLine("PartLine", idx1, p1, count, p2, RGB_Red(), True, True, 1)
+        #UnPlotPartLine("PartLine", idx1, count, True)
+    #'''
     #PlotIcon(value=Close()[-1], icon=1)
     #UnPlotIcon()
 

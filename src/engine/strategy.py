@@ -47,8 +47,8 @@ class StartegyManager(object):
         if strategyId not in self._strategyInfo:
             return
         self._strategyInfo[strategyId]["StrategyState"] = ST_STATUS_EXCEPTION
-        # self.destroyProcessByStrategyId(event.getStrategyId())
-        # self._strategyInfo[strategyId]["Process"] = None
+        self.destroyProcessByStrategyId(event.getStrategyId())
+        self._strategyInfo[strategyId]["Process"] = None
 
     def create(self, strategyId, eg2stQueue, eg2uiQueue, st2egQueue, event):
         qdict = {'eg2st': eg2stQueue, 'st2eg': st2egQueue, 'st2ui':eg2uiQueue}
@@ -101,7 +101,10 @@ class StartegyManager(object):
 
     def removeRunningStrategy(self, event):
         strategyId = event.getStrategyId()
-        assert strategyId in self._strategyInfo, "error"
+        if strategyId not in self._strategyInfo:
+            self.logger.error(f"策略{strategyId}在engine已经被删除了")
+            return
+        # assert strategyId in self._strategyInfo, "error"
         self.destroyProcess(self._strategyInfo[strategyId]['Process'], strategyId)
         self._strategyInfo.pop(strategyId)
         self._strategyAttribute.pop(event.getStrategyId())
@@ -121,6 +124,7 @@ class StartegyManager(object):
             'Data': {
                 'Path': strategyInfo["Path"],
                 'Args': strategyInfo["Config"],
+                "NoInitialize": True,
             }
         })
         engineLoadFunc(loadStrategyEvent, strategyId=event.getStrategyId())
@@ -152,12 +156,15 @@ class StartegyManager(object):
         assert strategyId in self._strategyInfo, " error "
         process = self._strategyInfo[strategyId]["Process"]
         self.destroyProcess(process, strategyId)
+        self._strategyInfo[strategyId]["Process"] = None
 
     def destroyProcess(self, process, strategyId):
-        assert process.is_alive(), " error "
+        if not process or not process.is_alive:
+            self.logger.info(f"策略{strategyId}所在进程已经退出，将忽略")
+            return
         try:
             process.terminate()
-            process.join(timeout=1)
+            process.join(timeout=0.1)
             self.logger.debug("strategy %d exit success" % strategyId)
         except Exception as e:
             # traceback.print_exc()
@@ -183,6 +190,9 @@ class StartegyManager(object):
         result = OrderedDict(sorted(result.items(), key=lambda obj: str(obj[0])))
         return result
 
+    def getStrategyAttribute(self, strategyId):
+        return self._strategyAttribute[strategyId]
+
 
 class StrategyContext:
     def __init__(self):
@@ -194,6 +204,7 @@ class StrategyContext:
         self._tradeDate = None
         self._dateTimeStamp = None
         self._triggerData = None
+        self._parameter = {}
 
     def strategyStatus(self):
         return self._strategyStatus
@@ -234,6 +245,16 @@ class StrategyContext:
         self._tradeDate = copy.deepcopy(args["TradeDate"])
         self._dateTimeStamp = copy.deepcopy(args["DateTimeStamp"])
         self._triggerData = copy.deepcopy(args["TriggerData"])
+
+    @property
+    def params(self):
+        return self._parameter
+
+    @params.setter
+    def params(self, parameter):
+        self._parameter = parameter
+
+
 
 
 class TradeRecord(object):
@@ -295,11 +316,9 @@ class Strategy:
         data = event.getData()
         self._filePath = data['Path']
         self._argsDict = data['Args']
+        # 是否运行initialize函数
+        self._noInitialize = "NoInitialize" in data and data["NoInitialize"]
         self._uiConfig = copy.deepcopy(data['Args'])
-
-        # print("now config is")
-        # for k, v in self._argsDict.items():
-        #    print(k,":",v)
 
         self._eg2stQueue = args['eg2st']
         self._st2egQueue = args['st2eg']
@@ -346,7 +365,13 @@ class Strategy:
         userModule.__dict__.update(base_api.__dict__)
 
         # 5. 初始化用户策略参数
-        userModule.initialize(self._context)
+        if not self._noInitialize:
+            userModule.initialize(self._context)
+            self._argsDict["Params"] = self._context.params
+            self._dataModel.getConfigModel().setParams(self._context.params)
+        else:
+            self._context.params = self._argsDict["Params"]
+
         self._userModule = userModule
         # 5.1 同步配置
         self._sendConfig2Engine()
@@ -516,9 +541,9 @@ class Strategy:
                 "EventCode": EV_EG2ST_MONITOR_INFO,
                 "Data": self._dataModel.getMonResult()
             })
-        
+
             self.sendEvent2UI(event)
-            
+
         
     def _runTimer(self):
         timeList = self._dataModel.getConfigTimer()
@@ -579,6 +604,8 @@ class Strategy:
             EV_UI2EG_EQUANT_EXIT            : self._onEquantExit,
             EV_UI2EG_STRATEGY_FIGURE        : self._switchStrategy,
             EV_UI2EG_STRATEGY_REMOVE        : self._onStrategyRemove,
+
+            EV_EG2ST_STRATEGY_SYNC          : self._onSyncEngineInfo,
         }
     
     # ////////////////////////////内部数据请求接口////////////////////
@@ -611,28 +638,21 @@ class Strategy:
         self._dataModel.onQuoteNotice(event)
         self._snapShotTrigger(event)
 
-        # 阶段
-        if self.isRealTimeStatus():
-            try:
-                self._calcProfitByQuote(event)
-            except Exception as e:
-                self.logger.error("即时行情计算浮动盈亏出现错误")
+    # def _calcProfitByQuote(self, event):
+    #     data = event.getData()
+    #     if len(data) == 0 or (4 not in data[0]["FieldData"]):
+    #         # 4:最新价
+    #         return
+    #
+    #     priceInfos = {}
+    #     priceInfos[event.getContractNo()] = {
+    #         "LastPrice": data[0]["FieldData"][4],
+    #         "TradeDate": data[0]["UpdateTime"]//1000000000,
+    #         "DateTimeStamp" : data[0]["UpdateTime"],
+    #         "LastPriceSource": LastPriceFromQuote
+    #     }
+    #     self._dataModel.getHisQuoteModel().calcProfitByQuote(event.getContractNo(), priceInfos)
 
-    def _calcProfitByQuote(self, event):
-        data = event.getData()
-        if len(data) == 0 or (4 not in data[0]["FieldData"]):
-            # 4:最新价
-            return
-
-        priceInfos = {}
-        priceInfos[event.getContractNo()] = {
-            "LastPrice": data[0]["FieldData"][4],
-            "TradeDate": data[0]["UpdateTime"]//1000000000,
-            "DateTimeStamp" : data[0]["UpdateTime"],
-            "LastPriceSource": LastPriceFromQuote
-        }
-        self._dataModel.getHisQuoteModel().calcProfitByQuote(event.getContractNo(), priceInfos)
-        
     def _onDepthNotice(self, event):
         self._dataModel.onDepthNotice(event)
 
@@ -661,7 +681,6 @@ class Strategy:
     def _onLoadStrategyResponse(self, event):
         '''向界面返回策略加载应答'''
         cfg = self._dataModel.getConfigData()
-
         key = self._dataModel.getConfigModel().getKLineShowInfoSimple()
         revent = Event({
             "EventCode" : EV_EG2UI_LOADSTRATEGY_RESPONSE,
@@ -676,6 +695,7 @@ class Strategy:
                 "IsActualRun"  : self._dataModel.getConfigModel().isActualRun(),
                 "InitialFund"  : self._dataModel.getConfigModel().getInitCapital(),
                 "Config"       : cfg,
+                "Params"       : self._context.params,
             }
         })
         self.sendEvent2UI(revent)
@@ -705,9 +725,6 @@ class Strategy:
         :param apiEvent: 引擎返回事件
         :return: None
         '''
-        if str(apiEvent.getStrategyId()) != str(self._strategyId):
-            return
-
         self._dataModel._trdModel.updateOrderData(apiEvent)
 
         # 更新本地订单信息
@@ -715,7 +732,8 @@ class Strategy:
         eSessionId = apiEvent.getESessionId()
         for data in dataList:
             self.updateLocalOrder(eSessionId, data)
-        self._tradeTriggerOrder(apiEvent)
+        if self.isRealTimeStatus():
+            self._tradeTriggerOrder(apiEvent)
 
     def _onTradeLoginQry(self, apiEvent):
         self._dataModel._trdModel.updateLoginInfo(apiEvent)
@@ -843,9 +861,6 @@ class Strategy:
         })
         self.sendEvent2EngineForce(event)
         self._onStrategyQuit(None, ST_STATUS_EXCEPTION)
-        # 保证该进程is_alive， 使得队列可用
-        while True:
-            time.sleep(2)
 
     # 停止策略
     def _onStrategyQuit(self, event=None, status=ST_STATUS_QUIT):
@@ -868,7 +883,11 @@ class Strategy:
             }
         })
         self.sendEvent2UI(quitEvent)
+        self.logger.info(f"策略已经将停止完成信号发送到UI和engine,策略{self._strategyId}")
         self.sendEvent2EngineForce(quitEvent)
+        # 保证该进程is_alive， 使得队列可用
+        while True:
+            time.sleep(2)
 
     def _onEquantExit(self, event):
         self._isSt2EgQueueEffective = False
@@ -905,16 +924,24 @@ class Strategy:
                 "StrategyName": self._strategyName,
             }
         })
-        self.sendEvent2UI(event)
+        self.sendEvent2UI(responseEvent)
+        self.logger.info(f"策略已经将删除完成信号发送到UI和engine,策略{self._strategyId}, {EV_EG2UI_STRATEGY_STATUS}")
         self.sendEvent2EngineForce(responseEvent)
+
+        # 保证该进程is_alive， 使得队列可用
+        while True:
+            time.sleep(2)
 
     def _snapShotTrigger(self, event):
         # 未选择即时行情触发
-        if not self._dataModel.getConfigModel().hasSnapShotTrigger() or not self.isRealTimeStatus():
-            return
+        # if not self._dataModel.getConfigModel().hasSnapShotTrigger() or not self.isRealTimeStatus():
+        #     return
+        #
+        # # 该合约不触发
+        # if event.getContractNo() not in self._dataModel.getConfigModel().getTriggerContract():
+        #     return
 
-        # 该合约不触发
-        if event.getContractNo() not in self._dataModel.getConfigModel().getTriggerContract():
+        if not self.isRealTimeStatus():
             return
 
         # 对应字段没有变化不触发
@@ -925,7 +952,7 @@ class Strategy:
 
         dateTimeStamp, tradeDate, lv1Data = self.getTriggerTimeAndData(event.getContractNo())
         event = Event({
-            "EventCode" : ST_TRIGGER_SANPSHOT,
+            "EventCode" : ST_TRIGGER_SANPSHOT_FILL,
             "ContractNo": event.getContractNo(),
             "KLineType" : None,
             "KLineSlice": None,
@@ -933,6 +960,7 @@ class Strategy:
                 "Data": lv1Data,
                 "DateTimeStamp": dateTimeStamp,
                 "TradeDate": tradeDate,
+                "IsLastPriceChanged": 4 in data[0]["FieldData"],   # 最新价是否改变
             }
         })
         self.sendTriggerQueue(event)
@@ -1018,4 +1046,8 @@ class Strategy:
             }
         })
         self.sendEvent2Engine(event)
+
+    def _onSyncEngineInfo(self, event):
+        orderId = event.getData()["MaxOrderId"]
+        self._eSessionId = orderId
 

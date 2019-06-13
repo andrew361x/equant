@@ -84,9 +84,9 @@ class QuantMonitor(object):
         self.sigText.pack(fill=BOTH, expand=YES)
 
     def createExecute(self):
-        headList  = ["编号", "策略名称", "基准合约", "频率", "运行状态", "实盘运行",
+        headList  = ["编号", "账号", "策略名称", "基准合约", "频率", "运行状态", "实盘运行",
                     "初始资金", "可用资金", "最大回撤", "累计收益", "胜率"]
-        widthList = [5, 50, 50, 5, 10, 5, 20, 10, 20, 20, 5]
+        widthList = [5, 50, 50, 50, 5, 10, 5, 20, 10, 20, 20, 5]
 
         self.executeBar = ttk.Scrollbar(self.executeList, orient="vertical")
         self.executeBar.pack(side=RIGHT, fill=Y)
@@ -114,6 +114,7 @@ class QuantMonitor(object):
         """
         try:
             Id = dataDict['StrategyId']
+            UserNo = dataDict["Config"]["Money"]["UserNo"]
             StName = dataDict['StrategyName']
             BenchCon = dataDict['ContractNo']
             kLineType = dataDict['KLineType']
@@ -146,6 +147,7 @@ class QuantMonitor(object):
 
         values = [
             Id,
+            UserNo,
             StName,
             BenchCon,
             Frequency,

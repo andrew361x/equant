@@ -18,11 +18,12 @@ class MyHandlerText(logging.StreamHandler):
 
 
 class MyHandlerQueue(logging.StreamHandler):
-    def __init__(self, gui_queue, sig_queue, err_queue):
+    def __init__(self, gui_queue, sig_queue, err_queue, trade_log):
         logging.StreamHandler.__init__(self)  # initialize parent
         self.gui_queue = gui_queue
         self.sig_queue = sig_queue
         self.err_queue = err_queue
+        self.trade_log = trade_log
 
     def emit(self, record):
         #最多等待1秒
@@ -34,6 +35,9 @@ class MyHandlerQueue(logging.StreamHandler):
             self.sig_queue.put(msg, block=False, timeout=1)
         elif target == 'E':
             self.err_queue.put(msg, block=False, timeout=1)
+        elif target == 'T':
+            self.trade_log.write(msg+"\n")
+            self.trade_log.flush()
         else:
             self.gui_queue.put(msg, block=False, timeout=1)
 
@@ -52,6 +56,11 @@ class Logger(object):
         self.logpath = r"./log/"
         if not os.path.exists( self.logpath):
             os.makedirs( self.logpath) 
+            
+        #交易日志
+        self.trade_log = open(self.logpath + "trade.dat", mode='a', encoding='utf-8')
+        #self.trade_log.write('我在这儿')
+        #self.trade_log.flush()
 
         #logger config
         self.logger = logging.getLogger("equant")
@@ -95,12 +104,12 @@ class Logger(object):
 
     def add_handler(self):
         #设置文件句柄
-        file_handler = logging.FileHandler(self.logpath + "equant.log", mode='w')
+        file_handler = logging.FileHandler(self.logpath + "equant.log", mode='a')
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(self.formatter)
         self.logger.addHandler(file_handler)
         #设置窗口句柄
-        gui_handler = MyHandlerQueue(self.gui_queue, self.sig_queue, self.err_queue)
+        gui_handler = MyHandlerQueue(self.gui_queue, self.sig_queue, self.err_queue, self.trade_log)
         gui_handler.setLevel(logging.DEBUG)
         gui_handler.setFormatter(self.formatter)
         self.logger.addHandler(gui_handler)
@@ -123,6 +132,9 @@ class Logger(object):
         self._log("ERROR", s, target)
 
     def sig_info(self, s, target='S'):
+        self.info(s, target)
+        
+    def trate_info(self, s, target='T'):
         self.info(s, target)
 
     # 策略错误

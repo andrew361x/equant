@@ -147,3 +147,7 @@ class Event:
     def getUserNo(self):
         return self._record['UserNo']
 
+    def setContractNo(self, contractNo):
+        self._record['ContractNo'] = contractNo
+
+

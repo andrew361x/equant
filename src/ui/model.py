@@ -1,8 +1,6 @@
 import os
 
-import threading
 import copy
-
 import traceback
 import queue
 
@@ -67,8 +65,9 @@ class QuantModel(object):
 
 class SendRequest(object):
     """用于向engine_queue发送请求"""
-    def __init__(self, queue):
+    def __init__(self, queue, logger):
         self._ui2egQueue = queue
+        self._logger = logger
 
         # 注册发送请求事件
         # self._regRequestCallback()
@@ -97,6 +96,7 @@ class SendRequest(object):
         # TODO: 下面队列会阻塞
         try:
             self._ui2egQueue.put(event)
+            self._logger.info("Running request Send Completely！")
         except:
             print("队列已满, 现在已有消息%s条" % self._ui2egQueue.qsize())
 
@@ -113,6 +113,7 @@ class SendRequest(object):
         event = Event(msg)
         try:
             self._ui2egQueue.put(event)
+            self._logger.info("Report request send completely!")
         except:
             print("队列已满，现在已有消息%s条" % self._ui2egQueue.qsize())
 
@@ -128,6 +129,7 @@ class SendRequest(object):
 
         try:
             self._ui2egQueue.put(event)
+            self._logger.info("GUI close request send completely！")
         except:
             print("队列已满，现在已有消息%s条" % self._ui2egQueue.qsize())
 
@@ -144,7 +146,7 @@ class SendRequest(object):
         event = Event(msg)
 
         self._ui2egQueue.put(event)
-        # print("暂停事件已发送")
+        self._logger.info("Strategy pause request send completely!")
 
     def strategyResume(self, strategyId):
         """策略运行恢复"""
@@ -158,6 +160,7 @@ class SendRequest(object):
 
         event = Event(msg)
         self._ui2egQueue.put(event)
+        self._logger.info("Strategy resume request send completely!")
 
     def strategyQuit(self, strategyId):
         """策略停止运行"""
@@ -171,6 +174,7 @@ class SendRequest(object):
 
         event = Event(msg)
         self._ui2egQueue.put(event)
+        self._logger.info("Strategy quit request send completely")
 
     def strategySignal(self, strategyId):
         """策略信号和指标图"""
@@ -184,6 +188,7 @@ class SendRequest(object):
 
         event = Event(msg)
         self._ui2egQueue.put(event)
+        self._logger.info("Strategy Signal and index figure request send completely!")
 
     def strategyRemove(self, strategyId):
         """移除策略"""
@@ -197,6 +202,20 @@ class SendRequest(object):
 
         event = Event(msg)
         self._ui2egQueue.put(event)
+        self._logger.info("Strategy remove request send completely!")
+
+    def strategyParamRestart(self, strategyId, config):
+        """属性设置"""
+        msg = {
+            "EventSrc"  :   EEQU_EVSRC_UI,
+            "EventCode" :   EV_UI2EG_STRATEGY_RESTART,
+            "SessionId" :   0,
+            "StrategyId":   strategyId,
+            "Data"      :   {"Config": config}
+        }
+        event = Event(msg)
+        self._ui2egQueue.put(event)
+        self._logger.info("Strategy Param setting send completely!")
 
 
 # class AskRequest(object):
@@ -272,6 +291,7 @@ class GetEgData(object):
         """获取引擎加载应答数据"""
         self._curStId = event.getStrategyId()
         self._stManager.addStrategy(event.getData())
+        self._logger.info("Receiveing running answer successfully!")
 
     def _onEgReportAnswer(self, event):
         """获取引擎报告应答数据并显示报告"""
@@ -284,6 +304,8 @@ class GetEgData(object):
         # 取到报告数据弹出报告
         if self._reportData:
             self._app.reportDisplay(self._reportData, id)
+            self._logger.info("Receiving report data answer successfully!")
+        self._logger.info("Report data received is empty!")
 
     def _onEgDebugInfo(self, event):
         """获取引擎策略调试信息"""
@@ -291,15 +313,18 @@ class GetEgData(object):
         if data:
             errText = data["ErrorText"]
             self._logger.err_error(errText)
+            self._logger.info("Receiving strategy debuging info successfully!")
         else:   # TODO：没有错误信息时接收不到消息，所以这里不会被执行
             self._app.clearError()
+            self._logger.info("Clearing last debuging info successfully!")
 
     def _onEgMonitorInfo(self, event):
         """获取引擎实时推送监控信息"""
         stId = event.getStrategyId()
         data = event.getData()
         # 实时更新监控界面信息
-        self._stManager.addStrategyData(stId, data)
+        self._stManager.addStrategyRunData(stId, data)
+        #TODO： 引擎实时信息太多先不打印吧
 
     def _onEgExchangeInfo(self, event):
         """获取引擎推送交易所信息"""
@@ -315,6 +340,7 @@ class GetEgData(object):
         """获取引擎推送合约信息"""
         contData = event.getData()
         self._contractList.extend(contData)
+        #TODO: contract信息太多和userinfo一起打印
 
     def _onEgUserInfo(self, event):
         """获取引擎推送资金账户"""
@@ -322,11 +348,15 @@ class GetEgData(object):
         self._userNo.extend(userInfo)
 
         self._app.setLoadState("normal")
+        #TODO: 接收exchange、commodity、contract、user信息一起打印
+        self._logger.info("Receiving exchange, commodity, contract and user info successfully!")
 
     def _onEgStrategyStatus(self, event):
         """接收引擎推送策略状态改变信息"""
         id = event.getStrategyId()
         sStatus = event.getData()["Status"]
+
+        self._logger.info("Receiving strategy status %s successfully!"%(sStatus))
 
         if id not in self._stManager.getStrategyDict():
             dataDict = {
@@ -344,20 +374,24 @@ class GetEgData(object):
             if sStatus == ST_STATUS_QUIT:
                 # 策略停止时接收策略数据
                 self._stManager.addResultData(id, event.getData()["Result"])
+                self._logger.info("Receiving strategy data successfully when strategy quit!")
             if sStatus == ST_STATUS_REMOVE:
                 # 删除策略需要接到通知之后再进行删除
                 # 将策略管理器中的该策略也删除掉
                 self._stManager.removeStrategy(id)
                 # 更新界面
                 self._app.delUIStrategy(id)
+                self._logger.info("Receiving strategy removing answer info successfully!")
 
     def _onEgConnect(self, event):
         src = event.getEventSrc()
         self._app.setConnect(src)
+        self._logger.info("Receiving engine connect successfully!")
 
     def _onEgDisconnect(self, event):
         src = event.getEventSrc()
         self._app.setDisconnect(src)
+        self._logger.info("Receiving engine disconnect successfully!")
                 
     def handlerExit(self):
         self._eg2uiQueue.put(Event({"EventCode":999}))
@@ -436,7 +470,8 @@ class StrategyManager(object):
         id = dataDict['StrategyId']
         self._strategyDict[id] = dataDict
 
-    def addStrategyData(self, id, data):
+    def addStrategyRunData(self, id, data):
+        """策略运行数据实时更新"""
         self._strategyDict[id].update({"RunningData": data})
 
     def removeStrategy(self, id):
@@ -449,14 +484,19 @@ class StrategyManager(object):
     def queryStrategyRunType(self, id):
         return self._strategyDict[id]["RunType"]
 
-    def getStrategyData(self, id):
-        return self._strategyDict[id]["Config"]
-
     def queryStrategyName(self, id):
         return self._strategyDict[id]["StrategyName"]
 
     def updateStrategyStatus(self, id, status):
         self._strategyDict[id]["StrategyState"] = status
+
+    def getStrategyConfigData(self, id):
+        """获取运行设置信息"""
+        return self._strategyDict[id]["Config"]
+
+    def getStrategyParamData(self, id):
+        """获取用户参数设置信息"""
+        return self._strategyDict[id]["Params"]
 
     def getStrategyDict(self):
         """获取全部运行策略"""

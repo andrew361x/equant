@@ -4,34 +4,37 @@ from capi.event import *
 
 class EngineOrderModel:
     def __init__(self, strategyOrder={}):
-
+        self._strategyMaxOrderId = {}
         self._localOrder = {}
         self._epoleStarOrder = {}
         # 从文件中恢复的对应关系
         self._orderNo2OtherMap = {}
 
+        #
+        self._matchData = {}
+
         if strategyOrder:
             # self._localOrder = strategyOrder["LocalOrder"]
             # self._epoleStarOrder = strategyOrder["EpoleStarOrder"]
             self._orderNo2OtherMap = strategyOrder["EpoleStarOrder2LocalOrderMap"]
+            if "StrategyMaxOrderId" in strategyOrder:
+                for k, v in strategyOrder["StrategyMaxOrderId"].items():
+                    self._strategyMaxOrderId[int(k)] = int(v)
 
         strategyId = 0
         self._localOrder.update({strategyId:SingleStrategyLocalOrder(strategyId)})
         self._epoleStarOrder.update({strategyId:EpoleStarOrder(strategyId)})
 
-    def getStrategyOrder(self, strategyId):
+    def getStrategyOrder(self, strategyId=0):
         resultEvent = []
-        if strategyId not in self._epoleStarOrder:
-            return resultEvent
-        if strategyId == 0:
-            for strategyId, v in self._epoleStarOrder.items():
-                curStrategyEPSOrder = self._epoleStarOrder[strategyId]
-                resultEvent.extend(curStrategyEPSOrder.getRecord())
-        elif strategyId > 0:
-            curStrategyEPSOrder = self._epoleStarOrder[strategyId]
-            resultEvent.extend(curStrategyEPSOrder.getRecord())
-            curStrategyEPSOrder0 = self._epoleStarOrder[0]
-            resultEvent.extend(curStrategyEPSOrder0.getRecord())
+        for strategyId, v in self._epoleStarOrder.items():
+            resultEvent.extend(v.getRecord())
+        return resultEvent
+
+    def getStrategyMatch(self, strategyId=0):
+        resultEvent = []
+        for strategyId, v in self._matchData.items():
+            resultEvent.extend(v.getMatchDataEvent())
         return resultEvent
 
     def updateLocalOrder(self, event):
@@ -42,6 +45,22 @@ class EngineOrderModel:
         record['StrategyId'] = strategyId; record['ESessionId'] = event.getESessionId()
         self._localOrder[strategyId].updateLocalOrder(record)
 
+        #
+        self.updateMaxOrderId(strategyId, event.getESessionId())
+
+    def updateMaxOrderId(self, strategyId, orderId):
+        curOrderId = int(orderId.split("-")[-1])
+        nextOrderId = curOrderId + 1
+        if strategyId not in self._strategyMaxOrderId:
+            self._strategyMaxOrderId[strategyId] = 1
+        if nextOrderId > self._strategyMaxOrderId[strategyId]:
+            self._strategyMaxOrderId[strategyId] = nextOrderId
+
+    def getMaxOrderId(self, strategyId):
+        if strategyId not in self._strategyMaxOrderId:
+            self._strategyMaxOrderId[strategyId] = 1
+        return int(self._strategyMaxOrderId[strategyId])
+
     # response and notice
     def updateEpoleStarOrder(self, apiEvent):
         eventCode = apiEvent.getEventCode()
@@ -50,14 +69,53 @@ class EngineOrderModel:
         elif eventCode == EEQU_SRVEVENT_TRADE_ORDER:
             self._updateEpoleStarOrderNotice(apiEvent)
         elif eventCode == EEQU_SRVEVENT_TRADE_MATCHQRY:
-            pass
-            # self._updateEpoleStarOrderResponse(apiEvent)
+            self._updateEpoleStarMatchResponse(apiEvent)
         elif eventCode == EEQU_SRVEVENT_TRADE_MATCH:
-            pass
-            # self._updateEpoleStarOrderNotice(apiEvent)
+            self._updateEpoleStarMatchNotice(apiEvent)
         else:
             raise NotImplementedError
 
+    #
+    def _updateEpoleStarMatchResponse(self, event):
+        for record in event.getData():
+            if record["OrderNo"] and record["OrderNo"] in self._orderNo2OtherMap:
+                strategyIdAndOrderId = self._orderNo2OtherMap[record["OrderNo"]]
+                record["StrategyId"] = strategyIdAndOrderId["StrategyId"]
+                record["ESessionId"] = strategyIdAndOrderId["ESessionId"]
+            else:
+                record['StrategyId'] = 0
+                record["ESessionId"] = 0
+
+            matchEvent = Event({
+                "EventCode": EEQU_SRVEVENT_TRADE_MATCHQRY,
+                "ContractNo": record["Cont"],
+                "StrategyId": record["StrategyId"],
+                "ESessionId": record["ESessionId"],
+                "Data": [record]
+            })
+            if record["StrategyId"] not in self._matchData:
+                self._matchData.update({record["StrategyId"]: EpoleStarMatch(record["StrategyId"])})
+            self._matchData[record["StrategyId"]].updateMatchRsp(matchEvent)
+
+    def _updateEpoleStarMatchNotice(self, apiEvent):
+        assert len(apiEvent.getData()) == 1, "error"
+        record = apiEvent.getData()[0]
+        strategyId, eSessionId = apiEvent.getStrategyId(), apiEvent.getESessionId()
+        record["StrategyId"] = strategyId
+        record["ESessionId"] = eSessionId
+        if strategyId not in self._matchData:
+            self._matchData.update({strategyId: EpoleStarMatch(strategyId)})
+
+        matchEvent = Event({
+            "EventCode": EEQU_SRVEVENT_TRADE_MATCHQRY,
+            "ContractNo": record["Cont"],
+            "StrategyId": record["StrategyId"],
+            "ESessionId": record["ESessionId"],
+            "Data": [record]
+        })
+        self._matchData[strategyId].updateMatchNotice(matchEvent)
+        if strategyId > 0 and record["OrderNo"]:
+            self._orderNo2OtherMap[record["OrderNo"]] = {"StrategyId": strategyId, "ESessionId": eSessionId}
     #
     def _updateEpoleStarOrderResponse(self, event):
         for record in event.getData():
@@ -116,7 +174,8 @@ class EngineOrderModel:
         result = {
             "LocalOrder":{},                                        # self.getLocalOrderData(),
             "EpoleStarOrder":{},                                    # self.getEpoleStarOrder(),
-            "EpoleStarOrder2LocalOrderMap":self._orderNo2OtherMap
+            "EpoleStarOrder2LocalOrderMap":self._orderNo2OtherMap,
+            "StrategyMaxOrderId":self._strategyMaxOrderId,
         }
         return result
 
@@ -178,4 +237,52 @@ class EpoleStarOrder:
         self._epoleStarOrderFlow = []
 
 
+class EpoleStarMatch:
+    def __init__(self, strategyId):
+        self._data = {}
+        self._strategyId = strategyId
 
+        if self._strategyId == 0:
+            self._eSessionId = 1
+
+    def resetESessionId(self, apiEvent):
+        if self._strategyId == 0 and apiEvent.getESessionId() == 0:
+            eSessionId = str(self._strategyId)+'-'+str(self._eSessionId)
+            apiEvent.setESessionId(eSessionId)
+            self._eSessionId += 1
+
+    def updateMatchRsp(self, apiEvent):
+        self.resetESessionId(apiEvent)
+        self._data[apiEvent.getESessionId()] = apiEvent
+
+    def updateMatchNotice(self, apiEvent):
+        self.updateMatchRsp(apiEvent)
+
+    def getMatchDataEvent(self):
+        return list(self._data.values())
+
+
+# 实盘持仓
+class EnginePosModel:
+    def __init__(self):
+        self._data = {}
+        self._isEnd = False
+
+    # 持仓一定有委托号
+    def updatePosRsp(self, apiEvent):
+        for record in apiEvent.getData():
+            self._data[record["PositionNo"]] = record
+        self._isEnd = apiEvent.isChainEnd()
+
+    # 新的持仓
+    def updatePosNotice(self, apiEvent):
+        for record in apiEvent.getData():
+            self._data[record["PositionNo"]] = record
+
+    def getPosDataEvent(self):
+        return Event({
+            "EventCode":EEQU_SRVEVENT_TRADE_POSITQRY,
+            "StrategyId":0,
+            "ChainEnd":0,
+            "Data":list(self._data.values())
+        })

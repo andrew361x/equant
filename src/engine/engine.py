@@ -13,8 +13,9 @@ import psutil
 import os, json
 from collections import OrderedDict
 import traceback
-from .engine_order_model import EngineOrderModel
+from .engine_order_model import EngineOrderModel, EnginePosModel
 from .strategy_cfg_model import StrategyConfig
+
 
 class StrategyEngine(object):
     '''策略引擎'''
@@ -69,6 +70,7 @@ class StrategyEngine(object):
         self._strategyOrder = {}
         self._resumeStrategy()
         self._engineOrderModel = EngineOrderModel(self._strategyOrder)
+        self._enginePosModel = EnginePosModel()
         self.logger.debug('Initialize strategy engine ok!')
 
     def _resumeStrategy(self):
@@ -178,6 +180,7 @@ class StrategyEngine(object):
             EV_UI2EG_STRATEGY_RESUME        : self._onStrategyResume,
             EV_UI2EG_EQUANT_EXIT            : self._onEquantExit,
             EV_UI2EG_STRATEGY_FIGURE        : self._switchStrategy,
+            EV_UI2EG_STRATEGY_RESTART       : self._restartStrategyWhenParamsChanged,
 
             EV_ST2EG_UPDATE_STRATEGYDATA    : self._reqStrategyDataUpdateNotice,
             EV_EG2UI_REPORT_RESPONSE        : self._reportResponse,
@@ -263,9 +266,12 @@ class StrategyEngine(object):
         elif code == EV_UI2EG_EQUANT_EXIT:
             self._onEquantExit(event)
         elif code == EV_UI2EG_STRATEGY_REMOVE:
+            self.logger.info(f"收到策略删除信号，策略id:{event.getStrategyId()}")
             self._onStrategyRemove(event)
         elif code == EV_UI2EG_STRATEGY_FIGURE:
             self._switchStrategy(event)
+        elif code == EV_UI2EG_STRATEGY_RESTART:
+            self._restartStrategyWhenParamsChanged(event)
 
     #
     def _noticeStrategyReport(self, event):
@@ -283,6 +289,7 @@ class StrategyEngine(object):
         self._strategyMgr.create(id, eg2stQueue, self._eg2uiQueue, self._st2egQueue, event)
         # broken pip error 修复
         self._isEffective[id] = True
+        self._isSt2EngineDataEffective[id] = True
 
         # =================
         self._sendEvent2Strategy(id, event)
@@ -299,6 +306,7 @@ class StrategyEngine(object):
             self._eg2uiQueue.put(event)
         elif event.getData()["Status"] == ST_STATUS_REMOVE:
             self._onStrategyRemoveCom(event)
+            self.logger.info(f"策略删除完成，策略id:{event.getStrategyId()}")
         elif event.getData()["Status"] == ST_STATUS_EXCEPTION:
             self._isEffective[event.getStrategyId()] = False
             self._strategyMgr.handleStrategyException(event)
@@ -419,9 +427,8 @@ class StrategyEngine(object):
         '''
         #
 
-    def _onApiExchange(self, apiEvent):  
+    def _onApiExchange(self, apiEvent):
         self._qteModel.updateExchange(apiEvent)
-
         self._sendEvent2Strategy(apiEvent.getStrategyId(), apiEvent)
 
         self._eg2uiQueue.put(apiEvent)
@@ -445,7 +452,7 @@ class StrategyEngine(object):
             })
             self._pyApi.reqTimebucket(event)
         
-    def _onApiContract(self, apiEvent):  
+    def _onApiContract(self, apiEvent):
         self._qteModel.updateContract(apiEvent)
         self._eg2uiQueue.put(apiEvent)
         if apiEvent.isChainEnd():
@@ -534,6 +541,7 @@ class StrategyEngine(object):
         
     def _onApiOrderDataQry(self, apiEvent):
         self._trdModel.updateOrderData(apiEvent)
+        self._sendEvent2AllStrategy(apiEvent)
         # 获取关联的策略id和订单id
         self._engineOrderModel.updateEpoleStarOrder(apiEvent)
         if not apiEvent.isChainEnd():
@@ -561,15 +569,19 @@ class StrategyEngine(object):
             self._sendEvent2Strategy(strategyId, apiEvent)
         else:
             contractNo = apiEvent.getContractNo()
-            for strategyId in self._quoteOberverDict[contractNo].keys():
-                self._sendEvent2Strategy(strategyId, apiEvent)
+            # print("contractNo = ", contractNo, apiEvent.getData())
+            # 客户端手动开仓平仓
+            if not contractNo:
+                contractNo = apiEvent.getData()[0]["Cont"]
+            if not contractNo:
+                return
+            apiEvent.setContractNo(contractNo)
+            self._sendEvent2AllStrategy(apiEvent)
 
     def _onApiMatchDataQry(self, apiEvent):
+        self._engineOrderModel.updateEpoleStarOrder(apiEvent)
         self._trdModel.updateMatchData(apiEvent)
-        # print("++++++ 成交信息 引擎 查询 ++++++", apiEvent.getData())
-        # TODO: 分块传递
         self._sendEvent2AllStrategy(apiEvent)
-
         if not apiEvent.isChainEnd():
             return
         if not apiEvent.isSucceed():
@@ -586,6 +598,7 @@ class StrategyEngine(object):
         self._reqPosition(allPosReqEvent)
             
     def _onApiMatchData(self, apiEvent):
+        self._engineOrderModel.updateEpoleStarOrder(apiEvent)
         # 成交信息
         self._trdModel.updateMatchData(apiEvent)
         # print("++++++ 成交信息 引擎 变化 ++++++", apiEvent.getData())
@@ -593,9 +606,9 @@ class StrategyEngine(object):
         self._sendEvent2AllStrategy(apiEvent)
         
     def _onApiPosDataQry(self, apiEvent):
+        self._enginePosModel.updatePosRsp(apiEvent)
         self._trdModel.updatePosData(apiEvent)
         # print("++++++ 持仓信息 引擎 查询 ++++++", apiEvent.getData())
-        # TODO: 分块传递
         self._sendEvent2AllStrategy(apiEvent)
 
         if not apiEvent.isChainEnd():
@@ -609,6 +622,7 @@ class StrategyEngine(object):
         self._createMoneyTimer()
             
     def _onApiPosData(self, apiEvent):
+        self._enginePosModel.updatePosNotice(apiEvent)
         # 持仓信息
         self._trdModel.updatePosData(apiEvent)
         # print("++++++ 持仓信息 引擎 变化 ++++++", apiEvent.getData())
@@ -659,15 +673,27 @@ class StrategyEngine(object):
         })
         self._sendEvent2Strategy(stragetyId, trdEvent)
 
-        # 订单恢复
-        orderEvents = self._engineOrderModel.getStrategyOrder(event.getStrategyId())
+        # 订单恢复, 获取当前所有订单
+        orderEvents = self._engineOrderModel.getStrategyOrder(0)
         for orderEvent in orderEvents:
-            contractNo = orderEvent.getContractNo()
-            condition = orderEvent.getStrategyId() == 0 and contractNo in self._quoteOberverDict and stragetyId in self._quoteOberverDict[contractNo].keys()
-            if orderEvent.getStrategyId() == event.getStrategyId() or condition:
-                self._sendEvent2Strategy(stragetyId, orderEvent)
+            self._sendEvent2Strategy(stragetyId, orderEvent)
+        # 持仓恢复
+        matchEvents = self._engineOrderModel.getStrategyMatch(0)
+        for matchEvent in matchEvents:
+            self._sendEvent2Strategy(stragetyId, matchEvent)
 
-    #///////////////策略进程事件////////////////////////////// 
+        # 策略最大订单id恢复,
+        strategyMaxOrderId = self._engineOrderModel.getMaxOrderId(stragetyId)
+        event = Event({
+            "EventCode":EV_EG2ST_STRATEGY_SYNC,
+            "StrategyId":stragetyId,
+            "Data":{
+                "MaxOrderId":strategyMaxOrderId
+            }
+        })
+        self._sendEvent2Strategy(stragetyId, event)
+
+    # ///////////////策略进程事件//////////////////////////////
     def _addSubscribe(self, contractNo, strategyId):
         stDict = self._quoteOberverDict[contractNo]
         # 重复订阅
@@ -927,10 +953,33 @@ class StrategyEngine(object):
     def _onStrategyRemoveCom(self, event):
         self._cleanStrategyInfo(event.getStrategyId())
         self._strategyMgr.removeRunningStrategy(event)
-        self._eg2uiQueue.put(event)  # todo，
 
     def _switchStrategy(self, event):
         self._sendEvent2Strategy(event.getStrategyId(), event)
+
+    def _restartStrategyWhenParamsChanged(self, event):
+        # print("=====================")
+        # print(event.getData())
+        strategyId = event.getStrategyId()
+        if strategyId in self._eg2stQueueDict and strategyId in self._isEffective and self._isEffective[strategyId]:
+            self._isEffective[strategyId] = False
+            self._isSt2EngineDataEffective[strategyId] = False
+            self._cleanStrategyInfo(strategyId)
+            self._strategyMgr.destroyProcessByStrategyId(strategyId)
+
+        allConfig = copy.deepcopy(self._strategyMgr.getStrategyAttribute(strategyId)["Config"])
+        allConfig["Params"] = event.getData()["Config"]["Params"]
+        self._strategyMgr.getStrategyAttribute(strategyId)['Config'] = allConfig
+        loadEvent = Event({
+            "EventCode":EV_UI2EG_LOADSTRATEGY,
+            "StragetgyId":strategyId,
+            "Data":{
+                "Path"  : self._strategyMgr.getStrategyAttribute(strategyId)["Path"],
+                "Args": allConfig,
+                "NoInitialize": True
+            }
+        })
+        self._loadStrategy(loadEvent, strategyId)
 
     def saveStrategyContext2File(self):
         self.logger.debug("保存到文件")
@@ -941,8 +990,11 @@ class StrategyEngine(object):
         result["StrategyOrder"] = self._engineOrderModel.getData()
         json.dump(result, jsonFile, ensure_ascii=False, indent=4)
         for child in multiprocessing.active_children():
-            child.terminate()
-            child.join()
+            try:
+                child.terminate()
+                child.join(timeout=0.5)
+            except Exception as e:
+                pass
         self.logger.debug("engine和各策略完整退出")
 
     def sendErrorMsg(self, errorCode, errorText):

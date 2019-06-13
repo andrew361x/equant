@@ -117,6 +117,8 @@ def handle_data(context):
     N = AvgTR
     AvgTR = XAverage(trs, ATRLength)
 
+    #LogInfo("N:%f,cu:%f\n" %(N, ContractUnit()))
+    
     TotalEquity = Available() + Margin()
     TurtleUnits = (TotalEquity*RiskRatio/100)/(N*ContractUnit(ContractId))
     TurtleUnits = int(TurtleUnits)

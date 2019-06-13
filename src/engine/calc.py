@@ -384,7 +384,7 @@ class CalcCenter(object):
         order.update({"OrderId": self._orderId})
         self._orderId += 1
         self._costs[order["Cont"]] = self.getCostRate(order["Cont"])
-        self._updateTradeDate(order["TradeDate"])
+        # self._updateTradeDate(order["TradeDate"])
 
         ftOrder = self._formatOrder(order)
 
