@@ -150,4 +150,5 @@ class Event:
     def setContractNo(self, contractNo):
         self._record['ContractNo'] = contractNo
 
-
+    def setKLineType(self, kLineType):
+        self._record["KLineType"] = kLineType

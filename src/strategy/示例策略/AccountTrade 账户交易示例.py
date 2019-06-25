@@ -77,14 +77,14 @@ def handle_data(context):
         StopLoss = MyEnterPrice - StopLossSet * MinPoint
         #止盈
         if Q_Close() >= StopProfit:
-            retExit, ExitOrderId = A_SendOrder(UserId, ContractId, Enum_Order_Limit(), Enum_FOK(), Enum_Sell(), Enum_Exit(), Enum_Speculate(), Q_BidPrice() - MovePoint * MinPoint, OrderNum)
+            retExit, ExitOrderId = A_SendOrder(Enum_Sell(), Enum_Exit(), OrderNum, Q_BidPrice() - MovePoint * MinPoint, ContractId, UserId, Enum_Order_Limit(), Enum_FOK(), Enum_Speculate())
             if retExit == 0:
                 LogInfo("定单号：%s, 合约：%s, 卖出平仓数量：%d, 价格: %f\n" %(ExitOrderId, ContractId, OrderNum, Q_BidPrice() - MovePoint * MinPoint))
             else:
                 LogInfo("卖出平仓 error: %s\n" % ExitOrderId)
         #止损
         elif Q_Close() <= StopLoss:
-            retExit, ExitOrderId = A_SendOrder(UserId, ContractId, Enum_Order_Limit(), Enum_FOK(), Enum_Sell(), Enum_Exit(), Enum_Speculate(), Q_BidPrice() - MovePoint * MinPoint, OrderNum)
+            retExit, ExitOrderId = A_SendOrder(Enum_Sell(), Enum_Exit(), OrderNum, Q_BidPrice() - MovePoint * MinPoint, ContractId, UserId, Enum_Order_Limit(), Enum_FOK(), Enum_Speculate())
             if retExit == 0:
                 LogInfo("定单号：%s, 合约：%s, 卖出平仓数量：%d, 价格: %f\n" %(ExitOrderId, ContractId, OrderNum, Q_BidPrice() - MovePoint * MinPoint))
             else:
@@ -97,14 +97,14 @@ def handle_data(context):
         StopLoss = MyEnterPrice + StopLossSet * MinPoint
         #止盈
         if Q_Close() <= StopProfit:
-            retExit, ExitOrderId = A_SendOrder(UserId, ContractId, Enum_Order_Limit(), Enum_FOK(), Enum_Buy(), Enum_Exit(), Enum_Speculate(), Q_AskPrice() + MovePoint * MinPoint, OrderNum)
+            retExit, ExitOrderId = A_SendOrder(Enum_Buy(), Enum_Exit(), OrderNum, Q_AskPrice() + MovePoint * MinPoint, ContractId, UserId, Enum_Order_Limit(), Enum_FOK(), Enum_Speculate())
             if retExit == 0:
                 LogInfo("定单号：%s, 合约：%s, 买入平仓数量：%d, 价格: %f\n" %(ExitOrderId, ContractId, OrderNum, Q_AskPrice() + MovePoint * MinPoint))
             else:
                 LogInfo("买入平仓 error: %s\n" % ExitOrderId)
         #止损
         elif Q_Close() >= StopLoss:
-            retExit, ExitOrderId = A_SendOrder(UserId, ContractId, Enum_Order_Limit(), Enum_FOK(), Enum_Buy(), Enum_Exit(), Enum_Speculate(), Q_AskPrice() + MovePoint * MinPoint, OrderNum)
+            retExit, ExitOrderId = A_SendOrder(Enum_Buy(), Enum_Exit(), OrderNum, Q_AskPrice() + MovePoint * MinPoint, ContractId, UserId, Enum_Order_Limit(), Enum_FOK(), Enum_Speculate())
             if retExit == 0:
                 LogInfo("定单号：%s, 合约：%s, 买入平仓数量：%d, 价格: %f\n" %(ExitOrderId, ContractId, OrderNum, Q_AskPrice() - MovePoint * MinPoint))
             else:
@@ -114,13 +114,13 @@ def handle_data(context):
     #没有持仓开仓
     elif A_TotalPosition() == 0:
         if ma1[-1] > ma2[-1]:
-            retEnter, EnterOrderId = A_SendOrder(UserId, ContractId, Enum_Order_Limit(), Enum_FOK(), Enum_Buy(), Enum_Entry(), Enum_Speculate(), Q_AskPrice()  + MovePoint * MinPoint, OrderNum)
+            retEnter, EnterOrderId = A_SendOrder(Enum_Buy(), Enum_Entry(), OrderNum, Q_AskPrice() + MovePoint * MinPoint, ContractId, UserId, Enum_Order_Limit(), Enum_FOK(), Enum_Speculate())
             if retEnter == 0:
                 LogInfo("定单号：%s, 合约：%s, 买入开仓数量：%d, 价格: %f\n" %(EnterOrderId, ContractId, OrderNum, Q_AskPrice() + MovePoint * MinPoint))
             else:
                 LogInfo("买入开仓 error: %s\n" % EnterOrderId)
         elif ma1[-1] < ma2[-1]:
-            retEnter, EnterOrderId = A_SendOrder(UserId, ContractId, Enum_Order_Limit(), Enum_FOK(), Enum_Sell(), Enum_Entry(), Enum_Speculate(), Q_BidPrice()  - MovePoint * MinPoint, OrderNum)
+            retEnter, EnterOrderId = A_SendOrder(Enum_Sell(), Enum_Entry(), OrderNum, Q_BidPrice()  - MovePoint * MinPoint, ContractId, UserId, Enum_Order_Limit(), Enum_FOK(), Enum_Speculate())
             if retEnter == 0:
                 LogInfo("定单号：%s, 合约：%s, 卖出开仓数量：%d, 价格: %f\n" %(EnterOrderId, ContractId, OrderNum, Q_BidPrice() - MovePoint * MinPoint))
             else:

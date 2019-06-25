@@ -134,7 +134,7 @@ class Logger(object):
     def sig_info(self, s, target='S'):
         self.info(s, target)
         
-    def trate_info(self, s, target='T'):
+    def trade_info(self, s, target='T'):
         self.info(s, target)
 
     # 策略错误

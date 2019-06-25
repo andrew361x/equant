@@ -123,8 +123,6 @@ class StrategyConfig(object):
         sample = argsDict['Sample']
         useSample = ('BeginTime' in sample) or ('KLineCount' in sample) or ('AllK' in sample)
         sampleInfo = {
-            # 'KLineType' : sample['KLineType'],
-            # 'KLineSlice': sample['KLineSlice'],
             'BeginTime' : sample['BeginTime'] if 'BeginTime' in sample else '',
             'KLineCount': sample['KLineCount'] if 'KLineCount' in sample else 0,
             'AllK'      : sample['AllK'] if 'AllK' in sample else False,
@@ -251,6 +249,7 @@ class StrategyConfig(object):
 
     def getKLineSubsInfo(self):
         kLineTypetupleList, kLineTypeDictList, subDict = self.getSampleInfo()
+        print(subDict.values())
         return subDict.values()
 
     def getKLineKindsInfo(self):
@@ -281,12 +280,22 @@ class StrategyConfig(object):
             showInfoSimple.append(value)
         return tuple(showInfoSimple)
 
+    priorityDict = {
+        EEQU_KLINE_YEAR     : 90000,
+        EEQU_KLINE_MONTH    : 80000,
+        EEQU_KLINE_WEEK     : 70000,
+        EEQU_KLINE_DayX     : 60000,
+        EEQU_KLINE_DAY      : 50000,
+        EEQU_KLINE_HOUR     : 40000,
+        EEQU_KLINE_MINUTE   : 30000,
+        EEQU_KLINE_SECOND   : 20000,
+        EEQU_KLINE_TICK     : 10000,
+        EEQU_KLINE_TIMEDIVISION: 0,
+    }
+
     def getPriority(self, key):
         kLineTypetupleList = self.getKLineTriggerInfoSimple()
-        if key in kLineTypetupleList:
-            return 1 + kLineTypetupleList.index(key)
-        else:
-            raise IndexError
+        return kLineTypetupleList.index(key)+self.priorityDict[key[1]]+int(key[2])
 
     def _getKLineCount(self, sampleDict):
         if not sampleDict['UseSample']:
@@ -558,32 +567,36 @@ class StrategyConfig(object):
             self._metaData['SubContract'].append(contNo)
 
         # 记录展示的合约和K线信息
-        if barType == EEQU_KLINE_SECOND:
-            barType = EEQU_KLINE_TICK
-        elif barType == EEQU_KLINE_HOUR:
-            barType = EEQU_KLINE_MINUTE
-            barInterval = barInterval * 60
-        elif barType == EEQU_KLINE_TICK:
-            barInterval = 0
         if 'Display' not in self._metaData['Sample'] or not self._metaData['Sample']['Display']:
             self._metaData['Sample']['Display'] = {"ContractNo" : contNo, "KLineType": barType, "KLineSlice": barInterval}
 
         # 更新回测起始点信息
-        kLineCount = 1
+        kLineCount = 0
+        beginTime = ''
+        allK = False
+        useSample = True
         if isinstance(sampleConfig, int):
-            if sampleConfig == 0:
-                kLineCount = 1
-            elif sampleConfig > 0:
+            # kLineCount
+            if sampleConfig > 0:
                 kLineCount = sampleConfig
+            else:
+                kLineCount = 1
         elif sampleConfig == 'N':
+            # 不使用K线
             kLineCount = 1
+            # useSample = False
+        elif isinstance(sampleConfig, str) and self.isVaildDate(sampleConfig, "%Y%m%d"):
+            # 日期
+            beginTime = sampleConfig
+        elif sampleConfig == 'A':
+            allK = True
         sampleInfo = {
             'KLineType': barType,
             'KLineSlice': barInterval,
-            'BeginTime' : sampleConfig if isinstance(sampleConfig, str) and self.isVaildDate(sampleConfig, "%Y%m%d") else '',
+            'BeginTime' : beginTime,
             'KLineCount' : kLineCount,
-            'AllK' : True if sampleConfig == 'A' else False,
-            'UseSample' : True,
+            'AllK' : allK,
+            'UseSample' : useSample,
             'Trigger' : trigger,
         }
 
@@ -769,7 +782,7 @@ class StrategyConfig(object):
         return self._metaData['RunMode']['SendOrder']
 
     def hasKLineTrigger(self):
-        return bool(self._metaData['Trigger']['KLine'])
+        return True
 
     def hasTimerTrigger(self):
         return bool(self._metaData['Trigger']['Timer'])

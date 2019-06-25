@@ -11,7 +11,11 @@ class PyAPI(object):
         self.logger = logger
         
         self._api2egQueue = api2egQueue
-        
+
+        # 合约映射
+        self._userContractNo2InnerContractNo = {}
+        self._innerContractNo2UserContractNo = {}
+
         # 注册回调事件
         self._regCallback()
         
@@ -84,7 +88,11 @@ class PyAPI(object):
             EEQU_SRVEVENT_TRADE_POSITQRY    : self._onPositionData   ,
             EEQU_SRVEVENT_TRADE_POSITION    : self._onPositionData   ,
             EEQU_SRVEVENT_TRADE_FUNDQRY     : self._onMoney          ,
-        } 
+            EEQU_SRVEVENT_SPRAEDMAPPING     : self._onSpreadContractMapping,
+            EEQU_SRVEVENT_UNDERLAYMAPPING   : self._onTrendContractMapping,
+            EEQU_SRVEVENT_TRADE_EXCSTATEQRY : self._onExchangeStateRsp,
+            EEQU_SRVEVENT_TRADE_EXCSTATE    : self._onExchangeStateNotice,
+        }
     #//////////////////////////初始化消息///////////////////////////
     
     def reqInit(self, event):
@@ -157,7 +165,7 @@ class PyAPI(object):
                 'Data' : 品种编号 str
             }
         '''
-        #self.logger.debug('request timebucket')
+        # self.logger.debug('request timebucket')
         if event.getData() == '':
             return
         
@@ -179,8 +187,10 @@ class PyAPI(object):
         self.logger.debug("request subscribe quote(%s)!"%(data))
         sessionId = c_uint()
         req = (c_char*101*len(data))()
-        for i, contid in enumerate(data):
-            memmove(addressof(req) + 101*i, contid.encode(), 101)
+        for i, userContractNo in enumerate(data):
+            innerContractNo = self.getInnerContractNo(userContractNo)
+            # print("[py2c] req", innerContractNo)
+            memmove(addressof(req) + 101*i, innerContractNo.encode(), 101)
         self._cDll.E_ReqSubQuote(byref(sessionId), req, len(req))
         self._setSessionId(sessionId.value, event.getStrategyId())
         
@@ -197,8 +207,9 @@ class PyAPI(object):
         self.logger.debug("request subscribe quote(%s)!"%(data))
         sessionId = c_uint()
         req = (c_char*101*len(data))()
-        for i, contid in enumerate(data):
-            memmove(addressof(req) + 101*i, contid.encode(), 101)
+        for i, userContractNo in enumerate(data):
+            innerContractNo = self.getInnerContractNo(userContractNo)
+            memmove(addressof(req) + 101*i, innerContractNo.encode(), 101)
         self._cDll.E_ReqUnSubQuote(byref(sessionId), req, len(req))
         self._setSessionId(sessionId.value, event.getStrategyId())
         
@@ -225,7 +236,9 @@ class PyAPI(object):
         req = EEquKLineReq()
         data = event.getData()
         req.ReqCount = data['ReqCount']
-        req.ContractNo = data['ContractNo'].encode()
+
+        innerContractNo = self.getInnerContractNo(data["ContractNo"])
+        req.ContractNo = innerContractNo.encode()
         req.KLineType = data['KLineType'].encode()
         req.KLineSlice = data['KLineSlice']
         req.NeedNotice = data['NeedNotice'].encode()
@@ -264,12 +277,15 @@ class PyAPI(object):
                     }
             }
         '''
+        # print(event.getData())
         sessionId = c_uint()
         req = EEquKLineStrategySwitch()
         data = event.getData()
         req.StrategyId = event.getStrategyId()
         req.StrategyName = data['StrategyName'].encode()
-        req.ContractNo = data['ContractNo'].encode()
+
+        innerContractNo = self.getInnerContractNo(data["ContractNo"])
+        req.ContractNo = innerContractNo.encode()
         req.KLineType = data['KLineType'].encode()
         req.KLineSlice = data['KLineSlice']
         self._cDll.E_KLineStrategySwitch(byref(sessionId), byref(req))
@@ -300,15 +316,15 @@ class PyAPI(object):
             data.KLineIndex                                 = d['KLineIndex']
             data.TradeDate                                  = d['TradeDate']
             data.DateTimeStamp                              = d['DateTimeStamp']
-            data.TotalQty                                   = d['TotalQty']
-            data.PositionQty                                = d['PositionQty']
+            data.TotalQty                                   = int(d['TotalQty']+0.5)
+            data.PositionQty                                = int(d['PositionQty']+0.5)
             data.LastPrice                                  = d['LastPrice']
-            data.KLineData.KLineData1.LastQty               = d['LastQty']
-            data.KLineData.KLineData1.PositionChg           = d['PositionChg']
+            data.KLineData.KLineData1.LastQty               = int(d['LastQty']+0.5)
+            data.KLineData.KLineData1.PositionChg           = int(d['PositionChg']+0.5)
             data.KLineData.KLineData1.BuyPrice              = d['BuyPrice']
             data.KLineData.KLineData1.SellPrice             = d['SellPrice']
-            data.KLineData.KLineData1.BuyQty                = d['BuyQty']
-            data.KLineData.KLineData1.SellQty               = d['SellQty']
+            data.KLineData.KLineData1.BuyQty                = int(d['BuyQty']+0.5)
+            data.KLineData.KLineData1.SellQty               = int(d['SellQty']+0.5)
             curBuf = cbuf + sizeof(EEquKLineData) * i
             cData = string_at(addressof(data), sizeof(EEquKLineData))
             memmove(curBuf, cData, sizeof(EEquKLineData))
@@ -340,7 +356,7 @@ class PyAPI(object):
             data.TotalQty                                    = d['TotalQty']
             data.PositionQty                                 = d['PositionQty']
             data.LastPrice                                   = d['LastPrice']
-            data.KLineData.KLineData0.KLineQty               = int(d['KLineQty'])
+            data.KLineData.KLineData0.KLineQty               = int(d['KLineQty']+0.5)
             data.KLineData.KLineData0.OpeningPrice           = d['OpeningPrice']
             data.KLineData.KLineData0.HighPrice              = d['HighPrice']
             data.KLineData.KLineData0.LowPrice               = d['LowPrice']
@@ -936,7 +952,9 @@ class PyAPI(object):
         req = EEquOrderInsertReq()
         req.UserNo = data['UserNo'].encode()
         req.Sign = data['Sign'].encode()
-        req.Cont = data['Cont'].encode()
+
+        contractNo = self.getInnerContractNo(data["Cont"])
+        req.Cont = contractNo.encode()
         req.OrderType = data['OrderType'].encode()
         req.ValidType = data['ValidType'].encode()
         req.ValidTime = data['ValidTime'].encode()
@@ -980,7 +998,9 @@ class PyAPI(object):
         modifyReq = EEquOrderModifyReq()
         modifyReq.UserNo = data['UserNo'].encode()
         modifyReq.Sign = data['Sign'].encode()
-        modifyReq.Cont = data['Cont'].encode()
+
+        contractNo = self.getInnerContractNo(data["Cont"])
+        modifyReq.Cont = contractNo.encode()
         modifyReq.OrderType = data['OrderType'].encode()
         modifyReq.ValidType = data['ValidType'].encode()
         modifyReq.ValidTime = data['ValidTime'].encode()
@@ -1106,11 +1126,12 @@ class PyAPI(object):
             buf = string_at(dataAddr + fieldSize * i, fieldSize)
             data = EEquContractData()
             memmove(addressof(data), buf, sizeof(EEquContractData))
-            
+
+            contractNo = data.ContractNo.decode('utf-8')
             idict = {
                 'ExchangeNo'  : data.ExchangeNo.decode('utf-8'),
                 'CommodityNo' : data.CommodityNo.decode('utf-8'),
-                'ContractNo'  : data.ContractNo.decode('utf-8'),
+                'ContractNo'  : self.getUserContractNo(contractNo),
             }
            
             dataList.append(idict)
@@ -1133,7 +1154,7 @@ class PyAPI(object):
         dataAddr   = apiEvent.getData()
         fieldSize  = apiEvent.getFieldSize()
         fieldCount = apiEvent.getFieldCount()
-        
+        apiEvent.setContractNo(self.getUserContractNo(apiEvent.getContractNo()))
         dataList = []
         for i in range(fieldCount):
             # 1. 解析SnapShotData
@@ -1181,7 +1202,7 @@ class PyAPI(object):
         dataAddr   = apiEvent.getData()
         fieldSize  = apiEvent.getFieldSize()
         fieldCount = apiEvent.getFieldCount()
-        
+        apiEvent.setContractNo(self.getUserContractNo(apiEvent.getContractNo()))
         dataList = []
         
         for i in range(fieldCount):
@@ -1258,9 +1279,11 @@ class PyAPI(object):
         fieldSize  = apiEvent.getFieldSize()
         fieldCount = apiEvent.getFieldCount()
         klineType  = apiEvent.getKLineType()
-        
+        # print("[py2c] response 1", apiEvent.getContractNo())
+        apiEvent.setContractNo(self.getUserContractNo(apiEvent.getContractNo()))
+        # print("[py2c] response 2", apiEvent.getContractNo())
+
         dataList = []
-        
         for i in range(fieldCount):
             buf = string_at(dataAddr + fieldSize * i, fieldSize)
             data = EEquKLineData()
@@ -1294,6 +1317,8 @@ class PyAPI(object):
         
         # 发送到引擎
         # print("[in py2c] ", len(dataList), apiEvent.getContractNo(), apiEvent.getKLineType(), apiEvent.getKLineSlice(), apiEvent.isChainEnd())
+
+
         apiEvent.setData(dataList)
         sid = apiEvent.getSessionId()
         apiEvent.setStrategyId(self._getStrategyId(sid))
@@ -1356,6 +1381,7 @@ class PyAPI(object):
         dataAddr   = apiEvent.getData()
         fieldSize  = apiEvent.getFieldSize()
         fieldCount = apiEvent.getFieldCount()
+        apiEvent.setContractNo(self.getUserContractNo(apiEvent.getContractNo()))
         dataList = []
 
         for i in range(fieldCount):
@@ -1427,6 +1453,7 @@ class PyAPI(object):
         dataAddr   = apiEvent.getData()
         fieldSize  = apiEvent.getFieldSize()
         fieldCount = apiEvent.getFieldCount()
+        apiEvent.setContractNo(self.getUserContractNo(apiEvent.getContractNo()))
         dataList = []
 
         for i in range(fieldCount):
@@ -1483,6 +1510,7 @@ class PyAPI(object):
         dataAddr   = apiEvent.getData()
         fieldSize  = apiEvent.getFieldSize()
         fieldCount = apiEvent.getFieldCount()
+        apiEvent.setContractNo(self.getUserContractNo(apiEvent.getContractNo()))
         
         dataList = []
         
@@ -1552,3 +1580,77 @@ class PyAPI(object):
         # 发送到引擎
         apiEvent.setData(dataList)
         self._api2egQueue.put(apiEvent)
+
+    # 合约映射查询请求
+    def reqSpreadContractMapping(self):
+        sessionId = c_uint()
+        req = EEquSpreadMappingReq()
+        self._cDll.E_ReqQrySpreadMapping(byref(sessionId), byref(req))
+        self._setSessionId(sessionId.value, 0)
+
+    def reqTrendContractMapping(self):
+        sessionId = c_uint()
+        req = EEquSpreadMappingReq()
+        self._cDll.E_ReqQryUnderlayMapping(byref(sessionId), byref(req))
+        self._setSessionId(sessionId.value, 0)
+
+    #
+    def _onSpreadContractMapping(self, apiEvent):
+        dataAddr = apiEvent.getData()
+        fieldSize = apiEvent.getFieldSize()
+        fieldCount = apiEvent.getFieldCount()
+        dataList = []
+
+        for i in range(fieldCount):
+            buf = string_at(dataAddr + fieldSize * i, fieldSize)
+            data = EEquSpreadMappingDataResponse()
+            memmove(addressof(data), buf, sizeof(EEquSpreadMappingDataResponse))
+            idict = {
+                'ContractNo': data.ContractNo.decode('utf-8'),
+                'SrcContractNo': data.SrcContractNo.decode('utf-8'),
+            }
+            dataList.append(idict)
+
+        # 发送到引擎
+        apiEvent.setData(dataList)
+        sid = apiEvent.getSessionId()
+        apiEvent.setStrategyId(self._getStrategyId(sid))
+
+        # 不放队列
+        for record in apiEvent.getData():
+            self._userContractNo2InnerContractNo[record["SrcContractNo"]] = record["ContractNo"]
+            self._innerContractNo2UserContractNo[record["ContractNo"]] = record["SrcContractNo"]
+
+    def _onTrendContractMapping(self, apiEvent):
+        dataAddr = apiEvent.getData()
+        fieldSize = apiEvent.getFieldSize()
+        fieldCount = apiEvent.getFieldCount()
+        dataList = []
+
+        for i in range(fieldCount):
+            buf = string_at(dataAddr + fieldSize * i, fieldSize)
+            data = EEquTrendMappingDataResponse()
+            memmove(addressof(data), buf, sizeof(EEquTrendMappingDataResponse))
+            idict = {
+                'ContractNo': data.ContractNo.decode('utf-8'),
+                'UnderlayContractNo': data.UnderlayContractNo.decode('utf-8'),
+            }
+            dataList.append(idict)
+
+        # 发送到引擎
+        apiEvent.setData(dataList)
+        sid = apiEvent.getSessionId()
+        apiEvent.setStrategyId(self._getStrategyId(sid))
+        # self._api2egQueue.put(apiEvent)
+
+    def getInnerContractNo(self, userContractNo):
+        return self._userContractNo2InnerContractNo.get(userContractNo, userContractNo)
+
+    def getUserContractNo(self, innerContractNo):
+        return self._innerContractNo2UserContractNo.get(innerContractNo, innerContractNo)
+
+    def _onExchangeStateRsp(self, apiEvent):
+        pass
+
+    def _onExchangeStateNotice(self, apiEvent):
+        pass

@@ -41,17 +41,17 @@ def his_trigger(ma1, ma2):
 #实盘阶段执行逻辑
 def tim_trigger(ma1, ma2):
     if ma1[-1] > ma2[-1]:
-        if A_TotalPosition() == 0:       
-            A_SendOrder(usr, code, '2', '0', Enum_Buy(), Enum_Entry(), 'T', Q_BidPrice() + PriceTick(), qty)
+        if A_TotalPosition() == 0:
+            A_SendOrder(Enum_Buy(), Enum_Entry(), qty, Q_BidPrice() + PriceTick())
         elif A_TotalPosition() < 0:
-            A_SendOrder(usr, code, '2', '0', Enum_Buy(), Enum_ExitToday(), 'T', Q_BidPrice() + PriceTick(), qty)
+            A_SendOrder(Enum_Buy(), Enum_ExitToday(), qty, Q_BidPrice() + PriceTick())
         else:
             return False
     elif ma1[-1] < ma2[-1]:
         if A_TotalPosition() == 0:
-            A_SendOrder(usr, code, '2', '0', Enum_Sell(), Enum_Entry(), 'T', Q_AskPrice() - PriceTick(), qty)
+            A_SendOrder(Enum_Sell(), Enum_Entry(), qty, Q_AskPrice() - PriceTick())
         elif A_TotalPosition() > 0:
-            A_SendOrder(usr, code, '2', '0', Enum_Sell(), Enum_ExitToday(), 'T', Q_AskPrice() - PriceTick(), qty)
+            A_SendOrder(Enum_Sell(), Enum_ExitToday(), qty, Q_AskPrice() - PriceTick())
         else:
             return False
     return True

@@ -188,9 +188,14 @@ class QuantMonitor(object):
 
     def updateLogText(self):
         guiQueue = self._controller.get_logger().getGuiQ()
-
+        data = ""
+        flag = True
         try:
-            data = guiQueue.get_nowait()
+            # data = guiQueue.get_nowait()
+            while flag:
+                data += guiQueue.get_nowait()+"\n"
+                if guiQueue.empty():
+                    flag = False
         except:
             return
         else:
@@ -198,9 +203,16 @@ class QuantMonitor(object):
 
     def updateSigText(self):
         sigQueue = self._controller.get_logger().getSigQ()
+        sigData = ''
+        flag = True
         try:
-            sigData = sigQueue.get_nowait()
-        except:
+            # sigData = sigQueue.get_nowait()
+            while flag:
+                sigData += sigQueue.get_nowait()+"\n"
+                if sigQueue.empty():
+                    flag = False
+
+        except Exception as e:
             return
         else:
             # self.toSigFrame()

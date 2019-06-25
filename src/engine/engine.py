@@ -46,8 +46,7 @@ class StrategyEngine(object):
         self._api2egQueue = queue.Queue()
         # Strategy->Engine, 初始化、行情、K线、交易等
         self._st2egQueue = Queue()
-        # 创建主处理线程, 从api和策略进程收数据处理
-        self._startMainThread()
+
         # 创建_pyApi对象
         self._pyApi = PyAPI(self.logger, self._api2egQueue) 
         
@@ -71,6 +70,9 @@ class StrategyEngine(object):
         self._resumeStrategy()
         self._engineOrderModel = EngineOrderModel(self._strategyOrder)
         self._enginePosModel = EnginePosModel()
+
+        # 创建主处理线程, 从api和策略进程收数据处理
+        self._startMainThread()
         self.logger.debug('Initialize strategy engine ok!')
 
     def _resumeStrategy(self):
@@ -215,12 +217,24 @@ class StrategyEngine(object):
         if event is None:
             return
         eg2stQueue = self._eg2stQueueDict[strategyId]
-        eg2stQueue.put(event)
+        while True:
+            try:
+                eg2stQueue.put_nowait(event)
+                break
+            except queue.Full:
+                time.sleep(0.1)
+                self.logger.error(f"engine向策略发事件时卡住，策略id:{strategyId}, 事件号: {event.getEventCode()}")
 
     def _sendEvent2StrategyForce(self, strategyId, event):
         eg2stQueue = self._eg2stQueueDict[strategyId]
-        eg2stQueue.put(event)
-        
+        while True:
+            try:
+                eg2stQueue.put_nowait(event)
+                break
+            except queue.Full:
+                time.sleep(0.1)
+                self.logger.error(f"engine强制向策略发事件时卡住，策略id:{strategyId}, 事件号: {event.getEventCode()}")
+
     def _sendEvent2AllStrategy(self, event):
         for id in self._eg2stQueueDict:
             self._sendEvent2Strategy(id, event)
@@ -392,6 +406,8 @@ class StrategyEngine(object):
         
     #////////////////api回调事件//////////////////////////////
     def _onApiConnect(self, apiEvent):
+        self._pyApi.reqSpreadContractMapping()
+        self._pyApi.reqTrendContractMapping()
         self._pyApi.reqExchange(Event({'StrategyId':0, 'Data':''}))
         self._eg2uiQueue.put(apiEvent)
         
@@ -617,7 +633,6 @@ class StrategyEngine(object):
             return
 
         self._trdModel.setStatus(TM_STATUS_POSITION)
-        
         # 交易基础数据查询完成，定时查询资金
         self._createMoneyTimer()
             
@@ -893,9 +908,10 @@ class StrategyEngine(object):
         # prevent other threads put data in the queue
         # make sure quit event is the last
         strategyId = event.getStrategyId()
+        self.logger.info(f"策略{strategyId}收到停止信号")
         if strategyId not in self._eg2stQueueDict or self._isEffective[strategyId] is False:
             return
-        self._isEffective[event.getStrategyId()] = False
+        self._isEffective[strategyId] = False
 
         # to solve broken pip error
         eg2stQueue = self._eg2stQueueDict[strategyId]
@@ -903,6 +919,8 @@ class StrategyEngine(object):
 
     # 当策略退出成功时
     def _cleanStrategyInfo(self, strategyId):
+        self._isEffective[strategyId] = False
+        self._isSt2EngineDataEffective[strategyId] = False
         # 清除即时行情数据观察者
         for k, v in self._quoteOberverDict.items():
             if strategyId in v:
@@ -913,6 +931,7 @@ class StrategyEngine(object):
 
     # 队列里面不会有其他事件
     def _onStrategyQuitCom(self, event):
+        self.sendEvent2UI(event)
         self._cleanStrategyInfo(event.getStrategyId())
         self._strategyMgr.quitStrategy(event)
 
@@ -942,6 +961,8 @@ class StrategyEngine(object):
         strategyId = event.getStrategyId()
         # 还在正常运行
         if strategyId in self._isEffective and self._isEffective[strategyId]:
+            self._isEffective[strategyId] = False
+            self._isSt2EngineDataEffective[strategyId] = False
             self._sendEvent2StrategyForce(strategyId, event)
         # 停止
         elif self._strategyMgr.getStrategyState(strategyId) == ST_STATUS_QUIT:
@@ -951,6 +972,7 @@ class StrategyEngine(object):
             self._strategyMgr.removeExceptionStrategy(event)
 
     def _onStrategyRemoveCom(self, event):
+        self.sendEvent2UI(event)
         self._cleanStrategyInfo(event.getStrategyId())
         self._strategyMgr.removeRunningStrategy(event)
 
@@ -1032,3 +1054,6 @@ class StrategyEngine(object):
 
     def _syncStrategyConfig(self, event):
         self._strategyMgr.syncStrategyConfig(event)
+
+    def sendEvent2UI(self, event):
+        self._eg2uiQueue.put(event)

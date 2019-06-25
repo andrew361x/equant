@@ -614,7 +614,9 @@ class StrategyHisQuote(object):
     def onHisQuoteRsp(self, event):
         key = (event.getContractNo(), event.getKLineType(), event.getKLineSlice())
         kindInfo = {"ContractNo":key[0], "KLineType":key[1],"KLineSlice":key[2]}
-        # print("key = ", key, len(event.getData()), event.isChainEnd())
+        #print("key = ", key, len(event.getData()), event.isChainEnd(), kindInfo)
+        #print(self._config.getKLineKindsInfo())
+
         assert kindInfo in self._config.getKLineKindsInfo(), " Error "
         if not self._isReqByDate[key]:                        # req by count
             self._handleKLineRspByCount(event)
@@ -756,6 +758,8 @@ class StrategyHisQuote(object):
     def _sendHisKLineTriggerEvent(self, key, data):
         if not data["IsKLineStable"]:
             return
+
+        assert key[1] is not None, "k line type error"
         event = Event({
             'EventCode': ST_TRIGGER_HIS_KLINE,
             'ContractNo': key[0],
@@ -809,7 +813,7 @@ class StrategyHisQuote(object):
     def onHisQuoteNotice(self, event):
         key = (event.getContractNo(), event.getKLineType(), event.getKLineSlice())
         kindInfo = {"ContractNo": key[0], "KLineType": key[1], "KLineSlice": key[2]}
-
+        # print("kind = ", event.getData()[0]["DateTimeStamp"], kindInfo, )
         # 丢掉
         if not self._kLineRspData[key]["KLineReady"]:
             return
@@ -908,6 +912,7 @@ class StrategyHisQuote(object):
         # 不使用历史K线，也需要切换
         # 切换K线
         key = self._config.getKLineShowInfoSimple()
+
         self._switchKLine(key)
         # 增加信号线
         self._addSignal()
@@ -929,8 +934,28 @@ class StrategyHisQuote(object):
             return
 
         newDF = pd.DataFrame(allHisData)
-        newDF.sort_values(['TradeDate', 'DateTimeStamp', 'Priority'], ascending=True, inplace=True)
+        test = newDF[["DateTimeStamp", "KLineType", "KLineSlice"]].values
+        effectiveDTS = []
+        for i, record in enumerate(test):
+            curBarDTS = datetime.strptime(str(record[0]), "%Y%m%d%H%M%S%f")
+            if record[1] == EEQU_KLINE_MINUTE:
+                curEffectiveDTS = curBarDTS-relativedelta(minutes=record[2])
+            elif record[1] == EEQU_KLINE_DAY:
+                curEffectiveDTS = curBarDTS-relativedelta(days=record[2])
+            elif record[1] == EEQU_KLINE_SECOND:
+                curEffectiveDTS = curBarDTS-relativedelta(seconds=record[2])
+            elif record[1] == EEQU_KLINE_TICK:
+                curEffectiveDTS = curBarDTS
+            else:
+                raise NotImplementedError("未实现的k线类型支持")
+            effectiveDTS.append(curEffectiveDTS.strftime("%Y%m%d%H%M%S%f"))
+
+        newDF["DateTimeStampForSort"] = effectiveDTS
+        newDF.sort_values(['TradeDate', 'DateTimeStampForSort', 'Priority'], ascending=[True, True, False], inplace=True)
         newDF.reset_index(drop=True, inplace=True)
+
+        # print("new df is ")
+        # print(newDF[["TradeDate", "DateTimeStampForSort", "DateTimeStamp", "KLineType"]])
         allHisData = newDF.to_dict(orient="index")
 
         # print(newDF[["ContractNo", "TradeDate", "DateTimeStamp"]])
@@ -942,6 +967,7 @@ class StrategyHisQuote(object):
         for index, row in allHisData.items():
             key = (row["ContractNo"], row["KLineType"], row["KLineSlice"])
             isShow = key == self._config.getKLineShowInfoSimple()
+
             # print(key, self._config.getKLineShowInfoSimple(),
             lastBar = self.getCurBar(key)
             self._updateCurBar(key, row)
@@ -1044,16 +1070,9 @@ class StrategyHisQuote(object):
             return
 
         key = (curTriggerInfo["ContractNo"], curTriggerInfo["KLineType"], curTriggerInfo["KLineSlice"])
+        assert key[1] is not None, "error"
 
         curBar = self._curBarDict[key].getCurBar()
-        #assert key[0] and key[1] and key[2] and curBar, " Error "
-        # priceInfos[key] = {
-        #     "LastPrice": curBar['LastPrice'],
-        #     "DateTimeStamp": curBar['DateTimeStamp'],
-        #     "TradeDate": curBar['TradeDate'],
-        #     "LastPriceSource": KLineFromHis,
-        # }
-        # self._calc.calcProfit(priceInfos)
         priceInfos[key[0]] = {
             "LastPrice": curBar['LastPrice'],
             "DateTimeStamp": curBar['DateTimeStamp'],

@@ -388,10 +388,11 @@ class CalcCenter(object):
 
         ftOrder = self._formatOrder(order)
 
-        self._logger.sig_info("[%3s] [%4s] [%5s], %s, %s, %s, %s, %s, %s, %s, %s"%(
+        self._logger.sig_info("[%3s] [%4s] [%5s], %s, %s, %s, %s, %s, %s, %s, %s, %s"%(
                                                         ftOrder["StrategyId"],
                                                         ftOrder["StrategyStage"],
                                                         ftOrder["OrderId"],
+                                                        ftOrder["TradeDate"],
                                                         ftOrder["UserNo"],
                                                         ftOrder["Cont"],
                                                         ftOrder["Direct"],
@@ -400,6 +401,8 @@ class CalcCenter(object):
                                                         ftOrder["OrderQty"],
                                                         ftOrder["OrderType"],
                                                         ftOrder["Hedge"]))
+        self._logger.trade_info(f"发送虚拟订单，策略Id:{ftOrder['StrategyId']}, 运行阶段：{ftOrder['StrategyStage']}，"
+                                f"本地订单号：{ftOrder['OrderId']},订单数据：{repr(order)}")
 
         # self._logger.sig_info(self._formatOrder(order))
 
@@ -449,6 +452,7 @@ class CalcCenter(object):
            "StrategyId"      : order["StrategyId"],
            "StrategyStage"   : StrategyStatus[order["StrategyStage"]],
            "OrderId"         : order["OrderId"],
+            "TradeDate"      : order["TradeDate"],
             "UserNo"         : order["UserNo"],
            "Cont"            : order["Cont"],
            "Direct"          : DirectDict[order["Direct"]],

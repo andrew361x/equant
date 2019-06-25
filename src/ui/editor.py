@@ -231,6 +231,8 @@ class EditorText(ParentText, ModifiedMixin):
         self.config_colors()
         self.percolator = Percolator(self)
         self.bind("<Button-3>", self.create_menu)
+        # 双击选中事件
+        # self.bind("<Double-Button-1>", self.doubleClickEvent)
 
         # TODO: 捕获modified需要修改
         self.edit_modified(False)
@@ -281,9 +283,6 @@ class EditorText(ParentText, ModifiedMixin):
                     self._view.updateEditorHead(text+"*")
                 return
 
-    # def insert(self, index, chars, tags=None):
-    #     self.percolator.insert(index, chars, tags=None)
-
     def config_colors(self):
         for tag, cnf in self.tagdefs.items():
             if cnf:
@@ -314,6 +313,10 @@ class EditorText(ParentText, ModifiedMixin):
         if funcName:
             func = globals()['BaseApi'].__dict__[funcName]
             self._controller.set_help_text(funcName, func.__doc__)
+
+    def doubleClickEvent(self, event):
+        """双击editor事件"""
+        return "break"
 
     def recolorize_main(self):
         next = "1.0"
@@ -433,7 +436,8 @@ class SignalText(ParentText):
     def setText(self, text="", file=None):
         self.config(state="normal")
         self.config(state="normal")
-        self.insert("end", text + "\n")
+        # self.insert("end", text + "\n")
+        self.insert("end", text)
         self.config(state="disabled")
         self.update()
         self.see("end")
@@ -468,7 +472,8 @@ class MonitorText(ParentText):
     def setText(self, text="", file=None):
         self.config(state="normal")
         self.config(state="normal")
-        self.insert("end", text + "\n")
+        # self.insert("end", text + "\n")
+        self.insert("end", text)
         self.config(state="disabled")
         self.update()
         self.see("end")

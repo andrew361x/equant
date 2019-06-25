@@ -43,6 +43,8 @@ class TkinterController(object):
         self.monitorThread = ChildThread(self.updateMonitor, 1)
         # 创建接收引擎数据线程
         self.receiveEgThread = ChildThread(self.model.receiveEgEvent)
+        # 信号记录线程
+        self.sigThread = ChildThread(self.updateSig, 0.01)
 
         # 设置日志更新
         self.update_log()
@@ -53,13 +55,16 @@ class TkinterController(object):
     def update_log(self):
         try:
             self.app.updateLogText()
-            self.app.updateSigText()
+            # self.app.updateSigText()
             self.app.updateErrText()
 
             self.top.after(10, self.update_log)
         except Exception as e:
             # self.logger.warn("异常", "程序退出异常")
             pass
+
+    def updateSig(self):
+        self.app.updateSigText()
 
     def updateMonitor(self):
         # 更新监控界面策略信息
@@ -72,6 +77,11 @@ class TkinterController(object):
         # 停止更新界面子线程
         self.monitorThread.stop()
         self.monitorThread.join()
+
+        # 停止更新信号记录
+        self.sigThread.stop()
+        self.sigThread.join()
+
         # 停止接收策略引擎队列数据
         self.receiveEgThread.stop()
         self.model.receiveExit()
@@ -86,6 +96,9 @@ class TkinterController(object):
         self.monitorThread.start()
         #启动接收数据线程
         self.receiveEgThread.start()
+
+        self.sigThread.start()
+
         #启动主界面线程
         self.app.mainloop()
         

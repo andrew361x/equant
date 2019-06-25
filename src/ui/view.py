@@ -148,6 +148,8 @@ class QuantApplication(object):
     def createRunWin(self, param):
         """弹出量化设置界面"""
         self.setLoadState("disabled")
+        # 运行策略前将用户修改保存
+        self.quant_editor.saveEditor()
         self.runWin = RunWin(self.control, self.root, param)
         self.runWin.display()
         self.setLoadState("normal")

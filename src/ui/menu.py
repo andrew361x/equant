@@ -2,6 +2,7 @@ import os
 import sys
 sys.path.append("..")
 
+import shutil
 from tkinter import *
 from tkinter import messagebox
 
@@ -24,7 +25,7 @@ class StrategyMenu(object):
 
     def add_event(self):
         new_menu = Menu(self.menu, tearoff=0)
-        if len(self._lClickSelectedItem) == 1 and self.widget.parent(self._lClickSelectedItem):  # 保证只选中一个
+        if len(self._lClickSelectedItem) == 1 and self.widget.parent(self._lClickSelectedItem[0]):  # 保证只选中一个
             # self.menu.add_command(label="运行", command=self.runStrategy, state=DISABLED)
             pass
 
@@ -91,7 +92,7 @@ class StrategyMenu(object):
     def newStrategy(self):
         newFileWin = NewFileToplevel(self._controller.top)
 
-        def save_():
+        def save(event=None):
             # 新建策略前先保存当前选中的策略
             self._controller.saveStrategy()
             # TODO：目录树多选时path为list，新建文件的存储位置可能会有问题（总是新建到item最小的文件所在的文件夹）
@@ -119,7 +120,8 @@ class StrategyMenu(object):
         def cancel():
             newFileWin.destroy()
 
-        newFileWin.saveBtn.configure(command=save_)
+        newFileWin.nameEntry.bind("<Return>", save)
+        newFileWin.saveBtn.configure(command=save)
         newFileWin.cancelBtn.configure(command=cancel)
         # 模态窗口
         newFileWin.display()
@@ -127,39 +129,45 @@ class StrategyMenu(object):
     def newDir(self):
         newTop = NewDirToplevel(self._controller.top)
 
-        def save():
+        def save(event=None):
             # 新建前先保存当前选中的策略
             self._controller.saveStrategy()
 
-            tempPath = self.get_file_path()
-            path =tempPath[0]
-
-            if os.path.isdir(path):
-                #TODO: 新建策略有问题
-                dir_path = path
-                # dir_path = os.path.dirname(path)
-
-            if os.path.isfile(path):
-                dir_path = os.path.dirname(path)
-                # dir_path = os.path.dirname(par_path)
             file_name = newTop.nameEntry.get()
             if file_name == "":
                 messagebox.showinfo(self.language.get_text(8), self.language.get_text(22), parent=newTop)
             else:
-                if not os.path.exists(os.path.join(dir_path, file_name)):
+                tempPath = self.get_file_path()
+                path = tempPath[0]
+                if os.path.isdir(path):
+                    # TODO: 新建策略有问题
+                    dir_path = path
+                    # dir_path = os.path.dirname(path)
+                    if self.widget.parent(dir_path) == "":
+                        newPath = os.path.abspath(os.path.join(dir_path, "..\\%s" % file_name))
+                    else:
+                        newPath = os.path.abspath(os.path.join(dir_path, file_name))
+
+                if os.path.isfile(path):
+                    dir_path = os.path.dirname(path)
+                    newPath = os.path.join(dir_path, file_name)
+
+                if not os.path.exists(newPath):
                     # TODO: insert的位置问题。。。
                     # TODO：新建目录和新建文件在目录树种无法区别
                     newTop.destroy()
 
-                    filePath = os.path.join(dir_path, file_name)
-                    self._controller.newDir(filePath)
+                    # filePath = os.path.join(dir_path, file_name)
+                    self._controller.newDir(newPath)
                 else:
                     messagebox.showinfo(self.language.get_text(8),
-                                        self.language.get_text(23) + file_name + self.language.get_text(24), parent=newTop)
+                                        self.language.get_text(23) + file_name + self.language.get_text(24),
+                                        parent=newTop)
 
         def cancel():
             newTop.destroy()
 
+        newTop.nameEntry.bind("<Return>", save)
         newTop.saveBtn.config(command=save)
         newTop.cancelBtn.config(command=cancel)
         newTop.display()
@@ -180,7 +188,7 @@ class StrategyMenu(object):
 
         renameTop = RenameToplevel(path, self._controller.top)
 
-        def enter():
+        def enter(event=None):
             self._controller.saveStrategy()
             newPath = os.path.join(os.path.dirname(path), renameTop.newEntry.get())
 
@@ -228,6 +236,7 @@ class StrategyMenu(object):
         def cancel():
             renameTop.destroy()
 
+        renameTop.newEntry.bind("<Return>", enter)
         renameTop.saveBtn.config(command=enter)
         renameTop.cancelBtn.config(command=cancel)
         renameTop.display()
@@ -245,8 +254,7 @@ class StrategyMenu(object):
         selected_item = self._lClickSelectedItem
         # 当前选中的策略路径
         editorPath = self._controller.getEditorText()["path"]
-        def enter():
-            # 新建策略前先保存当前选中的策略
+        def enter(event=None):
             self._controller.saveStrategy()
             
             # 先关闭窗口
@@ -264,8 +272,12 @@ class StrategyMenu(object):
                                     # 更新策略编辑界面显示信息
                                     self._controller.updateEditor("")
                                     os.remove(deletePath)
+                                    # shutil.rmtree(deletePath)
                             for name in dirs:
-                                os.rmdir(os.path.join(root, name))
+                                shutil.rmtree(os.path.join(root, name))
+                        # 删除本地文件
+                        shutil.rmtree(path)
+                        # 删除控件中的条目
                         self.widget.delete(select)
                     else:
                         if editorPath == path:
@@ -276,12 +288,17 @@ class StrategyMenu(object):
 
                         os.remove(path)
                         self.widget.delete(select)
-                else:  # 文件不存在（本地文件已经删除）
-                    self.widget.delete(select)
+                else:  # 文件不存在
+                    try:
+                        self.widget.delete(select)
+                    except:
+                        pass
 
         def cancel():
             deleteTop.destroy()
 
+        deleteTop.saveBtn.focus_set()
+        deleteTop.bind("<Return>", enter)
         deleteTop.saveBtn.config(command=enter)
         deleteTop.cancelBtn.config(command=cancel)
         deleteTop.display()
@@ -289,7 +306,6 @@ class StrategyMenu(object):
     def onRefresh(self):
         """刷新目录"""
         self.parent.update_all_tree()
-        pass
 
 
 class RunMenu(object):

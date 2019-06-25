@@ -398,7 +398,7 @@ class BaseApi(object):
               获取各种历史数据数组
 
         【语法】
-               numpy.array HisData(enum dataType, enum kLineType, int kLineValue, string contractNo, int maxLength)
+               numpy.array HisData(enum dataType, enum kLineType='', int kLineValue=0, string contractNo='', int maxLength=100)
 
         【参数】
               dataType 指定历史数据的种类，可选的枚举函数和相应含义为：
@@ -758,7 +758,7 @@ class BaseApi(object):
               contractNo 合约编号
 
         【备注】
-              返回Date类型
+              返回当前公式应用商品的最新成交日期，格式为YYYYMMDD整数表示的日期。
 
         【实例】
               无
@@ -796,7 +796,8 @@ class BaseApi(object):
               contractNo 合约编号
 
         【备注】
-              返回Time类型
+              返回当前公式应用商品的最新成交时间，以格式为0.HHMMSSmmm浮点数表示的时间。
+
 
         【实例】
               无
@@ -1128,17 +1129,19 @@ class BaseApi(object):
         return self._dataModel.getQuoteDataExist(contractNo)
 
     #/////////////////////////策略交易/////////////////////////////
-    def Buy(self, contractNo, share=0, price=0):
+    def Buy(self, contractNo, share=0, price=0, userNo=''):
         '''
         【说明】
               产生一个多头建仓操作
 
         【语法】
-              Bool Buy(int Share=0,float Price=0)
+              Bool Buy(int Share=0, float Price=0, string ContractNo=None, string UserNo=')
 
         【参数】
-              Share 买入数量，为整型值，默认使用系统设置
-              Price 买入价格，为浮点数，默认使用现价(非最后Bar为Close)。
+              Share 买入数量，为整型值，默认为0；
+              Price 买入价格，为浮点数，默认为0；
+              Contract 合约代码，为字符串，默认使用基准合约；
+              UserNo 用户编号，为字符串，默认使用界面选定用户编号。
 
         【备注】
               产生一个多头建仓操作，返回值为布尔型，执行成功返回True，否则返回False。
@@ -1159,19 +1162,21 @@ class BaseApi(object):
               在当前持有空头仓位的情况下：
               Buy(10,Close) 表示平掉所有空仓，并用当前Bar收盘价买入10张合约，马上发送委托。
         '''
-        return self._dataModel.setBuy(contractNo, share, price)
+        return self._dataModel.setBuy(userNo, contractNo, share, price)
 
-    def BuyToCover(self, contractNo, share=0, price=0):
+    def BuyToCover(self, contractNo, share=0, price=0, userNo=''):
         '''
         【说明】
               产生一个空头平仓操作
 
         【语法】
-              Bool BuyToCover(int Share=0,float Price=0)
+              Bool BuyToCover(int Share=0, float Price=0, string ContractNo=None, string UserNo='')
 
         【参数】
-              Share 买入数量，为整型值，默认为平掉当前所有持仓；
-              Price 买入价格，为浮点数，默认=0时为使用现价(非最后Bar为Close)。
+              Share 买入数量，为整型值，默认为0；
+              Price 买入价格，为浮点数，默认为0；
+              Contract 合约代码，为字符串，默认使用基准合约；
+              UserNo 用户编号，为字符串，默认使用界面选定用户编号。
 
         【备注】
               产生一个空头平仓操作，返回值为布尔型，执行成功返回True，否则返回False。
@@ -1189,19 +1194,21 @@ class BaseApi(object):
               BuyToCover(5,0) 表示用现价空头买入5张合约)，马上发送委托。
               BuyToCover(0,0) 表示用现价按交易设置中的设置,马上发送委托。
         '''
-        return self._dataModel.setBuyToCover(contractNo, share, price)
+        return self._dataModel.setBuyToCover(userNo, contractNo, share, price)
 
-    def Sell(self, contractNo, share=0, price=0):
+    def Sell(self, contractNo, share=0, price=0, userNo=''):
         '''
         【说明】
               产生一个多头平仓操作
 
         【语法】
-              Bool Sell(int Share=0,float Price=0)
+              Bool Sell(int Share=0, float Price=0, string ContractNo=None, string UserNo='')
 
         【参数】
-              Share 卖出数量，为整型值，默认为平掉当前所有持仓；
-              Price 卖出价格，为浮点数，默认=0时为使用现价(非最后Bar为Close)。
+              Share 买入数量，为整型值，默认为0；
+              Price 买入价格，为浮点数，默认为0；
+              Contract 合约代码，为字符串，默认使用基准合约；
+              UserNo 用户编号，为字符串，默认使用界面选定用户编号。
 
         【备注】
               产生一个多头平仓操作，返回值为布尔型，执行成功返回True，否则返回False。
@@ -1219,19 +1226,21 @@ class BaseApi(object):
               Sell(5,0) 表示用现价卖出5张合约，马上发送委托。
               Sell(0,0) 表示用现价按交易设置中的设置,马上发送委托。
         '''
-        return self._dataModel.setSell(contractNo, share, price)
+        return self._dataModel.setSell(userNo, contractNo, share, price)
 
-    def SellShort(self, contractNo, share=0, price=0):
+    def SellShort(self, contractNo, share=0, price=0, userNo=''):
         '''
         【说明】
               产生一个空头建仓操作
 
         【语法】
-              Bool SellShort(int Share=0,float Price=0)
+              Bool SellShort(int Share=0, float Price=0, string ContractNo=None, string UserNo='')
 
         【参数】
-              Share 卖出数量，为整型值，默认为使用系统设置参数；
-              Price 卖出价格，为浮点数，默认=0时为使用现价(非最后Bar为Close)。
+              Share 买入数量，为整型值，默认为0；
+              Price 买入价格，为浮点数，默认为0；
+              Contract 合约代码，为字符串，默认使用基准合约；
+              UserNo 用户编号，为字符串，默认使用界面选定用户编号。
 
         【备注】
               产生一个空头建仓操作，返回值为布尔型，执行成功返回True，否则返回False。
@@ -1252,7 +1261,7 @@ class BaseApi(object):
               SellShort(10,Close) 表示平掉所有多头仓位，并用当前Bar收盘价空头卖出10张合约，马上发送委托。
 
         '''
-        return self._dataModel.setSellShort(contractNo, share, price)
+        return self._dataModel.setSellShort(userNo, contractNo, share, price)
 
     def StartTrade(self):
         '''
@@ -2775,6 +2784,25 @@ class BaseApi(object):
          '''
         return self._dataModel.getBuyPosition(contractNo)
 
+    def A_BuyPositionCanCover(self, contractNo):
+        '''
+        【说明】
+              返回当前公式应用的帐户下买仓可平数量。
+
+        【语法】
+              int A_BuyPositionCanCover(string contractNo)
+
+        【参数】
+              contractNo，指定商品的合约编号，为空时采用基准合约编号。
+
+        【备注】
+              可平仓数量=持仓数量-已排队的挂单数量
+
+        【示例】
+              无
+         '''
+        return self._dataModel.getBuyPositionCanCover(contractNo)
+
     def A_BuyProfitLoss(self, contractNo):
         '''
         【说明】
@@ -2834,6 +2862,25 @@ class BaseApi(object):
               当前持空仓3手，A_SellPosition返回3。
          '''
         return self._dataModel.getSellPosition(contractNo)
+
+    def A_SellPositionCanCover(self, contractNo):
+        '''
+        【说明】
+              返回当前公式应用的帐户下卖仓可平数量。
+
+        【语法】
+              int A_SellPositionCanCover(string contractNo)
+
+        【参数】
+              contractNo，指定商品的合约编号，为空时采用基准合约编号。
+
+        【备注】
+              可平仓数量=持仓数量-已排队的挂单数量
+
+        【示例】
+              无
+         '''
+        return self._dataModel.getSellPositionCanCover(contractNo)
 
     def A_SellProfitLoss(self, contractNo):
         '''
@@ -3254,16 +3301,35 @@ class BaseApi(object):
          '''
         return self._dataModel.getAllQueueOrderNo(contractNo)
 
-    def A_OrderContractNo(self, orderId):
+    def A_LatestFilledTime(self, contractNo):
+        '''
+        【说明】
+              返回当前账户最新一笔完全成交委托单对应的时间。
+
+        【语法】
+              float A_LatestFilledTime(string contractNo)
+
+        【参数】
+              contractNo 合约代码，默认为遍历所有合约，指定后只遍历指定合约。
+
+        【备注】
+              若返回值为-1，表示没有对应的完全成交的委托，否则，返回最新一笔完全成交委托单对应的时间，返回格式为YYYYMMDD.hhmmss的数值。
+
+        【示例】
+              无
+         '''
+        return self._dataModel.getALatestFilledTime(contractNo)
+
+    def A_OrderContractNo(self, localOrderId):
         '''
         【说明】
               返回订单的合约号。
 
         【语法】
-              string A_OrderContractNo(int orderId)
+              string A_OrderContractNo(int|string localOrderId)
 
         【参数】
-              localOrderId 定单号，整数类型。
+              localOrderId 定单号，或者使用A_SendOrder返回的下单编号。
 
         【备注】
               返回结果如："ZCE|F|TA|305"等，
@@ -3272,20 +3338,24 @@ class BaseApi(object):
         【示例】
               无
          '''
-        return self._dataModel.getOrderContractNo(orderId)
+        return self._dataModel.getOrderContractNo(localOrderId)
 
-    def A_SendOrder(self, userNo, contractNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty, triggerType, triggerMode, triggerCondition, triggerPrice):
+    def A_SendOrder(self, userNo, contractNo, orderDirct, entryOrExit, orderQty, orderPrice, orderType, validType, hedge, triggerType, triggerMode, triggerCondition, triggerPrice):
         '''
-        【说明】A_SendOrder
+        【说明】
               针对指定的帐户、商品发送委托单。
 
         【语法】
-              int, string A_SendOrder(string userNo, string contractNo, char orderType, char validType, char orderDirct, char entryOrExit, char hedge, float orderPrice, int orderQty, char triggerType, char triggerMode, char triggerCondition, float triggerPrice)
+              int. string A_SendOrder(char orderDirct, char entryOrExit, int orderQty, float orderPrice, string contractNo='', string userNo='', char orderType='2', char validType='0', char hedge='T', char triggerType='N', char triggerMode='N', char triggerCondition='N', float triggerPrice=0)
 
         【参数】
-              userNo 指定的账户名称，
-              contractNo 商品合约编号，
-              orderType 订单类型，字符类型，可选值为：
+              orderDirct 发送委托单的买卖类型，取值为Enum_Buy或Enum_Sell之一，
+              entryOrExit 发送委托单的开平仓类型，取值为Enum_Entry,Enum_Exit,Enum_ExitToday之一，
+              orderQty 委托单的交易数量，
+              orderPrice 委托单的交易价格，
+              contractNo 商品合约编号，默认值为基准合约，
+              userNo 指定的账户名称，默认为界面选定的账户名称，
+              orderType 订单类型，字符类型，默认值为'2'，可选值为：
                 '1' : 市价单
                 '2' : 限价单
                 '3' : 市价止损
@@ -3303,34 +3373,30 @@ class BaseApi(object):
                 'G' : 履约期货自对冲申请
                 'H' : 做市商留仓
                 可使用如Enum_Order_Market、Enum_Order_Limit等订单类型枚举函数获取相应的类型，
-              validType 订单有效类型，字符类型， 可选值为：
+              validType 订单有效类型，字符类型，默认值为'0'， 可选值为：
                 '0' : 当日有效
                 '1' : 长期有效
                 '2' : 限期有效
                 '3' : 即时部分
                 '4' : 即时全部
                 可使用如Enum_GFD、Enum_GTC等订单有效类型枚举函数获取相应的类型，
-              orderDirct 发送委托单的买卖类型，取值为Enum_Buy或Enum_Sell之一，
-              entryOrExit 发送委托单的开平仓类型，取值为Enum_Entry,Enum_Exit,Enum_ExitToday之一，
-              hedge 投保标记，字符类型，可选值为：
+              hedge 投保标记，字符类型，默认值为'T'，可选值为：
                 'T' : 投机
                 'B' : 套保
                 'S' : 套利
                 'M' : 做市
                 可使用如Enum_Speculate、Enum_Hedge等订单投保标记枚举函数获取相应的类型，
-              orderPrice 委托单的交易价格，
-              orderQty 委托单的交易数量，
-              triggerType 触发委托类型，默认值为N，可用的值为：
+              triggerType 触发委托类型，默认值为'N'，可用的值为：
                 'N' : 普通单
                 'P' : 预备单(埋单)
                 'A' : 自动单
                 'C' : 条件单
-              triggerMode 触发模式，默认值为N，可用的值为：
+              triggerMode 触发模式，默认值为'N'，可用的值为：
                 'N' : 普通单
                 'L' : 最新价
                 'B' : 买价
                 'A' : 卖价
-              triggerCondition 触发条件，默认值为N，可用的值为：
+              triggerCondition 触发条件，默认值为'N'，可用的值为：
                 'N' : 无
                 'g' : 大于
                 'G' : 大于等于
@@ -3352,13 +3418,11 @@ class BaseApi(object):
               注：不能使用于历史测试，仅适用于实时行情交易。
 
         【示例】
-              retCode, retMsg = A_SendOrder(UserId, ContractId, Enum_Order_Limit(), Enum_FOK(), Enum_Buy(), Enum_Exit(), Enum_Speculate(), Q_AskPrice(), OrderNum)
+              retCode, retMsg = A_SendOrder(Enum_Buy(), Enum_Exit(), 1, Q_AskPrice())
               当retCode为0时表明发送订单信息成功，retMsg为返回的下单编号localOrderId。
          '''
-        if triggerType in ('P', 'A', 'C'):
-            return self._dataModel.sendConditionOrder(userNo, contractNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty, \
+        return self._dataModel.sendOrder(userNo, contractNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty, \
                                                       triggerType, triggerMode, triggerCondition, triggerPrice)
-        return self._dataModel.sendOrder(userNo, contractNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty)
 
     def A_DeleteOrder(self, localOrderId):
         '''
@@ -5696,7 +5760,7 @@ class BaseApi(object):
             求最高
 
         【语法】
-            numpy.array Highest(list price, int length)
+            numpy.array Highest(list|numpy.array price, int length)
 
         【参数】
             price 用于求最高值的值，必须是数值型列表；
@@ -5708,7 +5772,7 @@ class BaseApi(object):
 
         【示例】
             Highest (Close(), 12); 计算12周期以来的收盘价的最高值；
-            Highest ((Close() + High() + Low())/ 3, 10); 计算10周期以来高低收价格的平均值的最高值。
+            Highest (HisData(Enum_Data_Typical()), 10); 计算10周期以来高低收价格的平均值的最高值。
         '''
         return self._dataModel.getHighest(price, length)
 
@@ -5718,7 +5782,7 @@ class BaseApi(object):
             求最低
 
         【语法】
-            numpy.array Lowest(list price, int length)
+            numpy.array Lowest(list|numpy.array price, int length)
 
         【参数】
             price 用于求最低值的值，必须是数值型列表；
@@ -5730,7 +5794,7 @@ class BaseApi(object):
 
         【示例】
             Highest (Close(), 12); 计算12周期以来的收盘价的最低值；
-            Highest ((Close() + High() + Low())/ 3, 10); 计算10周期以来高低收价格的平均值的最低值。
+            Lowest (HisData(Enum_Data_Typical()), 10); 计算10周期以来高低收价格的平均值的最低值。
         '''
         return self._dataModel.getLowest(price, length)
 
@@ -5964,7 +6028,7 @@ def BarStatus(contractNo='', kLineType='', kLineValue=0):
 def HistoryDataExist(contractNo='', kLineType='', kLineValue=0):
     return baseApi.HistoryDataExist(contractNo, kLineType, kLineValue)
 
-def HisData(type, period, interval, contractNo='', maxLength=100):
+def HisData(type, period='', interval=0, contractNo='', maxLength=100):
     return baseApi.HisData(type, period, interval, contractNo, maxLength)
 
 def HisBarsInfo(contractNo='', kLineType='', kLineValue=0, maxLength=None):
@@ -6216,6 +6280,9 @@ def A_BuyAvgPrice(contractNo=''):
 def A_BuyPosition(contractNo=''):
     return baseApi.A_BuyPosition(contractNo)
 
+def A_BuyPositionCanCover(contractNo=''):
+    return baseApi.A_BuyPositionCanCover(contractNo)
+
 def A_BuyProfitLoss(contractNo=''):
     return baseApi.A_BuyProfitLoss(contractNo)
 
@@ -6224,6 +6291,9 @@ def A_SellAvgPrice(contractNo=''):
 
 def A_SellPosition(contractNo=''):
     return baseApi.A_SellPosition(contractNo)
+
+def A_SellPositionCanCover(contractNo=''):
+    return baseApi.A_SellPositionCanCover(contractNo)
 
 def A_SellProfitLoss(contractNo=''):
     return baseApi.A_SellProfitLoss(contractNo)
@@ -6282,11 +6352,14 @@ def A_NextQueueOrderNo(localOrderId=0, contractNo1='', contractNo2=''):
 def A_AllQueueOrderNo(contractNo=''):
     return baseApi.A_AllQueueOrderNo(contractNo)
 
+def A_LatestFilledTime(contractNo=''):
+    return baseApi.A_LatestFilledTime(contractNo)
+
 def A_OrderContractNo(localOrderId):
     return baseApi.A_OrderContractNo(localOrderId)
 
-def A_SendOrder(userNo, contractNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty, triggerType='N', triggerMode='N', triggerCondition='N', triggerPrice=0):
-    return baseApi.A_SendOrder(userNo, contractNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty, triggerType, triggerMode, triggerCondition, triggerPrice)
+def A_SendOrder(orderDirct, entryOrExit, orderQty, orderPrice, contractNo='', userNo='', orderType='2', validType='0', hedge='T', triggerType='N', triggerMode='N', triggerCondition='N', triggerPrice=0):
+    return baseApi.A_SendOrder(userNo, contractNo, orderDirct, entryOrExit, orderQty, orderPrice, orderType, validType, hedge, triggerType, triggerMode, triggerCondition, triggerPrice)
 
 def A_DeleteOrder(localOrderId):
     return baseApi.A_DeleteOrder(localOrderId)
@@ -6298,17 +6371,17 @@ def DeleteAllOrders(contractNo=''):
     return baseApi.DeleteAllOrders(contractNo)
 
 #策略交易
-def Buy(share=0, price=0, contractNo=None):
-    return baseApi.Buy(contractNo, share, price)
+def Buy(share=0, price=0, contractNo=None, userNo=''):
+    return baseApi.Buy(contractNo, share, price, userNo)
 
-def BuyToCover(share=0, price=0, contractNo=None):
-    return baseApi.BuyToCover(contractNo, share, price)
+def BuyToCover(share=0, price=0, contractNo=None, userNo=''):
+    return baseApi.BuyToCover(contractNo, share, price, userNo)
 
-def Sell(share=0, price=0, contractNo=None):
-    return baseApi.Sell(contractNo, share, price)
+def Sell(share=0, price=0, contractNo=None, userNo=''):
+    return baseApi.Sell(contractNo, share, price, userNo)
 
-def SellShort(share=0, price=0, contractNo=None):
-    return baseApi.SellShort(contractNo, share, price)
+def SellShort(share=0, price=0, contractNo=None, userNo=''):
+    return baseApi.SellShort(contractNo, share, price, userNo)
 
 def StartTrade():
     return baseApi.StartTrade()

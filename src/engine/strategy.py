@@ -164,7 +164,7 @@ class StartegyManager(object):
             return
         try:
             process.terminate()
-            process.join(timeout=0.1)
+            process.join(timeout=1)
             self.logger.debug("strategy %d exit success" % strategyId)
         except Exception as e:
             # traceback.print_exc()
@@ -813,6 +813,12 @@ class Strategy:
         tradeRecode = self._localOrder[eSessionId]
         tradeRecode._barInfo = barInfo
 
+    def getContNo(self, eSessionId):
+        if eSessionId not in self._localOrder:
+            return ''
+        tradeRecord = self._localOrder[eSessionId]
+        return tradeRecord._contNo
+
     def getOrderNo(self, eSessionId):
         if eSessionId not in self._localOrder:
             return 0
@@ -839,10 +845,22 @@ class Strategy:
 
     def sendEvent2Engine(self, event):
         if self._isSt2EgQueueEffective:
-            self._st2egQueue.put(event)
+            while True:
+                try:
+                    self._st2egQueue.put_nowait(event)
+                    break
+                except queue.Full:
+                    time.sleep(0.1)
+                    self.logger.error(f"策略{self._strategyId}向引擎传递事件{event.getEventCode()}时卡住")
 
     def sendEvent2EngineForce(self, event):
-        self._st2egQueue.put(event)
+        while True:
+            try:
+                self._st2egQueue.put_nowait(event)
+                break
+            except queue.Full:
+                time.sleep(0.1)
+                self.logger.error(f"策略{self._strategyId}强制向引擎传递事件{event.getEventCode()}时卡住")
 
     def sendEvent2UI(self, event):
         self._st2uiQueue.put(event)

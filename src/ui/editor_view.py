@@ -34,6 +34,18 @@ class StrategyTree(QuantFrame):
         self.tree_menu = None
         self.tree_node_dict = {}   # 刷新父节点用的
         self.strategyTreeScl = None
+
+        # 记录节点的开关状态
+        self._openState = {}
+        # 记录被选中的节点
+        self._selected = None
+
+        # 策略树图标
+        # TODO:不加self就不显示image
+        self.wfileicon = tk.PhotoImage(file=r'./icon/file_white.gif')
+        self.gfileicon = tk.PhotoImage(file=r'./icon/file_grey.gif')
+        self.wdiricon  = tk.PhotoImage(file=r'./icon/dir_white.gif')
+        self.gdiricon  = tk.PhotoImage(file=r'./icon/dir_grey.gif')
         
         #print("StrategyTree:%d,%d"%(frame['width'], frame['height']))
 
@@ -56,6 +68,10 @@ class StrategyTree(QuantFrame):
     def update_all_tree(self):
         """销毁策略目录"""
         if self.root_tree:
+            # 获取目录树的开关状态
+            self._getOpenState("")
+            self._selected = self.root_tree.selection()
+
             self.root_tree.destroy()
         if self.strategyTreeScl:
             if self.strategyTreeScl[0]:
@@ -64,18 +80,68 @@ class StrategyTree(QuantFrame):
                 self.strategyTreeScl[1].destroy()
 
         self.insert_tree()
+        # 恢复策略目录的开关状态
+        self._setOpenState("")
+        # 恢复选中状态
+        if self._selected:
+            self.root_tree.selection_set(self._selected)
+
+    def _getOpenState(self, item):
+        """遍历树目录的开关状态， 需要循环遍历所有item"""
+        for itemId in self.root_tree.get_children(item):
+            self._openState[itemId] = self.root_tree.item(itemId)["open"]
+            self._getOpenState(itemId)
+
+    def _setOpenState(self, item):
+        for itemId in self.root_tree.get_children(item):
+            # 不在量化客户端新建策略时，刷新时会出现keyerror
+            try:
+                self.root_tree.item(itemId, open=self._openState[itemId])
+                self._setOpenState(itemId)
+            except KeyError:
+                pass
 
     def update_tree(self, fullname):
         '''只刷新父节点'''
-        # TODO：怎么可以实现新建策略按正确的顺序插入呢？
+
         dir_name = os.path.dirname(fullname)
         file_name = os.path.basename(fullname)
-        parent = self.tree_node_dict[dir_name]
-        
-        if not parent:
+        # debug模式下新建文件时会发现新建文件的位置在树上不对，update_all_tree之后才对。
+
+        try:  # 在最外层创建目录
+            selectId = self.tree_node_dict[dir_name]
+        except:
+            selectId = dir_name
+
+        if not selectId:
             messagebox.showinfo("提示", "更新策略树失败")
         else:
-            self.root_tree.insert(parent, 'end', text=file_name, open=False, values=[fullname, "!@#$%^&*"])
+            if os.path.isdir(fullname):
+                iimage = self.gdiricon
+            elif os.path.isfile(fullname):
+                iimage = self.gfileicon
+            else:
+                return
+
+            try:   # 在最外层创建文件夹
+                parent = self.root_tree.parent(selectId)
+            except:
+                parent = ""
+
+            itemId = self.root_tree.insert(parent, 'end', iid=fullname, text=file_name, open=False,
+                                           values=[fullname, "!@#$%^&*"],
+                                           image=iimage)
+
+            self.tree_node_dict[fullname] = itemId
+
+            # 设置新建的条目选中
+            self.root_tree.selection_set(itemId)
+            # 设置父条目的开关状态
+            self.root_tree.item(self.root_tree.parent(itemId), open=True)
+            self.root_tree.item(itemId, open=True)
+
+            # 新建之后排序
+            self.update_all_tree()
 
     def insert_tree(self):
         #作为类成员，用于树更新
@@ -102,6 +168,7 @@ class StrategyTree(QuantFrame):
         #绑定处理事件
         self.root_tree.bind("<Double-1>", self.treeDoubleClick)
         self.root_tree.bind("<Button-3>", self.strategyMenu)
+        self.root_tree.bind("<<TreeviewSelect>>", self.selectCallback)
         self.root_tree.pack(fill=BOTH, expand=YES)
 
         # 策略标签颜色
@@ -112,15 +179,47 @@ class StrategyTree(QuantFrame):
         """右键弹出菜单"""
         StrategyMenu(self.control, self).popupmenu(event)
 
+    def selectCallback(self, event):
+        """策略树选择回调事件，更改图标样式"""
+        # 恢复上一次选择的图标样式
+        if self._selected:
+            for id in self._selected:
+                try:
+                    path = self.root_tree.item(id)['values'][0]
+                    if os.path.isdir(path):
+                        iimage = self.gdiricon
+                    else:
+                        iimage = self.gfileicon
+                except TclError:
+                    # id 不存在了
+                    continue
+                else:
+                    self.root_tree.item(id, image=iimage)
+
+        # 更改被选择的图标样式
+        self._selected = event.widget.selection()
+        for id in self._selected:
+            path = self.root_tree.item(id)['values'][0]
+            if os.path.isdir(path):
+                iimage = self.wdiricon
+            else:
+                iimage = self.wfileicon
+
+            self.root_tree.item(id, image=iimage)
+
     def loadTree(self, parent, rootpath):
         for path in os.listdir(rootpath):  # 遍历当前目录
             if path == "__pycache__":
                 continue
             abspath = os.path.join(os.path.abspath(rootpath), path)  # 连接成绝对路径
-            values_path = abspath
 
             # windows下，此处TreeView有一个bug, len(valaues)==1时， 空格会被拆分成两个值，\\会消失
-            oid = self.root_tree.insert(parent, 'end', text=path, open=False, values=[values_path, "!@#$%^&*"])
+            if os.path.isdir(abspath):
+                iimage = self.gdiricon
+            else:
+                iimage = self.gfileicon
+            oid = self.root_tree.insert(parent, 'end', iid=abspath, text=path, open=False,
+                                        values=[abspath, "!@#$%^&*"], image=iimage)
             # TODO: 2000代表一个比较大的数值
             self.root_tree.column("#0", stretch=False, width=2000)
             self.tree_node_dict[abspath] = oid
@@ -251,6 +350,8 @@ class QuantEditor(StrategyTree):
 
         # 焦点移出标志位
         self._outFlag = False
+        # 记录文件的修改时间
+        self._modifyTime = 0
 
         self._context = Context()
 
@@ -300,6 +401,7 @@ class QuantEditor(StrategyTree):
         self.editor_text.delete(END + "-1c")
         self.editor_text.update()
         self.editor_text.focus_set()
+        self.editor_text.see("end")
         self.editor_text.tag_add("TODO", "0.0", "end")
         self.editor_text.recolorize_main()
 
@@ -391,20 +493,25 @@ class QuantEditor(StrategyTree):
         self._outFlag = False
 
         if path:
-            editorCodeBefore = self.control.getEditorText()["code"]
-
-            self.control.setEditorTextCode(path)
-            editorCodeAfter = self.control.getEditorText()["code"]
-            if editorCodeBefore == editorCodeAfter:
+            modifyTime = os.path.getmtime(path)
+            # 初始化self._modifyTime
+            if self._modifyTime == 0:
+                self._modifyTime = os.path.getmtime(path)
+            if modifyTime == self._modifyTime:
                 return
 
-            self.editor_text.delete(0.0, END + "-1c")
-
-            self.updateEditorText(editorCodeAfter)
-            self.editor_text.edit_reset()
+            if messagebox.askokcancel("重新加载", "此策略被另一个程序修改了\n是否重新加载？"):
+                self.control.setEditorTextCode(path)
+                editorCode = self.control.getEditorText()["code"]
+                self.editor_text.delete(0.0, END + "-1c")
+                self.updateEditorText(editorCode)
+                # self.editor_text.edit_reset()
 
     def onFocusOut(self, event):
         self._outFlag = True
+        path = self.control.getEditorText()["path"]
+        if path:
+            self._modifyTime = os.path.getmtime(path)
 
     def buttonDown(self, event):
         """鼠标按下记录按下位置"""

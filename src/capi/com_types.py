@@ -136,6 +136,8 @@ EEQU_SRVEVENT_EXCHANGE            = 0x23		    #交易所
 EEQU_SRVEVENT_COMMODITY           = 0x24		    #品种
 EEQU_SRVEVENT_CONTRACT            = 0x25		    #合约
 EEQU_SRVEVENT_QUOTESNAPLV2        = 0x26	        #深度行情--
+EEQU_SRVEVENT_SPRAEDMAPPING       = 0x27
+EEQU_SRVEVENT_UNDERLAYMAPPING     = 0x28
                                                     
 EEQU_SRVEVENT_HISLOGIN            = 0x40		    #登录历史行情
 EEQU_SRVEVENT_HINITCOMPLETED      = 0x41            #历史初始化完成
@@ -151,8 +153,10 @@ EEQU_SRVEVENT_TRADE_MATCHQRY      = 0x64            #交易成交查询--
 EEQU_SRVEVENT_TRADE_MATCH         = 0x65            #交易成交变化--
 EEQU_SRVEVENT_TRADE_POSITQRY      = 0x66            #交易持仓查询--
 EEQU_SRVEVENT_TRADE_POSITION      = 0x67            #交易持仓变化--
-EEQU_SRVEVENT_TRADE_FUNDQRY       = 0x68            #交易资金查询
-EEQU_SRVEVENT_TRADE_USERQRY       = 0x6B            #资金账号查询
+EEQU_SRVEVENT_TRADE_FUNDQRY       = 0x68            # 交易资金查询
+EEQU_SRVEVENT_TRADE_USERQRY       = 0x6B            # 资金账号查询
+EEQU_SRVEVENT_TRADE_EXCSTATEQRY   = 0x6C            # 交易所状态查询
+EEQU_SRVEVENT_TRADE_EXCSTATE      = 0x6D            #
 
 #////////////////////内部协议定义/////////////////////////////////
 # 模块定义
@@ -1191,6 +1195,28 @@ class EEquServiceInfo(Structure):
         ('KLineSlice'     , c_ubyte),                     #K线切片值
         ('SessionId'      , c_uint),                      #会话号
     ]
-    
-# 回调函数定义，参数类型 pointer，返回类型c_int
+
+
+class EEquSpreadMappingReq(Structure):
+    """委托查询请求"""
+    _pack_ = 1
+    _fields_ = [
+    ]
+
+
+class EEquSpreadMappingDataResponse(Structure):
+    _pack_ = 1
+    _fields_ = [
+        ("ContractNo", c_char*101),
+        ("SrcContractNo", c_char*101),
+    ]
+
+class EEquTrendMappingDataResponse(Structure):
+    _pack_ = 1
+    _fields_ = [
+        ("ContractNo", c_char * 101),
+        ("UnderlayContractNo", c_char * 101),
+    ]
+
+
 ServiceCallBackFuncType = CFUNCTYPE(c_int, POINTER(EEquServiceInfo))
