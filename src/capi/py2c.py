@@ -3,6 +3,7 @@ from threading import Thread
 from .com_types import *
 from .event import *
 from datetime import datetime
+import numpy as np
 
 class PyAPI(object):
     '''与9.5交互api类，单例模式'''
@@ -30,7 +31,9 @@ class PyAPI(object):
         
         # 初始化C Dll
         errorCode = self._cDll.E_Init()
-        assert errorCode == 0, " C API init failed"
+        if errorCode != 0:
+            self.logger.error("与极星9.5连接失败，请重启极星9.5以及量化")
+            return
 
         # 策略编号<-->会话号
         self._SessionStrategyPair = {} #{session_id, strategy_id}
@@ -90,7 +93,7 @@ class PyAPI(object):
             EEQU_SRVEVENT_TRADE_FUNDQRY     : self._onMoney          ,
             EEQU_SRVEVENT_SPRAEDMAPPING     : self._onSpreadContractMapping,
             EEQU_SRVEVENT_UNDERLAYMAPPING   : self._onTrendContractMapping,
-            EEQU_SRVEVENT_TRADE_EXCSTATEQRY : self._onExchangeStateRsp,
+            EEQU_SRVEVENT_TRADE_EXCSTATEQRY : self._onExchangeStateNotice,
             EEQU_SRVEVENT_TRADE_EXCSTATE    : self._onExchangeStateNotice,
         }
     #//////////////////////////初始化消息///////////////////////////
@@ -117,11 +120,26 @@ class PyAPI(object):
                 'Data' : 交易所编号 str
             }
         '''
-        self.logger.debug('request exchange!')
+        self.logger.info('request exchange!')
         
         sessionId = c_uint()
         req = EEquExchangeReq(event.getData().encode())
         self._cDll.E_ReqQryExchangeInfo(byref(sessionId), byref(req))
+        self._setSessionId(sessionId.value, event.getStrategyId())
+        
+    def reqExchangeStatus(self, event):
+        '''
+        功能：查询交易所状态
+        参数：
+            {
+                'StrategyId': 策略id, int
+            }
+        '''
+        self.logger.info('request exchange status!')
+        
+        sessionId = c_uint()
+        req = EEquExchangeStateReq()
+        self._cDll.E_ReqExchangeStateQry(byref(sessionId), byref(req))
         self._setSessionId(sessionId.value, event.getStrategyId())
         
     def reqCommodity(self, event):
@@ -133,12 +151,24 @@ class PyAPI(object):
                 'Data' : 起始品种编号 str
             }
         '''
-        self.logger.debug('request commodity!')
+        self.logger.info('request commodity!')
         
         sessionId = c_uint()
         req = EEquCommodityReq(event.getData().encode())
         self._cDll.E_ReqQryCommodityInfo(byref(sessionId), byref(req))
         self._setSessionId(sessionId.value, event.getStrategyId())
+        
+    def reqTrendContractMapping(self, event):
+        '''
+        功能：虚拟合约映射关系查询请求
+        参数：{
+              }
+        '''
+        self.logger.info('request trend contract map!')
+        sessionId = c_uint()
+        req = EEquSpreadMappingReq()
+        self._cDll.E_ReqQryUnderlayMapping(byref(sessionId), byref(req))
+        self._setSessionId(sessionId.value, 0)
         
     def reqContract(self, event):
         '''
@@ -149,12 +179,25 @@ class PyAPI(object):
                 'Data' : 起始合约编号 str
             }
         '''
-        self.logger.debug('request contract!')
+        self.logger.info('request contract!')
         
         sessionId = c_uint()
         req = EEquContractReq(event.getData().encode())
         self._cDll.E_ReqQryContractInfo(byref(sessionId), byref(req))
         self._setSessionId(sessionId.value, event.getStrategyId())
+        
+
+    def reqSpreadContractMapping(self):
+        '''
+        功能：极星套利合约映射查询请求
+        参数：{
+              }
+        '''
+        self.logger.info('request spread contract map!')
+        sessionId = c_uint()
+        req = EEquSpreadMappingReq()
+        self._cDll.E_ReqQrySpreadMapping(byref(sessionId), byref(req))
+        self._setSessionId(sessionId.value, 0)
         
     def reqTimebucket(self, event):
         '''
@@ -236,7 +279,6 @@ class PyAPI(object):
         req = EEquKLineReq()
         data = event.getData()
         req.ReqCount = data['ReqCount']
-
         innerContractNo = self.getInnerContractNo(data["ContractNo"])
         req.ContractNo = innerContractNo.encode()
         req.KLineType = data['KLineType'].encode()
@@ -288,10 +330,11 @@ class PyAPI(object):
         req.ContractNo = innerContractNo.encode()
         req.KLineType = data['KLineType'].encode()
         req.KLineSlice = data['KLineSlice']
+
         self._cDll.E_KLineStrategySwitch(byref(sessionId), byref(req))
         self._setSessionId(sessionId.value, event.getStrategyId())
         
-    def _getTickKLineData(self, dataList, cbuf):
+    def _getTickKLineData(self, dataList, cbuf, tickSlice):
         '''
         功能：创建C语言类型成交明细K线
         参数：
@@ -311,24 +354,43 @@ class PyAPI(object):
                 'SellQty'       : value,
             }]
         '''
+        assert tickSlice is not None, "error"
         for i, d in enumerate(dataList):
             data = EEquKLineData()
-            data.KLineIndex                                 = d['KLineIndex']
-            data.TradeDate                                  = d['TradeDate']
-            data.DateTimeStamp                              = d['DateTimeStamp']
-            data.TotalQty                                   = int(d['TotalQty']+0.5)
-            data.PositionQty                                = int(d['PositionQty']+0.5)
-            data.LastPrice                                  = d['LastPrice']
-            data.KLineData.KLineData1.LastQty               = int(d['LastQty']+0.5)
-            data.KLineData.KLineData1.PositionChg           = int(d['PositionChg']+0.5)
-            data.KLineData.KLineData1.BuyPrice              = d['BuyPrice']
-            data.KLineData.KLineData1.SellPrice             = d['SellPrice']
-            data.KLineData.KLineData1.BuyQty                = int(d['BuyQty']+0.5)
-            data.KLineData.KLineData1.SellQty               = int(d['SellQty']+0.5)
-            curBuf = cbuf + sizeof(EEquKLineData) * i
-            cData = string_at(addressof(data), sizeof(EEquKLineData))
-            memmove(curBuf, cData, sizeof(EEquKLineData))
-        
+            if tickSlice == 0:
+                data.KLineIndex                                 = d['KLineIndex']
+                data.TradeDate                                  = d['TradeDate']
+                data.DateTimeStamp                              = d['DateTimeStamp']
+                data.TotalQty                                   = int(d['TotalQty']+0.5)
+                data.PositionQty                                = int(d['PositionQty']+0.5)
+                data.LastPrice                                  = d['LastPrice']
+                data.KLineData.KLineData1.LastQty               = int(d['LastQty']+0.5)
+                data.KLineData.KLineData1.PositionChg           = int(d['PositionChg']+0.5)
+                data.KLineData.KLineData1.BuyPrice              = d['BuyPrice']
+                data.KLineData.KLineData1.SellPrice             = d['SellPrice']
+                data.KLineData.KLineData1.BuyQty                = int(d['BuyQty']+0.5)
+                data.KLineData.KLineData1.SellQty               = int(d['SellQty']+0.5)
+                curBuf = cbuf + sizeof(EEquKLineData) * i
+                cData = string_at(addressof(data), sizeof(EEquKLineData))
+                memmove(curBuf, cData, sizeof(EEquKLineData))
+            elif tickSlice>=1:
+                data.KLineIndex = d['KLineIndex']
+                data.TradeDate = d['TradeDate']
+                data.DateTimeStamp = d['DateTimeStamp']
+                data.TotalQty = int(d['TotalQty'] + 0.5)
+                data.PositionQty = int(d['PositionQty'] + 0.5)
+                data.LastPrice = d['LastPrice']
+                data.KLineData.KLineData0.KLineQty = int(d['KLineQty'] + 0.5)
+                data.KLineData.KLineData0.OpeningPrice = d['OpeningPrice']
+                data.KLineData.KLineData0.HighPrice = d['HighPrice']
+                data.KLineData.KLineData0.LowPrice = d['LowPrice']
+                data.KLineData.KLineData0.SettlePrice = d['SettlePrice']
+                curBuf = cbuf + sizeof(EEquKLineData) * i
+                cData = string_at(addressof(data), sizeof(EEquKLineData))
+                memmove(curBuf, cData, sizeof(EEquKLineData))
+            else:
+                self.logger.error(f"error tick slice")
+
     def _getMinuteKLineData(self, dataList, cbuf):
         '''
         功能：创建C语言类型日线和分钟线
@@ -389,7 +451,7 @@ class PyAPI(object):
         cbuf = addressof(pybuf)
         
         if event.getKLineType() == EEQU_KLINE_TICK:
-            self._getTickKLineData(data['Data'], cbuf)
+            self._getTickKLineData(data['Data'], cbuf, event.getKLineSlice())
         else:
             self._getMinuteKLineData(data['Data'], cbuf)
             
@@ -764,7 +826,7 @@ class PyAPI(object):
             eEquSignalItem.Direct = d['Direct'].encode()
             eEquSignalItem.Offset = d['Offset'].encode()
             eEquSignalItem.Price = d['Price']
-            eEquSignalItem.Qty = d['Qty']
+            eEquSignalItem.Qty = int(d['Qty']+0.5)
             curBuf = cbuf + sizeof(EEquSignalItem) * i
             cData = string_at(addressof(eEquSignalItem), sizeof(EEquSignalItem))
             memmove(curBuf, cData, sizeof(EEquSignalItem))
@@ -812,7 +874,6 @@ class PyAPI(object):
         self._cDll.E_KLineStrategyStateNotice(byref(sessionId), byref(req))
         self._setSessionId(sessionId.value, event.getStrategyId())
     
-        
     #////////////////////////////交易数据请求///////////////////////
     def reqQryLoginInfo(self, event):
         '''
@@ -1011,7 +1072,7 @@ class PyAPI(object):
         modifyReq.TriggerPrice = data['TriggerPrice']
         modifyReq.TriggerMode = data['TriggerMode'].encode()
         modifyReq.TriggerCondition = data['TriggerCondition'].encode()
-        modifyReq.OrderQty = data['OrderQty']
+        modifyReq.OrderQty = int(data['OrderQty']+0.5)
         modifyReq.StrategyType = data['StrategyType'].encode()
         modifyReq.Remark = data['Remark'].encode()
         modifyReq.AddOneIsValid = data['AddOneIsValid'].encode()
@@ -1298,7 +1359,7 @@ class PyAPI(object):
                 'LastPrice'     : data.LastPrice
             }
             
-            if klineType == EEQU_KLINE_TICK:
+            if klineType == EEQU_KLINE_TICK and apiEvent.getKLineSlice() == 0:
                 idict['LastQty']      = data.KLineData.KLineData1.LastQty
                 idict['PositionChg']  = data.KLineData.KLineData1.PositionChg
                 idict['BuyPrice']     = data.KLineData.KLineData1.BuyPrice
@@ -1312,13 +1373,11 @@ class PyAPI(object):
                 idict['HighPrice']    = data.KLineData.KLineData0.HighPrice
                 idict['LowPrice']     = data.KLineData.KLineData0.LowPrice
                 idict['SettlePrice']  = data.KLineData.KLineData0.SettlePrice
-            
+
             dataList.append(idict)
         
         # 发送到引擎
         # print("[in py2c] ", len(dataList), apiEvent.getContractNo(), apiEvent.getKLineType(), apiEvent.getKLineSlice(), apiEvent.isChainEnd())
-
-
         apiEvent.setData(dataList)
         sid = apiEvent.getSessionId()
         apiEvent.setStrategyId(self._getStrategyId(sid))
@@ -1374,6 +1433,9 @@ class PyAPI(object):
         
         # 发送到引擎
         apiEvent.setData(dataList)
+        sid = apiEvent.getSessionId()
+        apiEvent.setStrategyId(self._getStrategyId(sid))
+        #self.logger.info("[PY2C]_onUserInfo, id:%d,data:%s"%(apiEvent.getStrategyId(), apiEvent.getData()))
         self._api2egQueue.put(apiEvent)
 
     def _onOrderData(self, apiEvent):
@@ -1588,12 +1650,6 @@ class PyAPI(object):
         self._cDll.E_ReqQrySpreadMapping(byref(sessionId), byref(req))
         self._setSessionId(sessionId.value, 0)
 
-    def reqTrendContractMapping(self):
-        sessionId = c_uint()
-        req = EEquSpreadMappingReq()
-        self._cDll.E_ReqQryUnderlayMapping(byref(sessionId), byref(req))
-        self._setSessionId(sessionId.value, 0)
-
     #
     def _onSpreadContractMapping(self, apiEvent):
         dataAddr = apiEvent.getData()
@@ -1620,7 +1676,7 @@ class PyAPI(object):
         for record in apiEvent.getData():
             self._userContractNo2InnerContractNo[record["SrcContractNo"]] = record["ContractNo"]
             self._innerContractNo2UserContractNo[record["ContractNo"]] = record["SrcContractNo"]
-
+            
     def _onTrendContractMapping(self, apiEvent):
         dataAddr = apiEvent.getData()
         fieldSize = apiEvent.getFieldSize()
@@ -1641,7 +1697,7 @@ class PyAPI(object):
         apiEvent.setData(dataList)
         sid = apiEvent.getSessionId()
         apiEvent.setStrategyId(self._getStrategyId(sid))
-        # self._api2egQueue.put(apiEvent)
+        self._api2egQueue.put(apiEvent)
 
     def getInnerContractNo(self, userContractNo):
         return self._userContractNo2InnerContractNo.get(userContractNo, userContractNo)
@@ -1649,8 +1705,30 @@ class PyAPI(object):
     def getUserContractNo(self, innerContractNo):
         return self._innerContractNo2UserContractNo.get(innerContractNo, innerContractNo)
 
-    def _onExchangeStateRsp(self, apiEvent):
-        pass
-
     def _onExchangeStateNotice(self, apiEvent):
-        pass
+        '''交易所状态应答'''
+        dataAddr   = apiEvent.getData()
+        fieldSize  = apiEvent.getFieldSize()
+        fieldCount = apiEvent.getFieldCount()
+        
+        dataList = []
+        
+        for i in range(fieldCount):
+            buf = string_at(dataAddr + fieldSize * i, fieldSize)
+            data = EEquExchangeStateRsp()
+            memmove(addressof(data), buf, sizeof(EEquExchangeStateRsp))
+            
+            idict = {
+                'Sign'              : data.Sign.decode('utf-8'),    
+                'ExchangeNo'        : data.ExchangeNo.decode('utf-8'),
+                'ExchangeDateTime'  : data.ExchangeDateTime.decode('utf-8'),
+                'LocalDateTime'     : data.LocalDateTime.decode('utf-8'),
+                'TradeState'        : data.TradeState.decode('utf-8')
+            }
+            dataList.append(idict)
+        
+        #发送到引擎  
+        apiEvent.setData(dataList)
+        sid = apiEvent.getSessionId()
+        apiEvent.setStrategyId(self._getStrategyId(sid))
+        self._api2egQueue.put(apiEvent)

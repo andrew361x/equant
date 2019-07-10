@@ -1,4 +1,5 @@
 import os
+import shutil
 
 from tkinter import *
 from tkinter import Frame
@@ -23,7 +24,8 @@ class QuantEditorHead(object):
 
         self.head_frame.pack_propagate(0)
         self.head_frame.pack(fill=X)
-        
+
+
 class StrategyTree(QuantFrame):
     def __init__(self, frame, control, language):
     
@@ -40,18 +42,20 @@ class StrategyTree(QuantFrame):
         # 记录被选中的节点
         self._selected = None
 
+        self.moveFlag = False
+
         # 策略树图标
         # TODO:不加self就不显示image
         self.wfileicon = tk.PhotoImage(file=r'./icon/file_white.gif')
         self.gfileicon = tk.PhotoImage(file=r'./icon/file_grey.gif')
         self.wdiricon  = tk.PhotoImage(file=r'./icon/dir_white.gif')
         self.gdiricon  = tk.PhotoImage(file=r'./icon/dir_grey.gif')
-        
-        #print("StrategyTree:%d,%d"%(frame['width'], frame['height']))
+
 
         # TODO：-28: 监控窗口和函数说明窗口对不齐，暂时先减去一个固定值吧
         self.parent_pane = PanedWindow(frame, orient=HORIZONTAL, sashrelief=GROOVE, sashwidth=1.5,
-                                       showhandle=False, opaqueresize=True, height=frame['height']-28, width=frame['width'])
+                                       showhandle=False, opaqueresize=True, height=frame['height']-28,
+                                       width=frame['width'])
         self.parent_pane.pack(fill=BOTH, expand=YES)
         
         self.root_path = os.path.abspath("./strategy")
@@ -65,12 +69,54 @@ class StrategyTree(QuantFrame):
         #显示策略树
         self.parent_pane.add(self.tree_frame, minsize=218, stretch='always')
 
+    def insert_tree(self):
+        # 作为类成员，用于树更新
+        style = ttk.Style()
+        style.configure('Filter.Treeview', foreground=rgb_to_hex(51, 51, 51))
+        style.layout('Filter.Treeview', [
+            ('Treeview.entry', {
+                'border': '1', 'children':
+                    [('Treeview.padding', {
+                        'children':
+                            [('Treeview.treearea', {'sticky': 'nswe'})], 'sticky': 'nswe'
+                    })],
+                'sticky': 'nswe'
+            })
+        ])
+
+        self.root_tree = ttk.Treeview(self.tree_frame, show="tree", style='Filter.Treeview')
+
+        # 增加滚动条
+        self.strategyTreeScl = self.addScroll(self.tree_frame, self.root_tree, xscroll=False)
+
+        # 生成文件
+        self.loadTree("", self.root_path)
+        # 绑定处理事件
+        self.root_tree.bind("<Double-1>", self.treeDoubleClick)
+        self.root_tree.bind("<Button-3>", self.strategyMenu)
+        self.root_tree.bind("<<TreeviewSelect>>", self.selectCallback)
+        self.root_tree.pack(fill=BOTH, expand=YES)
+
+        # 策略移动事件
+        self.root_tree.bind("<ButtonPress-1>", self.bDown)
+        self.root_tree.bind("<ButtonRelease-1>", self.bUp, add='+')
+        self.root_tree.bind("<B1-Motion>", self.bMove, add='+')
+        self.root_tree.bind("<Shift-ButtonPress-1>", self.bDown_Shift, add='+')
+        self.root_tree.bind("<Shift-ButtonRelease-1>", self.bUp_Shift, add='+')
+
+        # 策略标签颜色
+        # self.root_tree.bind('<Button-1>', self.select_item)
+        # self.setup_selection()
+
     def update_all_tree(self):
         """销毁策略目录"""
         if self.root_tree:
             # 获取目录树的开关状态
             self._getOpenState("")
-            self._selected = self.root_tree.selection()
+
+            self._selected = []
+            for item in self.root_tree.selection():
+                self._selected.append(self.root_tree.item(item)["values"][0])
 
             self.root_tree.destroy()
         if self.strategyTreeScl:
@@ -83,13 +129,17 @@ class StrategyTree(QuantFrame):
         # 恢复策略目录的开关状态
         self._setOpenState("")
         # 恢复选中状态
+        for s in self._selected:
+            if not os.path.exists(s):
+                self._selected.remove(s)
         if self._selected:
             self.root_tree.selection_set(self._selected)
 
     def _getOpenState(self, item):
         """遍历树目录的开关状态， 需要循环遍历所有item"""
         for itemId in self.root_tree.get_children(item):
-            self._openState[itemId] = self.root_tree.item(itemId)["open"]
+            key = self.root_tree.item(itemId)["values"][0]
+            self._openState[key] = self.root_tree.item(itemId)["open"]
             self._getOpenState(itemId)
 
     def _setOpenState(self, item):
@@ -143,38 +193,6 @@ class StrategyTree(QuantFrame):
             # 新建之后排序
             self.update_all_tree()
 
-    def insert_tree(self):
-        #作为类成员，用于树更新
-        style = ttk.Style()
-        style.configure('Filter.Treeview', foreground=rgb_to_hex(51, 51, 51))
-        style.layout('Filter.Treeview', [
-            ('Treeview.entry', {
-                'border': '1', 'children':
-                    [('Treeview.padding', {
-                        'children':
-                            [('Treeview.treearea', {'sticky': 'nswe'})], 'sticky': 'nswe'
-                    })],
-                'sticky': 'nswe'
-            })
-        ])
-
-        self.root_tree = ttk.Treeview(self.tree_frame, show="tree", style='Filter.Treeview')
-        
-        #增加滚动条
-        self.strategyTreeScl = self.addScroll(self.tree_frame, self.root_tree, xscroll=False)
-
-        #生成文件
-        self.loadTree("", self.root_path)
-        #绑定处理事件
-        self.root_tree.bind("<Double-1>", self.treeDoubleClick)
-        self.root_tree.bind("<Button-3>", self.strategyMenu)
-        self.root_tree.bind("<<TreeviewSelect>>", self.selectCallback)
-        self.root_tree.pack(fill=BOTH, expand=YES)
-
-        # 策略标签颜色
-        # self.root_tree.bind('<Button-1>', self.select_item)
-        # self.setup_selection()
-
     def strategyMenu(self, event):
         """右键弹出菜单"""
         StrategyMenu(self.control, self).popupmenu(event)
@@ -211,7 +229,7 @@ class StrategyTree(QuantFrame):
         for path in os.listdir(rootpath):  # 遍历当前目录
             if path == "__pycache__":
                 continue
-            abspath = os.path.join(os.path.abspath(rootpath), path)  # 连接成绝对路径
+            abspath = os.path.join(os.path.abspath(rootpath), path)
 
             # windows下，此处TreeView有一个bug, len(valaues)==1时， 空格会被拆分成两个值，\\会消失
             if os.path.isdir(abspath):
@@ -245,92 +263,81 @@ class StrategyTree(QuantFrame):
         '''子类重写'''
         raise NotImplementedError
 
+    def bDown_Shift(self, event):
+        tv = event.widget
+        select = [tv.index(s) for s in tv.selection()]
+        select.append(tv.index(tv.identify_row(event.y)))
+        select.sort()
+        print(range(select[0], select[-1] + 1))
+        for i in range(select[0], select[-1] + 1, 1):
+            tv.selection_add(tv.get_children()[i])
 
-    # -----------------------设置策略树中的条目颜色-----------------------------
-    def setup_selection(self, sel_bg=rgb_to_hex(135, 103, 165), sel_fg="white"):
-        self._font = tkFont.Font()
-        self._canvas = tk.Canvas(self.root_tree, background=sel_bg,
-                                 borderwidth=0,
-                                 highlightthickness=0)
-        self._canvas.text = self._canvas.create_text(0, 0, fill=sel_fg, anchor='w')
+    def bDown(self, event):
+        tv = event.widget
+        if tv.identify_row(event.y) not in tv.selection():
+            tv.selection_set(tv.identify_row(event.y))
 
-    def select_item(self, event):
-        self._canvas.place_forget()
+    def bUp(self, event):
+        tv = event.widget
+        if tv.identify_row(event.y) in tv.selection():
+            tv.selection_set(tv.identify_row(event.y))
 
-        x, y, widget = event.x, event.y, event.widget
-        item = widget.item(widget.focus())
-        itemText = item['text']
-        itemValues = item['values']
-        iid = widget.identify_row(y)
-        column = event.widget.identify_column(x)
+        if self.moveFlag == True:
+            self.update_all_tree()
+            self.moveFlag = False
 
-        # Leave method if mouse pointer clicks on Treeview area without data
-        if not column or not iid:
+    def bUp_Shift(self, event):
+        pass
+
+    def bMove(self, event):
+        self.moveFlag = True
+
+        tv = event.widget
+        moveto = tv.index(tv.identify_row(event.y))
+        move_item = tv.identify_row(event.y)
+        if move_item in tv.selection():
+            tv.config(cursor="hand2")
             return
 
-        # Leave method if selected item's value is empty
-        if not len(itemValues):
+        if not os.path.isdir(move_item):
             return
 
-        # Get value of selected Treeview cell
-        if column == '#0':
-            self.cell_value = itemText
-        else:
-            self.cell_value = itemValues[int(column[1]) - 1]
-        #print('column[1] = ', column[1])
-        #print('self.cell_value = ', self.cell_value)
+        # 顶层文件夹不支持拖动
+        for se in tv.selection():
+            if tv.parent(se) == "":
+                return
 
-        # Leave method if selected Treeview cell is empty
-        if not self.cell_value:  # date is empty
-            return
+        # if not tv.get_children(move_item):        # 要判断是不是文件夹，不是的话就不移动
+        #     return
 
-        # Get the bounding box of selected cell, a tuple (x, y, w, h), where
-        # x, y are coordinates of the upper left corner of that cell relative
-        #      to the widget, and
-        # w, h are width and height of the cell in pixels.
-        # If the item is not visible, the method returns an empty string.
-        bbox = widget.bbox(iid, column)
-        #print('bbox = ', bbox)
-        if not bbox:  # item is not visible
-            return
+        # bbox = tv.bbox(move_item)
+        # if not bbox:
+        #     return
 
-        # Update and show selection in Canvas Overlay
-        self.show_selection(widget, bbox, column)
+        # print("2222: ", bbox)
+        # x, y, width, height = bbox
+        # canvas = Canvas(self.tree_frame, width=width, height=height, bg="green")
+        # canvas.pack(expand=YES, fill=BOTH)
+        # canvas.create_rectangle(x, x, y, y)
 
-        #print('Selected Cell Value = ', self.cell_value)
+        tv.item(move_item, open=True)
 
-    def show_selection(self, parent, bbox, column):
-        """Configure canvas and canvas-textbox for a new selection."""
-        #print('@@@@ def show_selection(self, parent, bbox, column):')
-        x, y, width, height = bbox
-        fudgeTreeColumnx = 19 #Determined by trial & error
-        fudgeColumnx = 15     #Determined by trial & error
+        for s in tv.selection():
+            if tv.parent(s) == move_item:
+                continue
 
-        # Number of pixels of cell value in horizontal direction
-        textw = self._font.measure(self.cell_value)
-        #print('textw = ',textw)
+            try:
+                shutil.move(s, move_item)
+            except Exception as e:
+                self.logger.info("移动文件失败！")
+                raise Exception("移动文件失败")
 
-        # Make Canvas size to fit selected cell
-        self._canvas.configure(width=width, height=height)
+            tv.move(s, tv.identify_row(event.y), moveto)
 
-        # Position canvas-textbox in Canvas
-        #print('self._canvas.coords(self._canvas.text) = ', self._canvas.coords(self._canvas.text))
-        if column == '#0':
-            self._canvas.coords(self._canvas.text,
-                                fudgeTreeColumnx,
-                                height/2)
-        else:
-            self._canvas.coords(self._canvas.text,
-                                (width-(textw-fudgeColumnx))/2.0,
-                                height/2)
-
-        # Update value of canvas-textbox with the value of the selected cell.
-        self._canvas.itemconfigure(self._canvas.text, text=self.cell_value)
-
-        # Overlay Canvas over Treeview cell
-        self._canvas.place(in_=parent, x=x, y=y)
-
-    # ------------------------暂时不用----------------------------------------------
+        editorPath = self.control.getEditorText()["path"]
+        if editorPath in tv.selection():
+            (_, tempFileName) = os.path.split(editorPath)
+            self.control.setEditorTextCode(os.path.join(move_item, tempFileName))
 
 
 class Context(object):
@@ -394,14 +401,14 @@ class QuantEditor(StrategyTree):
         self.titleLabel.config(text=text)
 
     def updateEditorText(self, text):
-
+        """更新策略编辑界面内容"""
         editor_text_code = text
         self.editor_text.delete(0.0, END+"-1c")
         self.editor_text.insert(END, editor_text_code)
         self.editor_text.delete(END + "-1c")
         self.editor_text.update()
         self.editor_text.focus_set()
-        self.editor_text.see("end")
+        # self.editor_text.see("end")
         self.editor_text.tag_add("TODO", "0.0", "end")
         self.editor_text.recolorize_main()
 
@@ -438,8 +445,8 @@ class QuantEditor(StrategyTree):
         if os.path.exists(path):
             with open(path, "w", encoding="utf-8") as f:
                 f.write(code)
-        if not os.path.exists(path):
-            messagebox.showinfo(self.language.get_text(8), self.language.get_text(9))
+        # if not os.path.exists(path):
+        #     messagebox.showinfo(self.language.get_text(8), self.language.get_text(9))
         
     def insertEditorHead(self, frame):
         # self.titleLabel = Label(frame, text=os.path.basename(self.root_path), bg=rgb_to_hex(255, 255, 255))
@@ -457,6 +464,9 @@ class QuantEditor(StrategyTree):
 
     def setLoadBtnState(self, state):
         self.loadingBtn.config(state=state)
+
+    def setModifyTime(self, time):
+        self._modifyTime = time
 
     def tab_key(self, event):
         self.editor_text.insert(INSERT, " " * 4)
@@ -482,7 +492,14 @@ class QuantEditor(StrategyTree):
 
     def onFocusIn(self, event):
         """获取焦点事件"""
-        path = self.control.getEditorText()["path"]
+        if event.widget != self.control.top:
+            return
+
+        self._fileMonitor(event)
+        self._treeMonitor(event)
+
+    def _fileMonitor(self, event):
+        """监控策略文件修改"""
         # 过滤双击事件
         if self._dModifyFlag:
             return
@@ -492,11 +509,16 @@ class QuantEditor(StrategyTree):
 
         self._outFlag = False
 
+        path = self.control.getEditorText()["path"]
+
         if path:
+            if not os.path.exists(path):  # 本地文件已删除
+                return
             modifyTime = os.path.getmtime(path)
+
             # 初始化self._modifyTime
             if self._modifyTime == 0:
-                self._modifyTime = os.path.getmtime(path)
+                self.setModifyTime(os.path.getmtime(path))
             if modifyTime == self._modifyTime:
                 return
 
@@ -507,11 +529,34 @@ class QuantEditor(StrategyTree):
                 self.updateEditorText(editorCode)
                 # self.editor_text.edit_reset()
 
+    def _treeMonitor(self, event):
+        editorPath = self.control.getEditorText()["path"]
+        if editorPath == "":
+            return
+
+        self.update_all_tree()
+
+        _, fileName = os.path.split(editorPath)
+        if not os.path.exists(editorPath):
+            # 更新选中策略路径
+            self.control.setEditorTextCode("")
+
+            if messagebox.askokcancel("重新加载", f"策略{fileName}文件被删除\n是否在编辑框中保留？"):
+                return
+
+            # 更新策略编辑界面显示信息
+            self.control.updateEditor("")
+
     def onFocusOut(self, event):
+        if event.widget != self.control.top:
+            return
+
         self._outFlag = True
         path = self.control.getEditorText()["path"]
+
         if path:
-            self._modifyTime = os.path.getmtime(path)
+            if os.path.exists(path):    # 本地文件存在
+                self.setModifyTime(os.path.getmtime(path))
 
     def buttonDown(self, event):
         """鼠标按下记录按下位置"""
@@ -537,12 +582,6 @@ class QuantEditor(StrategyTree):
         self.editor_text.bind("<Tab>", self.tab_key)
         # 回车键
         # self.editor_text.bind("<Return>", self.return_key)
-
-        # FocusIn
-        self.editor_text.bind("<FocusIn>", self.onFocusIn)
-
-        # FocusOut
-        self.editor_text.bind("<FocusOut>", self.onFocusOut)
 
         # TODO：事件绑定有问题---回车键有bug
         # self.editor_text.bind("<Button-1>", self.buttonDown)

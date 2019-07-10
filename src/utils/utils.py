@@ -19,6 +19,7 @@ def rgb_to_hex(r, g, b):
 
 def load_file(path):
     with open(path, "r", encoding="utf-8") as f:
+    # with open(path, "rb") as f:
         data = f.read()
     return data
 

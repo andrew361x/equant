@@ -61,6 +61,8 @@ class Event:
         self._record["EventCode"] = eventCode
 
     def getStrategyId(self):
+        if 'StrategyId' not in self._record:
+            return 0
         return self._record['StrategyId']
   
     def getEventSrc(self):

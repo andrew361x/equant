@@ -93,7 +93,11 @@ class BarInfo(object):
         return self._getBarValue('LastPrice')
 
     def getBarVol(self):
-        return self._getBarValue('TotalQty')
+        if 'KLineQty' in self._curBar:
+            return self._getBarValue('KLineQty')
+        else:
+            return self._getBarValue('LastQty')
+        #return self._getBarValue('TotalQty')
 
     def getBarOpenInt(self):
         return self._getBarValue('PositionQty')
@@ -182,11 +186,6 @@ class StrategyHisQuote(object):
         self._contractTuple = self._config.getContract()
         # 基准合约
         self._contractNo = self._config.getBenchmark()
-        # 回测样本配置
-        self._sampleDict = self._config.getSample()
-        self._useSample = self._config.getRunMode()["Simulate"]["UseSample"]
-        # 触发方式配置
-        self._triggerDict = self._config.getTrigger()
         
         # Bar
         for record in self._config.getKLineKindsInfo():
@@ -222,6 +221,8 @@ class StrategyHisQuote(object):
             return 0
 
         curBar = self._curBarDict[multiContKey].getCurBar()
+        if not curBar:
+            return 0
         return int(curBar['TradeDate'])
 
     def getBarCount(self, multiContKey):
@@ -247,6 +248,8 @@ class StrategyHisQuote(object):
             return -1
         
         kLineHisData = self._kLineRspData[multiContKey]['KLineData']
+        if len(kLineHisData) == 0:
+            return -1
         firstIndex = kLineHisData[0]['KLineIndex']
         lastIndex  = kLineHisData[-1]['KLineIndex']
         
@@ -275,12 +278,16 @@ class StrategyHisQuote(object):
         if multiContKey not in self._curBarDict:
             return 0
         curBar = self._curBarDict[multiContKey].getCurBar()
+        if not curBar:
+            return 0
         return int(curBar['DateTimeStamp'] // 1000000000)
 
     def getBarTime(self, multiContKey):
         if multiContKey not in self._curBarDict:
             return 0
         curBar = self._curBarDict[multiContKey].getCurBar()
+        if not curBar:
+            return 0
         timeStamp = str(curBar['DateTimeStamp'])
         return float(timeStamp[-9:])/1000000000
 
@@ -356,6 +363,13 @@ class StrategyHisQuote(object):
             return np.array([])
         return self._curBarDict[multiContKey].getBarLow()
 
+    def getBarTimeList(self, multiContKey):
+        if multiContKey not in self._curBarDict:
+            return np.array([])
+
+        barTimeList = self._curBarDict[multiContKey].getBarTime()
+        return np.array([float(barTime)/1000000000 for barTime in list(barTimeList)])
+
     def getHisData(self, dataType, multiContKey, maxLength):
         if dataType not in (BarDataClose, BarDataOpen, BarDataHigh,
                             BarDataLow, BarDataMedian, BarDataTypical,
@@ -373,7 +387,7 @@ class StrategyHisQuote(object):
             BarDataWeighted : self.getBarWeighted,
             BarDataVol      : self.getBarVol,
             BarDataOpi      : self.getBarOpenInt,
-            BarDataTime     : self.getBarTime,
+            BarDataTime     : self.getBarTimeList,
         }
 
         numArray = methodMap[dataType](multiContKey)
@@ -471,15 +485,9 @@ class StrategyHisQuote(object):
     #////////////////////////参数设置类接口///////////////////////
         
     def _getKLineType(self):
-        # if not self._sampleDict:
-        #     return None
-        # return self._sampleDict['KLineType']
         return self._config.getKLineType()
         
     def _getKLineSlice(self):
-        # if not self._sampleDict:
-        #     return None
-        # return self._sampleDict['KLineSlice']
         return self._config.getKLineSlice()
 
     def _getKLineCount(self, sampleDict):
@@ -689,31 +697,31 @@ class StrategyHisQuote(object):
             # 处理触发
             # 一定要先填触发事件，在填充数据。
             # 否则触发有可能会覆盖
-            isRealTimeStatus = self._strategy.isRealTimeStatus()
-            orderWay = str(self._config.getSendOrder())
-            kLineTrigger = self._config.hasKLineTrigger()
-            if not kLineTrigger:
-                pass
-            elif self._strategy.isHisStatus() and len(localDataList) >= 2 and localDataList[-2]["IsKLineStable"] and isNewKLine:
-                self._sendHisKLineTriggerEvent(key, localDataList[-2])
-            elif isRealTimeStatus:
-                # 一种特殊情况
-                if self._firstRealTimeKLine[key] and isNewKLine and len(localDataList) >=2 and localDataList[-2]["IsKLineStable"] and orderWay==SendOrderRealTime:
-                    self._sendHisKLineTriggerEvent(key, localDataList[-2])
-                self._firstRealTimeKLine[key] = False
-
-                if orderWay==SendOrderRealTime:
-                    self._sendRealTimeKLineTriggerEvent(key, localDataList[-1])
-                elif orderWay==SendOrderStable and len(localDataList) >= 2 and localDataList[-2]["IsKLineStable"] and isNewKLine:
-                    self._sendRealTimeKLineTriggerEvent(key, localDataList[-2])
-            else:
-                pass
-
-            # 实时阶段填充最新数据。
-            # 触发和填充都更新运行位置数据
-            # 但是仅填充数据事件向9.5发送数据
-            if isRealTimeStatus:
-                self._fillDataWhenRealTime(key, localDataList[-1])
+            #isRealTimeStatus = self._strategy.isRealTimeStatus()
+            #
+            # orderWay = str(self._config.getSendOrder())
+            # kLineTrigger = self._config.hasKLineTrigger()
+            # if not kLineTrigger:
+            #     pass
+            # elif self._strategy.isHisStatus() and len(localDataList) >= 2 and localDataList[-2]["IsKLineStable"] and isNewKLine:
+            #     self._sendHisKLineTriggerEvent(key, localDataList[-2])
+            # elif isRealTimeStatus:
+            #     # 一种特殊情况
+            #     if self._firstRealTimeKLine[key] and isNewKLine and len(localDataList) >= 2 and localDataList[-2]["IsKLineStable"] and orderWay == SendOrderRealTime:
+            #         self._sendHisKLineTriggerEvent(key, localDataList[-2])
+            #     self._firstRealTimeKLine[key] = False
+            #     if orderWay == SendOrderRealTime:
+            #         self._sendRealTimeKLineTriggerEvent(key, localDataList[-1])
+            #     elif orderWay == SendOrderStable and len(localDataList) >= 2 and localDataList[-2]["IsKLineStable"] and isNewKLine:
+            #         self._sendRealTimeKLineTriggerEvent(key, localDataList[-2])
+            # else:
+            #     pass
+            #
+            # # 实时阶段填充最新数据。
+            # # 触发和填充都更新运行位置数据
+            # # 但是仅填充数据事件向9.5发送数据
+            # if isRealTimeStatus:
+            #     self._fillDataWhenRealTime(key, localDataList[-1])
 
     def _handleSameKLine(self, localDataList, data, lastKLineSource):
         if lastKLineSource == KLineFromHis:
@@ -853,6 +861,7 @@ class StrategyHisQuote(object):
             "EventCode"  : EV_ST2EG_UPDATE_KLINEDATA,
             "StrategyId" : self._strategy.getStrategyId(),
             "KLineType"  : self._getKLineType(),
+            "KLineSlice" : self._getKLineSlice(),
             "Data": {
                 'Count'  : 1,
                 "Data"   : [data,],
@@ -942,10 +951,8 @@ class StrategyHisQuote(object):
                 curEffectiveDTS = curBarDTS-relativedelta(minutes=record[2])
             elif record[1] == EEQU_KLINE_DAY:
                 curEffectiveDTS = curBarDTS-relativedelta(days=record[2])
-            elif record[1] == EEQU_KLINE_SECOND:
-                curEffectiveDTS = curBarDTS-relativedelta(seconds=record[2])
             elif record[1] == EEQU_KLINE_TICK:
-                curEffectiveDTS = curBarDTS
+                curEffectiveDTS = curBarDTS-relativedelta(seconds=record[2])
             else:
                 raise NotImplementedError("未实现的k线类型支持")
             effectiveDTS.append(curEffectiveDTS.strftime("%Y%m%d%H%M%S%f"))
@@ -967,8 +974,8 @@ class StrategyHisQuote(object):
         for index, row in allHisData.items():
             key = (row["ContractNo"], row["KLineType"], row["KLineSlice"])
             isShow = key == self._config.getKLineShowInfoSimple()
-
-            # print(key, self._config.getKLineShowInfoSimple(),
+            # if index == 0:
+            #     print("row = ", row)
             lastBar = self.getCurBar(key)
             self._updateCurBar(key, row)
             curBar = self.getCurBar(key)
@@ -1008,9 +1015,10 @@ class StrategyHisQuote(object):
             # 收到策略停止或退出信号， 退出历史回测
             if self._strategy._isExit():
                 break
-
+        #
+        showKey = self._config.getKLineShowInfoSimple()
         if endPos != beginPos:
-            batchKLine = self._curBarDict[key].getBarList()[beginPos:]
+            batchKLine = self._curBarDict[showKey].getBarList()[beginPos:]
             self._addBatchKLine(batchKLine)
         self._sendFlushEvent()
         endTime = datetime.now();endTimeStr = datetime.now().strftime('%H:%M:%S.%f')
@@ -1023,6 +1031,7 @@ class StrategyHisQuote(object):
             "EventCode": EV_ST2EG_NOTICE_KLINEDATA,
             "StrategyId": self._strategy.getStrategyId(),
             "KLineType": self._getKLineType(),
+            "KLineSlice": self._getKLineSlice(),
             "Data": {
                 'Count': len(data),
                 "Data": copy.deepcopy(data),
@@ -1066,11 +1075,9 @@ class StrategyHisQuote(object):
         priceInfos = {}
         curTriggerInfo = self._strategy.getCurTriggerSourceInfo()
 
-        if curTriggerInfo is None:
+        if curTriggerInfo is None or curTriggerInfo["KLineType"] is None or curTriggerInfo["KLineSlice"] is None:
             return
-
         key = (curTriggerInfo["ContractNo"], curTriggerInfo["KLineType"], curTriggerInfo["KLineSlice"])
-        assert key[1] is not None, "error"
 
         curBar = self._curBarDict[key].getCurBar()
         priceInfos[key[0]] = {

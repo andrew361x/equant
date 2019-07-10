@@ -116,6 +116,7 @@ class RunWin(QuantToplevel, QuantFrame):
             'Params': {
 
             }
+
         }
 
         self.fColor = self.bgColor
@@ -306,7 +307,7 @@ class RunWin(QuantToplevel, QuantFrame):
             # 平仓手续费（率）
             self.closeFee.set("1")
             # 滑点损耗
-            self.slippage.set("1")
+            self.slippage.set("0")
 
             # 样本设置
             self.sampleVar.set(2)
@@ -1001,7 +1002,7 @@ class RunWin(QuantToplevel, QuantFrame):
         self.kLineCheck = tk.Checkbutton(kLineFrame, text="K线触发", bg=rgb_to_hex(255, 255, 255),
                                          anchor=tk.W, variable=self.isKLine)
         self.kLineCheck.pack(side=tk.LEFT, padx=5)
-        self.kLineCheck.config(state="disabled")
+        # self.kLineCheck.config(state="disabled")
 
         # 即时行情触发
         self.marketCheck = tk.Checkbutton(marketFrame, text="即时行情触发", bg=rgb_to_hex(255, 255, 255),
@@ -1368,6 +1369,7 @@ class RunWin(QuantToplevel, QuantFrame):
         # -------------转换定时触发的时间形式--------------------------
         time = timer.split("\n")
         timerFormatter = []
+
         for t in time:
             if t:
                 tempT = parseTime(t)
@@ -1447,6 +1449,7 @@ class RunWin(QuantToplevel, QuantFrame):
                 self.config["RunMode"]["Simulate"]["UseSample"] = True
         elif sampleVar == 3:
             self.config["RunMode"]["Simulate"]["UseSample"] = False
+            self.config["Sample"]["KLineCount"] = 1  # 不执行历史K线时默认订阅一根K线
         else:
             raise Exception("运算起始点异常")
 
@@ -1509,7 +1512,7 @@ class RunWin(QuantToplevel, QuantFrame):
         self.config["Limit"]["CloseAllowOpen"] = canOpen
 
         # other
-        self.config["Other"]["Slippage"] = float(slippage)
+        self.config["Other"]["Slippage"] = int(slippage)
         if tradeDirection == "双向交易":
             self.config["Other"]["TradeDirection"] = 0
         elif tradeDirection == "仅多头":
@@ -1541,7 +1544,9 @@ class RunWin(QuantToplevel, QuantFrame):
             elif contValues[1] == "分钟":
                 value["KLineType"] = "M"
             elif contValues[1] == "秒":
-                value["KLineType"] = "S"
+                value["KLineType"] = "T"
+            elif contValues[1] == "分笔":
+                value["KLineType"] = "T"
             else:
                 raise Exception("K线类型未知异常")
 
@@ -1650,7 +1655,7 @@ class SelectContractWin(QuantToplevel, QuantFrame):
     # exchangeList = ["CFFEX", "CME", "DCE", "SGE", "SHFE", "ZCE", "SPD", "INE", "NYMEX", "SSE", "SZSE"]
     exchangeList = ["SPD", "ZCE", "DCE", "SHFE", "INE", "CFFEX", "SSE", "SZSE", "SGE", "CBOT", "CME", "NYMEX"]
     commodityType = {"P": "现货", "Y": "现货", "F": "期货", "O": "期权",
-                     "S": "跨期套利", "M": "跨品种套利", "s": "", "m": "",
+                     "S": "跨期套利", "M": "品种套利", "s": "", "m": "",
                      "y": "", "Z": "指数", "T": "股票", "X": "外汇",
                      "I": "外汇", "C": "外汇"}
 
@@ -1965,7 +1970,7 @@ class AddContWin(QuantToplevel, QuantFrame):
         kLineTypeLabel.pack(side=tk.LEFT)
 
         self.kLineTypeChosen = ttk.Combobox(kLineTypeFrame, state="readonly", textvariable=self.kLineType, width=17)
-        self.kLineTypeChosen['values'] = ['日', '分钟', '秒']
+        self.kLineTypeChosen['values'] = ['日', '分钟', '秒', '分笔']
         self.kLineTypeChosen.pack(side=tk.LEFT, fill=tk.X, padx=5)
 
     def setKLineSlice(self, frame):

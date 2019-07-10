@@ -60,6 +60,17 @@ class TUserInfoModel:
         
     def getSign(self):
         return self._metaData['Sign']
+        
+    def getContPos(self):
+        '''获取该账户各合约持仓情况'''
+        contPosDict = {}  #cont, bs, h, data
+        
+        for v in self._position.values():
+            data = v._metaData
+            key = data['cont'] + data['Direct'] + data['Hedge'] 
+            contPosDict[key] = data
+            
+        return contPosDict
 
     def updateMoney(self, data):
         currencyNo = data['CurrencyNo']
@@ -340,6 +351,11 @@ class TradeModel:
     def getUserInfo(self):
         return self._userInfo
         
+    def isUserLogin(self):
+        if len(self._userInfo) > 0:
+            return True
+        return False
+        
     def getUserModel(self, userNo):
         if userNo not in self._userInfo:
             return None
@@ -485,15 +501,17 @@ class TradeModel:
     def updateOrderData(self, apiEvent):
         dataList = apiEvent.getData()
 
+        unLoginAccount = []
         for data in dataList:
             userNo = data['UserNo']
-            if userNo not in self._userInfo:
-                self.logger.error("[updateOrderData]The user account(%s) doesn't login!"%userNo)
-                continue
-                
-            #self.logger.debug('[ORDER]%s'%data)
-        
-            self._userInfo[userNo].updateOrder(data)
+            if userNo in self._userInfo:
+                self._userInfo[userNo].updateOrder(data)
+            elif userNo not in unLoginAccount:
+                unLoginAccount.append(userNo)
+
+        if len(unLoginAccount) > 0:
+            self.logger.error("[updateOrderData]The user account%s doesn't login!"%unLoginAccount)
+
             
     def updateMatchData(self, apiEvent):
         dataList = apiEvent.getData()

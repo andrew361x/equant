@@ -21,12 +21,12 @@ class StrategyModel(object):
         self._strategy = strategy
         self.logger = strategy.logger
         self._argsDict = strategy._argsDict
-        
+
         self._strategyName = strategy.getStrategyName()
         self._signalName = self._strategyName + "_Signal"
         self._textName = self._strategyName + "_Text"
         self._plotedDict = {}
-        
+
         # Notice：会抛异常
         self._cfgModel = StrategyConfig(self._argsDict)
         self._config = self._cfgModel
@@ -43,7 +43,7 @@ class StrategyModel(object):
 
     def getTradeModel(self):
         return self._trdModel
-        
+
     def getConfigData(self):
         return self._cfgModel.getConfig()
 
@@ -58,7 +58,7 @@ class StrategyModel(object):
 
     def getHisQuoteModel(self):
         return self._hisModel
-        
+
     def getMonResult(self):
         return self._calcCenter.getMonResult()
 
@@ -68,7 +68,7 @@ class StrategyModel(object):
     # +++++++++++++++++++++++内部接口++++++++++++++++++++++++++++
     def getCalcCenter(self):
         return self._calcCenter
-        
+
     def initialize(self):
         '''加载完策略初始化函数之后再初始化'''
         self._hisModel.initialize()
@@ -89,11 +89,11 @@ class StrategyModel(object):
             "CloseFixed": self._cfgModel.getCloseFixed(),
             "CloseTodayRatio": self._cfgModel.getCloseTodayRatio(),
             "CloseTodayFixed": self._cfgModel.getCloseTodayFixed(),
-            "KLineType": "M", # todo
+            "KLineType": "M",  # todo
             "KLineSlice": 1,  # todo
             "TradeDot": self.getContractUnit(contNo),  # 每手乘数
             "PriceTick": self.getPriceScale(contNo),  # 最小变动价位
-            "Limit":self._config.getLimit(),
+            "Limit": self._config.getLimit(),
         }
         self._calcCenter.initArgs(strategyParam)
 
@@ -101,7 +101,7 @@ class StrategyModel(object):
     # //////////////////////历史行情接口//////////////////////////
     def runReport(self, context, handle_data):
         self._hisModel.runReport(context, handle_data)
-        
+
     def runRealTime(self, context, handle_data, event):
         code = event.getEventCode()
         if code == ST_TRIGGER_FILL_DATA:
@@ -117,46 +117,68 @@ class StrategyModel(object):
 
     def reqCommodity(self):
         self._qteModel.reqCommodity()
-        
+
+    def reqContract(self):
+        self._qteModel.reqContract()
+
+    def reqUnderlayMap(self):
+        self._qteModel.reqUnderlayMap()
+
     def subQuote(self):
         self._qteModel.subQuote()
+
+    def subQuoteList(self, contNoList):
+        self._qteModel.subQuoteList(contNoList)
+
+    def unsubQuoteList(self, contNoList):
+        # TODO: 退订即使行情时，是否需要删除已经得到的即时行情信息
+        self._qteModel.unsubQuoteList(contNoList)
 
     def onExchange(self, event):
         self._qteModel.onExchange(event)
 
     def onCommodity(self, event):
         self._qteModel.onCommodity(event)
-            
+
+    def onContract(self, event):
+        self._qteModel.onContract(event)
+
+    def onUnderlayMap(self, event):
+        self._qteModel.onUnderlayMap(event)
+
+    def onExchangeStateNotice(self, event):
+        self._qteModel.onExchangeStatus(event)
+
     def onQuoteRsp(self, event):
         self._qteModel.onQuoteRsp(event)
-        
+
     def onQuoteNotice(self, event):
         self._qteModel.onQuoteNotice(event)
-        
+
     def onDepthNotice(self, event):
         self._qteModel.onDepthNotice(event)
 
     # ///////////////////////交易数据接口/////////////////////////
     def reqTradeData(self):
         self._trdModel.reqTradeData()
-        
-    #////////////////////////配置接口////////////////////////////
+
+    # ////////////////////////配置接口////////////////////////////
     def continueTrigger(self):
         return self._cfgModel.continues()
 
     # ++++++++++++++++++++++base api接口++++++++++++++++++++++++++
     # ////////////////////////K线函数/////////////////////////////
     def getKey(self, contNo, kLineType, kLineValue):
-        #空合约取默认展示的合约
-        if contNo == "" or kLineType =='' or kLineValue == 0:
+        # 空合约取默认展示的合约
+        if contNo == "" or kLineType == '' or kLineValue == 0:
             return self._cfgModel.getDefaultKey()
-    
+
         # if contNo not in 合约没有订阅
         if kLineType not in (EEQU_KLINE_TIMEDIVISION, EEQU_KLINE_TICK,
-                              EEQU_KLINE_SECOND, EEQU_KLINE_MINUTE,
-                              EEQU_KLINE_HOUR, EEQU_KLINE_DAY,
-                              EEQU_KLINE_WEEK, EEQU_KLINE_MONTH,
-                              EEQU_KLINE_YEAR):
+                             EEQU_KLINE_SECOND, EEQU_KLINE_MINUTE,
+                             EEQU_KLINE_HOUR, EEQU_KLINE_DAY,
+                             EEQU_KLINE_WEEK, EEQU_KLINE_MONTH,
+                             EEQU_KLINE_YEAR):
             raise Exception("输入K线类型异常，请参阅枚举函数-周期类型枚举函数")
         if not isinstance(kLineValue, int) or kLineValue < 0:
             raise Exception("输入K线周期异常，请确保输入的K线周期是正整数")
@@ -181,6 +203,11 @@ class StrategyModel(object):
             return None
         return curBar['KLineIndex']
 
+    def getCurrentBarEntity(self, contNo, kLineType, kLineValue):
+        multiContKey = self.getKey(contNo, kLineType, kLineValue)
+        curBar = self._hisModel.getCurBar(multiContKey)
+        return curBar
+
     def getBarStatus(self, contNo, kLineType, kLineValue):
         multiContKey = self.getKey(contNo, kLineType, kLineValue)
         return self._hisModel.getBarStatus(multiContKey)
@@ -200,7 +227,7 @@ class StrategyModel(object):
     def getBarOpen(self, contractNo, kLineType, kLineValue):
         multiContKey = self.getKey(contractNo, kLineType, kLineValue)
         return self._hisModel.getBarOpen(multiContKey)
-        
+
     def getBarClose(self, contractNo, kLineType, kLineValue):
         multiContKey = self.getKey(contractNo, kLineType, kLineValue)
         return self._hisModel.getBarClose(multiContKey)
@@ -232,7 +259,7 @@ class StrategyModel(object):
     def getBarHigh(self, contractNo, kLineType, kLineValue):
         multiContKey = self.getKey(contractNo, kLineType, kLineValue)
         return self._hisModel.getBarHigh(multiContKey)
-        
+
     def getBarLow(self, contractNo, kLineType, kLineValue):
         multiContKey = self.getKey(contractNo, kLineType, kLineValue)
         return self._hisModel.getBarLow(multiContKey)
@@ -289,13 +316,32 @@ class StrategyModel(object):
         return self._qteModel.getQLast(symbol)
 
     def getQLastDate(self, symbol):
-        return self._qteModel.getQLastDate(symbol)
-
-    def getQLastFlag(self, symbol):
-        return self._qteModel.getQLastFlag(symbol)
+        symbol = self._config.getBenchmark() if not symbol else symbol
+        key = None
+        for keyTuple in self._hisModel._kLineNoticeData.keys():
+            if keyTuple[0] == symbol and keyTuple[1] == 'T':
+                key = keyTuple
+                break
+        if not key:
+            raise Exception(
+                "在使用Q_LastTime方法时，请确保已经在设置界面或者在策略代码中添加了SetBarInterval('%s', 'T', 1)为合约%s订阅了Tick行情！" % (symbol, symbol))
+        tickInfo = self._hisModel.getLastStoredKLine(key)[0]
+        dateTimeStamp = tickInfo['DateTimeStamp']
+        return int(dateTimeStamp) // 1000000000
 
     def getQLastTime(self, symbol):
-        return self._qteModel.getQLastTime(symbol)
+        symbol = self._config.getBenchmark() if not symbol else symbol
+        key = None
+        for keyTuple in self._hisModel._kLineNoticeData.keys():
+            if keyTuple[0] == symbol and keyTuple[1] == 'T':
+                key = keyTuple
+                break
+        if not key:
+            raise Exception(
+                "在使用Q_LastTime方法时，请确保已经在设置界面或者在策略代码中添加了SetBarInterval('%s', 'T', 1)为合约%s订阅了Tick行情！" % (symbol, symbol))
+        tickInfo = self._hisModel.getLastStoredKLine(key)[0]
+        dateTimeStamp = tickInfo['DateTimeStamp']
+        return float(int(dateTimeStamp) % 1000000000) / 1000000000
 
     def getQLastVol(self, symbol):
         return self._qteModel.getQLastVol(symbol)
@@ -349,20 +395,22 @@ class StrategyModel(object):
         return self._qteModel.getQuoteDataExist(symbol)
 
     # ////////////////////////策略函数////////////////////////////
-    def setBuy(self, userNo, contractNo, share, price):
+    def setBuy(self, userNo, contractNo, share, price, needCover=True):
         contNo = contractNo if contractNo else self._cfgModel.getBenchmark()
-        
+
+        underlayContNo = self._qteModel.getUnderlayContractNo(contNo)
+        if len(underlayContNo) > 0:
+            contNo = underlayContNo
+
         # 非K线触发的策略，不使用Bar
         curBar = None
-        # 账户
-        if self._cfgModel.isActualRun():
-            userNo = self._cfgModel.getUserNo() if not userNo else userNo
-        else:
-            userNo = "Default"
+        # 计算考虑滑点损耗后的价格
+        if not self._cfgModel.isActualRun():
+            price = self._calcCenter.calcOrderPrice(contNo, dBuy, price)
 
         # 对于开仓，需要平掉反向持仓
         qty = self._calcCenter.needCover(userNo, contNo, dBuy, share, price)
-        if qty > 0:
+        if qty > 0 and needCover:
             eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oCover, hSpeculate, price, qty, curBar)
             if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
@@ -371,46 +419,58 @@ class StrategyModel(object):
 
     def setBuyToCover(self, userNo, contractNo, share, price):
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
+
+        underlayContNo = self._qteModel.getUnderlayContractNo(contNo)
+        if len(underlayContNo) > 0:
+            contNo = underlayContNo
+
         curBar = None
 
+        # 计算考虑滑点损耗后的价格
+        if not self._cfgModel.isActualRun():
+            price = self._calcCenter.calcOrderPrice(contNo, dBuy, price)
+
         # 交易计算、生成回测报告
-        # 产生信号
-        if self._cfgModel.isActualRun():
-            userNo = self._cfgModel.getUserNo() if not userNo else userNo
-        else:
-            userNo = "Default"
         eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oCover, hSpeculate, price, share, curBar)
         if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
     def setSell(self, userNo, contractNo, share, price):
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
+
+        underlayContNo = self._qteModel.getUnderlayContractNo(contNo)
+        if len(underlayContNo) > 0:
+            contNo = underlayContNo
+
         curBar = None
 
+        # 计算考虑滑点损耗后的价格
+        if not self._cfgModel.isActualRun():
+            price = self._calcCenter.calcOrderPrice(contNo, dSell, price)
+
         # 交易计算、生成回测报告
-        # 产生信号
-        if self._cfgModel.isActualRun():
-            userNo = self._cfgModel.getUserNo() if not userNo else userNo
-        else:
-            userNo = "Default"
         eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oCover, hSpeculate, price, share, curBar)
         if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
-    def setSellShort(self, userNo, contractNo, share, price):
+    def setSellShort(self, userNo, contractNo, share, price, needCover=True):
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
+
+        underlayContNo = self._qteModel.getUnderlayContractNo(contNo)
+        if len(underlayContNo) > 0:
+            contNo = underlayContNo
+
         curBar = None
 
-        if self._cfgModel.isActualRun():
-            userNo = self._cfgModel.getUserNo() if not userNo else userNo
-        else:
-            userNo = "Default"
+        # 计算考虑滑点损耗后的价格
+        if not self._cfgModel.isActualRun():
+            price = self._calcCenter.calcOrderPrice(contNo, dSell, price)
+
         qty = self._calcCenter.needCover(userNo, contNo, dSell, share, price)
-        if qty > 0:
-            eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oCover, hSpeculate, price, qty, curBar)
+        if qty > 0 and needCover:
+            eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oCover, hSpeculate, price, qty,
+                                           curBar)
             if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
         # 交易计算、生成回测报告
-        # 产生信号
-        userNo = self._cfgModel.getUserNo() if self._cfgModel.isActualRun() else "Default"
         eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oOpen, hSpeculate, price, share, curBar)
         if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
@@ -426,12 +486,12 @@ class StrategyModel(object):
             return
 
         data = [{
-            'KLineIndex' : curBar['KLineIndex'],
-            'ContractNo' : contNo,
-            'Direct'     : direct,
-            'Offset'     : offset,
-            'Price'      : price,
-            'Qty'        : share,
+            'KLineIndex': curBar['KLineIndex'],
+            'ContractNo': contNo,
+            'Direct': direct,
+            'Offset': offset,
+            'Price': price,
+            'Qty': share,
         }]
         #
         eventCode = EV_ST2EG_UPDATE_KLINESIGNAL if self._strategy.isRealTimeStatus() else EV_ST2EG_NOTICE_KLINESIGNAL
@@ -457,7 +517,7 @@ class StrategyModel(object):
             return True
         return False
 
-    #////////////////////////设置函数////////////////////////////
+    # ////////////////////////设置函数////////////////////////////
     def getConfig(self):
         return self._cfgModel._metaData
 
@@ -504,16 +564,6 @@ class StrategyModel(object):
         feeType = EEQU_FEE_TYPE_RATIO if feeType == 1 else EEQU_FEE_TYPE_FIXED
         return self._cfgModel.setTradeFee(type, feeType, feeValue, contNo)
 
-    def setTriggerCont(self, contNoTuple):
-        if not contNoTuple or len(contNoTuple) == 0:
-            return -1
-        if len(contNoTuple) > 4:
-            contNoTuple = contNoTuple[:4]
-        return self._cfgModel.setTriggerCont(contNoTuple)
-
-    # def setTradeMode(self, inActual, useSample, useReal):
-    #     return self._cfgModel.setTradeMode(inActual, useSample, useReal)
-
     def setActual(self):
         return self._cfgModel.setActual()
 
@@ -537,19 +587,19 @@ class StrategyModel(object):
         self._cfgModel.setMinQty(tradeQty)
         return 0
 
-    def setHedge(self, hedge, contNo):
+    def setHedge(self, hedge):
         if hedge not in ('T', 'B', 'S', 'M'):
             return -1
 
-        self._cfgModel.setHedge(hedge, contNo)
+        self._cfgModel.setHedge(hedge)
         return 0
 
     def setSlippage(self, slippage):
         self._cfgModel.setSlippage(slippage)
         return 0
 
-    def setTriggerMode(self, contNo, type, value):
-        return self._cfgModel.setTrigger(contNo, type, value)
+    def setTriggerMode(self, type, value):
+        return self._cfgModel.setTrigger(type, value)
 
     def setWinPoint(self, winPoint, nPriceType, nAddTick, contNo):
         if not contNo:
@@ -560,6 +610,16 @@ class StrategyModel(object):
         if not contNo:
             contNo = self._cfgModel.getBenchmark()
         return self._cfgModel.setStopPoint(stopPoint, nPriceType, nAddTick, contNo)
+
+    def subscribeContract(self, contNo):
+        contList = [contNo]
+        self._cfgModel.updateSubQuoteContract(contList)
+        return self.subQuoteList(contList)
+
+    def unsubscribeContract(self, contNo):
+        contList = [contNo]
+        self._cfgModel.updateUnsubQuoteContract(contList)
+        return self.unsubQuoteList(contList)
 
     # ///////////////////////账户函数///////////////////////////
     def getAccountId(self):
@@ -658,6 +718,9 @@ class StrategyModel(object):
     def getNextOrderNo(self, orderId, contNo1, contNo2):
         return self._trdModel.getNextOrderNo(orderId, contNo1, contNo2)
 
+    def getLastOrderNo(self, contNo1, contNo2):
+        return self._trdModel.getLastOrderNo(contNo1, contNo2)
+
     def getFirstQueueOrderNo(self, contNo1, contNo2=''):
         return self._trdModel.getFirstQueueOrderNo(contNo1, contNo2)
 
@@ -683,9 +746,9 @@ class StrategyModel(object):
 
     def deleteOrder(self, eSession):
         return self._trdModel.deleteOrder(eSession)
-        
+
     def buySellOrder(self, userNo, contNo, orderType, validType, orderDirct, \
-        entryOrExit, hedge, orderPrice, orderQty, curBar, signal=True):
+                     entryOrExit, hedge, orderPrice, orderQty, curBar, signal=True):
         '''
             1. buySell下单，经过calc模块，会判断虚拟资金，会产生平仓单
             2. 如果支持K线触发，会产生下单信号
@@ -705,47 +768,55 @@ class StrategyModel(object):
             curBar = copy.deepcopy(curShowBar)
             curBarIndex = curBar["KLineIndex"]
 
+        userNo = self._cfgModel.getUserNo() if not userNo else userNo
+        if not userNo:
+            userNo = "Default"
+
         orderParam = {
-            "UserNo"         : userNo,                   # 账户编号
-            "OrderType"      : orderType,                # 定单类型
-            "ValidType"      : validType,                # 有效类型
-            "ValidTime"      : '0',                      # 有效日期时间(GTD情况下使用)
-            "Cont"           : contNo,                   # 合约
-            "Direct"         : orderDirct,               # 买卖方向：买、卖
-            "Offset"         : entryOrExit,              # 开仓、平仓、平今
-            "Hedge"          : hedge,                    # 投机套保
-            "OrderPrice"     : orderPrice,               # 委托价格 或 期权应价买入价格
-            "OrderQty"       : orderQty,                 # 委托数量 或 期权应价数量
-            "DateTimeStamp"  : dateTime,                 # 时间戳（基准合约）
-            "TradeDate"      : tradeDate,                # 交易日（基准合约）
-            "TriggerType"    : triggerType,
-            "CurBar"         : curBar,
-            "CurBarIndex"    : curBarIndex,              #
-            "StrategyId"     : self._strategy.getStrategyId(),
-            "StrategyName"   : self._strategy.getStrategyName(),
-            "StrategyStage"  : self._strategy.getStatus()
+            "UserNo": userNo,  # 账户编号
+            "OrderType": orderType,  # 定单类型
+            "ValidType": validType,  # 有效类型
+            "ValidTime": '0',  # 有效日期时间(GTD情况下使用)
+            "Cont": contNo,  # 合约
+            "Direct": orderDirct,  # 买卖方向：买、卖
+            "Offset": entryOrExit,  # 开仓、平仓、平今
+            "Hedge": hedge,  # 投机套保
+            "OrderPrice": orderPrice,  # 委托价格 或 期权应价买入价格
+            "OrderQty": orderQty,  # 委托数量 或 期权应价数量
+            "DateTimeStamp": dateTime,  # 时间戳（基准合约）
+            "TradeDate": tradeDate,  # 交易日（基准合约）
+            "TriggerType": triggerType,
+            "CurBar": curBar,
+            "CurBarIndex": curBarIndex,  #
+            "StrategyId": self._strategy.getStrategyId(),
+            "StrategyName": self._strategy.getStrategyName(),
+            "StrategyStage": self._strategy.getStatus()
         }
 
         # if entryOrExit in (oCover, oCoverT):
-        if not self._strategy.isRealTimeStatus() and entryOrExit in (oCover, oCoverT):
+        if entryOrExit in (oCover, oCoverT):
             isVaildOrder = self._calcCenter.coverJudge(orderParam)
             if isVaildOrder < 0:
                 return ""
 
         canAdded = self._calcCenter.addOrder(orderParam)
-        if self._strategy.isRealTimeStatus() and canAdded < 1:
+        if canAdded < 1:
             return ""
 
-        '''发送历史回测信号'''
+        '''buy/sell 信号，
+        历史阶段：一定没有委托
+        实时数据：不一定有委托发
+        '''
         curBar = self.getHisQuoteModel().getCurBar(self._config.getKLineShowInfoSimple())
-        if not self._strategy.isRealTimeStatus() and self._config.hasKLineTrigger() and curBar:
+        if self._config.hasKLineTrigger() and curBar:
             self.sendSignalEvent(self._signalName, contNo, orderDirct, entryOrExit, orderPrice, orderQty, curBar)
 
-        retCode, eSessionId = self.sendOrder(userNo, contNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty)
+        retCode, eSessionId = self.sendOrder(userNo, contNo, orderType, validType, orderDirct, entryOrExit, hedge,
+                                             orderPrice, orderQty)
         return eSessionId if retCode == 0 else ""
-        
+
     def sendOrder(self, userNo, contNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty, \
-                           triggerType=stNone, triggerMode=tmNone, triggerCondition=tcNone, triggerPrice=0):
+                  triggerType=stNone, triggerMode=tmNone, triggerCondition=tcNone, triggerPrice=0, aFunc=False):
         '''A账户下单函数，不经过calc模块，直接发单'''
         if not userNo:
             userNo = self._cfgModel.getUserNo()
@@ -755,23 +826,32 @@ class StrategyModel(object):
 
         # 是否暂停实盘下单
         if self._cfgModel.getPending():
+            self.logger.warn(f"请调用StartTrade方法开启实盘下单功能")
             return -5, "请调用StartTrade方法开启实盘下单功能"
 
         # 发送下单信号,K线触发、即时行情触发
         # 未选择实盘运行
         if not self._cfgModel.isActualRun():
+            #self.logger.warn(f"未选择实盘运行，请在设置界面勾选'实盘运行'，或者在策略代码中调用SetActual()")
             return -1, '未选择实盘运行，请在设置界面勾选"实盘运行"，或者在策略代码中调用SetActual()方法选择实盘运行'
 
         if not self._strategy.isRealTimeStatus():
+            #self.logger.warn(f"策略当前状态不是实盘运行状态， 不会产生实盘订单")
             return -2, "策略当前状态不是实盘运行状态， 不会产生实盘订单"
 
         # 账户错误
         if not userNo or userNo == 'Default':
+            #self.logger.warn(f"未指定下单账户信息")
             return -3, "未指定下单账户信息"
 
         # 指定的用户未登录
         if not self._trdModel.getSign(userNo):
+            #self.logger.warn(f"输入的账户没有在极星客户端登录")
             return -4, "输入的账户没有在极星客户端登录"
+
+        underlayContNo = self._qteModel.getUnderlayContractNo(contNo)
+        if len(underlayContNo) > 0:
+            contNo = underlayContNo
 
         eId = str(self._strategy.getStrategyId()) + '-' + str(self._strategy.getESessionId())
         # 上期所特殊处理
@@ -782,6 +862,7 @@ class StrategyModel(object):
                 positionInfo = self._trdModel.getUserModel(userNo).getPositionInfo(contNo, dBuy)
 
             if positionInfo is None:
+                self.logger.warn(f"持仓查询没有查询到对应方向的持仓, 无法平仓")
                 return -6, "持仓查询没有查询到对应方向的持仓, 无法平仓"
             entryOrExitToday = oCoverT
             orderQtyToday = positionInfo["TodayPos"]
@@ -804,7 +885,7 @@ class StrategyModel(object):
                 'Remark': '',
                 'AddOneIsValid': tsDay,
             }
-            self.sendActualOrder2Engine(aOrder, eId, self._strategy.getStrategyId())
+            self.sendActualOrder2Engine(aOrder, eId, self._strategy.getStrategyId(), aFunc)
             if orderQty > positionInfo["TodayPos"]:
                 orderQty = orderQty - positionInfo["TodayPos"]
                 entryOrExit = oCover
@@ -836,16 +917,18 @@ class StrategyModel(object):
             'AddOneIsValid': tsDay,
         }
 
-        self.sendActualOrder2Engine(aOrder, eId, self._strategy.getStrategyId())
+        self.sendActualOrder2Engine(aOrder, eId, self._strategy.getStrategyId(), aFunc)
         # self.logger.trade_info(self._strategy.getStrategyId(), aOrder)
         # 更新策略的订单信息
         self._strategy.setESessionId(self._strategy.getESessionId() + 1)
         self._strategy.updateLocalOrder(eId, aOrder)
         return 0, eId
 
-    def sendActualOrder2Engine(self, aOrder, eId, strategyId):
-        if int(aOrder["OrderQty"]+0.5) <= 0:
+    # afunc表明是由A函数调用的，还是buy/sell调用的
+    def sendActualOrder2Engine(self, aOrder, eId, strategyId, aFunc):
+        if int(aOrder["OrderQty"] + 0.5) <= 0:
             return
+        aOrder["OrderQty"] = int(aOrder["OrderQty"] + 0.5)
         aOrderEvent = Event({
             "EventCode": EV_ST2EG_ACTUAL_ORDER,
             "StrategyId": strategyId,
@@ -853,10 +936,12 @@ class StrategyModel(object):
             "ESessionId": eId,
         })
         self._strategy.sendEvent2Engine(aOrderEvent)
-        '''发送实盘信号'''
+        '''A函数 发送实盘信号'''
         curBar = self.getHisQuoteModel().getCurBar(self._config.getKLineShowInfoSimple())
-        if self._config.hasKLineTrigger() and curBar:
-            self.sendSignalEvent(self._signalName, aOrder["Cont"], aOrder["Direct"], aOrder["Offset"], aOrder["OrderPrice"], aOrder["OrderQty"], curBar)
+        if aFunc and self._config.hasKLineTrigger() and curBar:
+            self.logger.debug(f"实盘信号已经发送，k线时间戳：{curBar['DateTimeStamp']}")
+            self.sendSignalEvent(self._signalName, aOrder["Cont"], aOrder["Direct"], aOrder["Offset"],
+                                 aOrder["OrderPrice"], aOrder["OrderQty"], curBar)
         self.logger.trade_info(f"发送实盘订单，策略Id:{strategyId}, 本地订单号：{eId}, 订单数据：{repr(aOrder)}")
 
     def getAOrderNo(self, eId):
@@ -1056,6 +1141,9 @@ class StrategyModel(object):
     def getBlue(self):
         return 0x0000FF
 
+    def getYellow(self):
+        return 0xFFFF00
+
     def getPurple(self):
         return 0x9900FF
 
@@ -1095,13 +1183,13 @@ class StrategyModel(object):
     def getEnumTime(self):
         return BarDataTime
 
-    #///////////////////////其他函数///////////////////////////
+    # ///////////////////////其他函数///////////////////////////
     def _addSeries(self, name, value, color, main, axis, type):
         addSeriesEvent = Event({
             "EventCode": EV_ST2EG_ADD_KLINESERIES,
             "StrategyId": self._strategy.getStrategyId(),
-            "Data":{
-                'ItemName':name,
+            "Data": {
+                'ItemName': name,
                 'Type': type,
                 'Color': color,
                 'Thick': 1,
@@ -1109,36 +1197,35 @@ class StrategyModel(object):
                 'Param': [],
                 'ParamNum': 0,
                 'Groupid': 0,
-                'GroupName':name,
+                'GroupName': name,
                 'Main': main,
             }
         })
-        
+
         self._strategy.sendEvent2Engine(addSeriesEvent)
-        
+
     def _plotNumeric(self, name, value, color, main, axis, type, barsback, data):
         if name not in self._plotedDict:
             self._addSeries(name, value, color, main, axis, type)
             self._plotedDict[name] = (name, value, color, main, axis, type, barsback)
 
-        
         if self._strategy.isRealTimeStatus():
             eventCode = EV_ST2EG_UPDATE_KLINESERIES
         else:
             eventCode = EV_ST2EG_NOTICE_KLINESERIES
         serialEvent = Event({
-            "EventCode" : eventCode,
+            "EventCode": eventCode,
             "StrategyId": self._strategy.getStrategyId(),
-            "Data":{
+            "Data": {
                 "SeriesName": name,
                 "SeriesType": type,
-                "IsMain"    : main,
-                "Count"     : len(data),
-                "Data"      : data
+                "IsMain": main,
+                "Count": len(data),
+                "Data": data
             }
         })
         self._strategy.sendEvent2Engine(serialEvent)
-        
+
     def setPlotText(self, value, text, color, main, barsback):
         main = '0' if main else '1'
         curBar = self._hisModel.getCurBar()
@@ -1146,31 +1233,31 @@ class StrategyModel(object):
         klineIndex = curBar['KLineIndex'] - barsback
         if klineIndex <= 0:
             return
-        
+
         data = [{
-            'KLineIndex' : klineIndex,
-            'Value'      : value,
-            'Text'       : text
+            'KLineIndex': klineIndex,
+            'Value': value,
+            'Text': text
         }]
 
         self._plotNumeric(self._textName, value, color, main, EEQU_ISNOT_AXIS, EEQU_TEXT, barsback, data)
-        
+
     def setUnPlotText(self, main, barsback):
         main = '0' if main else '1'
         curBar = self._hisModel.getCurBar()
-        
+
         klineIndex = curBar['KLineIndex'] - barsback
         if klineIndex <= 0:
             return
-        
+
         data = [{
-            'KLineIndex' : klineIndex,
-            'Value'      : np.nan,
-            'Text'       : ""
+            'KLineIndex': klineIndex,
+            'Value': np.nan,
+            'Text': ""
         }]
 
         self._plotNumeric(self._textName, np.nan, 0, main, EEQU_ISNOT_AXIS, EEQU_TEXT, barsback, data)
-        
+
     def setPlotIcon(self, value, icon, main, barsback):
         main = '0' if main else '1'
         curBar = self._hisModel.getCurBar()
@@ -1178,11 +1265,11 @@ class StrategyModel(object):
         klineIndex = curBar['KLineIndex'] - barsback
         if klineIndex <= 0:
             return
-            
+
         data = [{
-            'KLineIndex' : klineIndex,
-            'Value'      : value,
-            'Icon'       : icon
+            'KLineIndex': klineIndex,
+            'Value': value,
+            'Icon': icon
         }]
 
         self._plotNumeric(self._strategyName, value, 0, main, EEQU_ISNOT_AXIS, EEQU_ICON, barsback, data)
@@ -1199,9 +1286,9 @@ class StrategyModel(object):
             return
 
         data = [{
-            'KLineIndex' : klineIndex,
-            'Value'      : value,
-            'Icon'       : icon
+            'KLineIndex': klineIndex,
+            'Value': value,
+            'Icon': icon
         }]
 
         self._plotNumeric(name, value, color, main, EEQU_ISNOT_AXIS, EEQU_DOT, barsback, data)
@@ -1219,11 +1306,11 @@ class StrategyModel(object):
             return
 
         data = [{
-            'KLineIndex' : klineIndex,
-            'Value'      : vol1,
-            'ClrBar'     : color,
-            'BarValue'   : vol2,
-            'Filled'     : filled
+            'KLineIndex': klineIndex,
+            'Value': vol1,
+            'ClrBar': color,
+            'BarValue': vol2,
+            'Filled': filled
         }]
 
         self._plotNumeric(name, 0, color, main, EEQU_ISNOT_AXIS, EEQU_BAR, barsback, data)
@@ -1234,37 +1321,37 @@ class StrategyModel(object):
     def setPlotNumeric(self, name, value, color, main, axis, type, barsback):
         main = '0' if main else '1'
         axis = '0' if axis else '1'
-        
+
         curBar = self._hisModel.getCurBar()
 
         klineIndex = curBar['KLineIndex'] - barsback
         if klineIndex <= 0:
             return
-                   
+
         data = [{
-            'KLineIndex' : klineIndex,
-            'Value'      : value
+            'KLineIndex': klineIndex,
+            'Value': value
         }]
         self._plotNumeric(name, value, color, main, axis, type, barsback, data)
 
     def setUnPlotNumeric(self, name, main, barsback):
         return self.setPlotNumeric(name, np.nan, 0, main, EEQU_ISNOT_AXIS, 1, barsback)
-        
+
     def setPlotVertLine(self, color, main, axis, barsback):
         main = '0' if main else '1'
         axis = '0' if axis else '1'
-        
+
         curBar = self._hisModel.getCurBar()
         klineIndex = curBar['KLineIndex'] - barsback
-        
+
         if klineIndex <= 0:
             return
-        
+
         value = curBar['LastPrice']
         data = [{
-            'KLineIndex' : klineIndex,
-            'Value'      : value,
-            'ClrK'       : color
+            'KLineIndex': klineIndex,
+            'Value': value,
+            'ClrK': color
         }]
 
         self._plotNumeric(self._strategyName, value, color, main, axis, EEQU_VERTLINE, barsback, data)
@@ -1280,9 +1367,9 @@ class StrategyModel(object):
 
         value = curBar['LastPrice']
         data = [{
-            'KLineIndex' : klineIndex,
-            'Value'      : np.nan,
-            'ClrK'       : 0
+            'KLineIndex': klineIndex,
+            'Value': np.nan,
+            'ClrK': 0
         }]
 
         self._plotNumeric(self._strategyName, np.nan, 0, main, EEQU_ISNOT_AXIS, EEQU_VERTLINE, barsback, data)
@@ -1291,16 +1378,16 @@ class StrategyModel(object):
         main = '0' if main else '1'
         axis = '0' if axis else '1'
 
-        if index1<= 0 or count <= 0:
+        if index1 <= 0 or count <= 0:
             return
 
         data = [{
-            'KLineIndex' : index1,
-            'Value'      : price1,
-            'Idx2'       : count,
-            'LineValue'  : price2,
-            'ClrLine'    : color,
-            'LinWid'     : width
+            'KLineIndex': index1,
+            'Value': price1,
+            'Idx2': count,
+            'LineValue': price2,
+            'ClrLine': color,
+            'LinWid': width
         }]
 
         self._plotNumeric(name, 0, color, main, axis, EEQU_PARTLINE, 0, data)
@@ -1308,16 +1395,16 @@ class StrategyModel(object):
     def setUnPlotPartLine(self, name, index1, count, main):
         main = '0' if main else '1'
 
-        if index1<= 0 or count <= 0:
+        if index1 <= 0 or count <= 0:
             return
 
         data = [{
-            'KLineIndex' : index1,
-            'Value'      : np.nan,
-            'Idx2'       : count,
-            'LineValue'  : np.nan,
-            'ClrLine'    : 0,
-            'LinWid'     : 1
+            'KLineIndex': index1,
+            'Value': np.nan,
+            'Idx2': count,
+            'LineValue': np.nan,
+            'ClrLine': 0,
+            'LinWid': 1
         }]
 
         self._plotNumeric(name, np.nan, 0, main, EEQU_ISNOT_AXIS, EEQU_PARTLINE, 0, data)
@@ -1333,10 +1420,10 @@ class StrategyModel(object):
             return
 
         data = [{
-            'KLineIndex' : klineIndex,
-            'Value'      : price1,
-            'StickValue' : price2,
-            'ClrStick'   : color
+            'KLineIndex': klineIndex,
+            'Value': price1,
+            'StickValue': price2,
+            'ClrStick': color
         }]
 
         self._plotNumeric(name, 0, color, main, axis, EEQU_STICKLINE, barsback, data)
@@ -1411,9 +1498,9 @@ class StrategyModel(object):
         :return: {}
         '''
         ret = {
-            'ExchangeCode'  : '', # 交易所编码
-            'CommodityCode' : '', # 商品编码
-            'CommodityNo'   : '', # 合约到期日期
+            'ExchangeCode': '',  # 交易所编码
+            'CommodityCode': '',  # 商品编码
+            'CommodityNo': '',  # 合约到期日期
         }
         contractNo = contNo
         if not contNo:
@@ -1441,12 +1528,18 @@ class StrategyModel(object):
 
     def getExchangeName(self, contNo):
         exchangeNo = self.getCommodityInfoFromContNo(contNo)['ExchangeCode']
+        return exchangeNo
+        # if exchangeNo not in self._qteModel._exchangeData:
+        #    return None
 
-        if exchangeNo not in self._qteModel._exchangeData:
-            return None
+        # exchangeModel = self._qteModel._exchangeData[exchangeNo]
+        # return exchangeModel._metaData['ExchangeName']
 
-        exchangeModel = self._qteModel._exchangeData[exchangeNo]
-        return exchangeModel._metaData['ExchangeName']
+    def getExchangeTime(self, exgNo):
+        return self._qteModel.getExchangeTime(exgNo)
+
+    def getExchangeStatus(self, exgNo):
+        return self._qteModel.getExchangeStatus(exgNo)
 
     def getExpiredDate(self, contNo):
         return 0
@@ -1469,8 +1562,8 @@ class StrategyModel(object):
             return 0
 
         timeBucket = self._qteModel._commodityData[commodity]._metaData['TimeBucket']
-        endTime = timeBucket[2*index + 1]["BeginTime"] if 2*index + 1 < len(timeBucket) else 0
-        return float(endTime)/1000000000
+        endTime = timeBucket[2 * index + 1]["BeginTime"] if 2 * index + 1 < len(timeBucket) else 0
+        return float(endTime) / 1000000000
 
     def getGetSessionStartTime(self, contNo, index):
         commodity = self.getCommodityInfoFromContNo(contNo)['CommodityCode']
@@ -1479,7 +1572,7 @@ class StrategyModel(object):
 
         timeBucket = self._qteModel._commodityData[commodity]._metaData['TimeBucket']
         beginTime = timeBucket[2 * index]["BeginTime"] if 2 * index < len(timeBucket) else 0
-        return float(beginTime)/1000000000
+        return float(beginTime) / 1000000000
 
     def getNextTimeInfo(self, contNo, timeStr):
         commodity = self.getCommodityInfoFromContNo(contNo)['CommodityCode']
@@ -1499,9 +1592,9 @@ class StrategyModel(object):
 
         for timeTuple in timeList:
             if timeTuple[0] >= timeInt:
-                return {'Time' : float(timeTuple[0])/1000000000, 'TradeState' : timeTuple[1]}
+                return {'Time': float(timeTuple[0]) / 1000000000, 'TradeState': timeTuple[1]}
 
-        return {'Time' : float(timeList[0][0])/1000000000, 'TradeState' : timeList[0][1]}
+        return {'Time': float(timeList[0][0]) / 1000000000, 'TradeState': timeList[0][1]}
 
     def getCurrentTime(self):
         currentTime = datetime.now().strftime('0.%H%M%S')
@@ -1526,7 +1619,7 @@ class StrategyModel(object):
                 endTime += 0.24
                 if currentTime <= startTime:
                     currentTime += 0.24
-            if currentTime >= startTime and currentTime <endTime:
+            if currentTime >= startTime and currentTime < endTime:
                 return True
         return False
 
@@ -1607,10 +1700,13 @@ class StrategyModel(object):
 
         commodityModel = self._qteModel._commodityData[commodityNo]
         commodityName = commodityModel._metaData['CommodityName']
-        return commodityName+commodityInfo['CommodityNo']
+        return commodityName + commodityInfo['CommodityNo']
 
     def getSymbolType(self, contNo):
         return self.getCommodityInfoFromContNo(contNo)['CommodityCode']
+
+    def getIndexMap(self, contNo):
+        return self._qteModel.getUnderlayContractNo(contNo)
 
     # ///////////////////////策略状态///////////////////////////
     def getAvgEntryPrice(self, contNo):
@@ -1625,7 +1721,7 @@ class StrategyModel(object):
         totalPrice = posInfo['BuyPrice'] * posInfo['TotalBuy'] + posInfo['SellPrice'] * posInfo['TotalSell']
         totalQty = posInfo['TotalBuy'] + posInfo['TotalSell']
 
-        return totalPrice/totalQty if totalQty > 0 else 0
+        return totalPrice / totalQty if totalQty > 0 else 0
 
     def getFirstOpenOrderInfo(self, contNo, key):
         if not contNo:
@@ -1728,7 +1824,7 @@ class StrategyModel(object):
         totalBuy = self.getPositionValue(contNo, 'TotalBuy')
         totalSell = self.getPositionValue(contNo, 'TotalSell')
         totalQty = totalBuy + totalSell
-        return holdProfit/totalQty if totalQty > 0 else 0
+        return holdProfit / totalQty if totalQty > 0 else 0
 
     def getCurrentContracts(self, contNo):
         '''获得策略当前的持仓合约数(净持仓)'''
@@ -1738,7 +1834,7 @@ class StrategyModel(object):
         totalBuy = 0 if totalBuy == -1 else totalBuy
         totalSell = 0 if totalSell == -1 else totalSell
 
-        return totalBuy-totalSell
+        return totalBuy - totalSell
 
     def getEntryDate(self, contNo):
         '''获得当前持仓的第一个建仓位置的日期'''
@@ -1771,7 +1867,7 @@ class StrategyModel(object):
         dateTimeStamp = self.getFirstOpenOrderInfo(contNo, 'DateTimeStamp')
         if dateTimeStamp == -1:
             return 0
-        return (int(dateTimeStamp)%1000000000)/1000000000
+        return (int(dateTimeStamp) % 1000000000) / 1000000000
 
     def getExitDate(self, contNo):
         ''' 获得最近平仓位置Bar日期'''
@@ -1805,7 +1901,7 @@ class StrategyModel(object):
             return 0
 
         dateTimeStamp = orderInfo['DateTimeStamp']
-        return (int(dateTimeStamp)%1000000000)/1000000000
+        return (int(dateTimeStamp) % 1000000000) / 1000000000
 
     def getLastEntryDate(self, contNo):
         '''获得当前持仓的最后一个建仓位置的日期'''
@@ -1839,7 +1935,7 @@ class StrategyModel(object):
             return 0
 
         dateTimeStamp = orderInfo['DateTimeStamp']
-        return (int(dateTimeStamp)%1000000000)/1000000000
+        return (int(dateTimeStamp) % 1000000000) / 1000000000
 
     def getMarketPosition(self, contNo):
         if not contNo:
@@ -1922,7 +2018,7 @@ class StrategyModel(object):
         '''盈利成功率'''
         winTimes = self._calcCenter.getProfit()["WinTimes"]
         allTimes = self._calcCenter.getProfit()["AllTimes"]
-        return winTimes/allTimes if allTimes > 0 else 0
+        return winTimes / allTimes if allTimes > 0 else 0
 
     def getTradeCost(self):
         '''交易产生的手续费'''

@@ -533,7 +533,7 @@ class Trade(BaseFrame):
                                                 eo['Order']['OrderQty'],
                                                 '{:.1f}'.format(float(eo['LiquidateProfit'])),
                                                 '{:.1f}'.format(float(eo['Cost'])),
-                                                '{:.1f}'.format(0)
+                                                '{:.1f}'.format(float(eo["SlippageLoss"]))
                                                 )
                             )
 

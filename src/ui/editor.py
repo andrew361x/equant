@@ -104,6 +104,8 @@ class ParentText(Text):
     def __init__(self, master, **kw):
         Text.__init__(self, master, **kw)
         self.config(state="disabled")
+        self.rollFlag = BooleanVar()
+        self.rollFlag.set(True)
 
     def flush(self):
         self.update()
@@ -430,6 +432,7 @@ class SignalText(ParentText):
         menu.add_command(label="复制", command=self.copy)
         menu.add_command(label="全选", command=self.select_all)
         menu.add_command(label="清除", command=self.clear_all)
+        menu.add_checkbutton(label="自动滚屏", onvalue=True, offvalue=0, variable=self.rollFlag)
         menu.post(event.x_root, event.y_root)
 
     # TODO:setText重写
@@ -440,9 +443,11 @@ class SignalText(ParentText):
         self.insert("end", text)
         self.config(state="disabled")
         self.update()
-        self.see("end")
-
-
+        if self.rollFlag:
+            self.see("end")
+        else:
+            self.see("current")
+        # self.see("end")
 
 class MonitorText(ParentText):
     def __init__(self, master, **kw):
@@ -476,14 +481,20 @@ class MonitorText(ParentText):
         self.insert("end", text)
         self.config(state="disabled")
         self.update()
-        self.see("end")
+        if self.rollFlag:
+            self.see("end")
+        else:
+            self.see("current")
+        # self.see("end")
 
     def create_menu(self, event):
         menu = Menu(self, tearoff=0)
         menu.add_command(label="复制", command=self.copy)
         menu.add_command(label="全选", command=self.select_all)
         menu.add_command(label="清除", command=self.clear_all)
+        menu.add_checkbutton(label="自动滚屏", onvalue=True, offvalue=0, variable=self.rollFlag)
         menu.post(event.x_root, event.y_root)
+
 
     def setConfig(self, fontSize=10):
         self.config(
@@ -567,6 +578,7 @@ class ErrorText(ParentText):
         menu.add_command(label="复制", command=self.copy)
         menu.add_command(label="全选", command=self.select_all)
         menu.add_command(label="清除", command=self.clear_all)
+        menu.add_checkbutton(label="自动滚屏", onvalue=True, offvalue=0, variable=self.rollFlag)
         menu.post(event.x_root, event.y_root)
 
     # TODO:setText重写
@@ -577,7 +589,10 @@ class ErrorText(ParentText):
         self.insert("end", text + "\n")
         self.config(state="disabled")
         self.update()
-        self.see("end")
+        if self.rollFlag:
+            self.see("end")
+        else:
+            self.see("current")
 
 
 class ContractText(ParentText):

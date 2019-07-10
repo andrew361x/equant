@@ -6,7 +6,7 @@ N = 5
 P = 20
 
 def initialize(context):
-    SetBarInterval("SHFE|F|CU|1907", 'M',1, 2000)
+    SetBarInterval("DCE|F|PP|1909", 'M', 4, 10)
 
 def handle_data(context):
     global N

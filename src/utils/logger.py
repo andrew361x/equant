@@ -1,6 +1,10 @@
 import logging
 import sys,os
 from multiprocessing import Queue, Process
+import queue
+import time
+import datetime
+from copy import deepcopy
 
 
 class MyHandlerText(logging.StreamHandler):
@@ -15,6 +19,19 @@ class MyHandlerText(logging.StreamHandler):
         self.textctrl.insert("end", msg + "\n")
         self.flush()
         self.textctrl.config(state="disabled")
+        
+class MyFileHandler(logging.FileHandler):
+    def __init__(self, file, mode):
+        self.fileFd = open(file, mode=mode)
+        logging.FileHandler.__init__(self, file, mode=mode)
+        
+        
+    def emit(self, record):
+        tmpRecord = deepcopy(record)
+        tmpRecord.msg = record.msg[0]
+        msg = self.format(tmpRecord)
+        self.fileFd.write(msg+'\n')
+        self.fileFd.flush()
 
 
 class MyHandlerQueue(logging.StreamHandler):
@@ -31,34 +48,52 @@ class MyHandlerQueue(logging.StreamHandler):
         target = record.msg[1]
         record.msg = record.msg[0]
         msg = self.format(record)
+        
         if target == 'S':
-            self.sig_queue.put(msg, block=False, timeout=1)
+            try:
+                self.sig_queue.put_nowait(msg)
+            except queue.Full:
+                time.sleep(0.1)
+                print("订单放入队列时阻塞")
         elif target == 'E':
-            self.err_queue.put(msg, block=False, timeout=1)
+            try:
+                self.err_queue.put_nowait(msg)
+            except queue.Full:
+                time.sleep(0.1)
+                print("调试信息放入队列时阻塞")
         elif target == 'T':
             self.trade_log.write(msg+"\n")
             self.trade_log.flush()
         else:
-            self.gui_queue.put(msg, block=False, timeout=1)
-
+            try:
+                self.gui_queue.put_nowait(msg)
+            except queue.Full:
+                time.sleep(0.1)
+                print("界面日志放入队列时阻塞")
+            # self.gui_queue.put_nowait(msg, block=False, timeout=1)
 
 class Logger(object):
     def __init__(self):
         #process queue
-        self.log_queue = Queue()
-        self.gui_queue = Queue()
+        self.log_queue = Queue(2000)
+        self.gui_queue = Queue(2000)
         # 信号队列
-        self.sig_queue = Queue()
-        self.err_queue = Queue()
+        self.sig_queue = Queue(2000)
+        self.err_queue = Queue(100)
         
     def _initialize(self):
 
         self.logpath = r"./log/"
-        if not os.path.exists( self.logpath):
-            os.makedirs( self.logpath) 
-            
+        if not os.path.exists(self.logpath):
+            os.makedirs(self.logpath)
+
+        # 重命名历史日志
+        self.renameHisLog()
+
+        trade_path = self.logpath + "trade.dat"
+
         #交易日志
-        self.trade_log = open(self.logpath + "trade.dat", mode='a', encoding='utf-8')
+        self.trade_log = open(trade_path, mode='a', encoding='utf-8')
         #self.trade_log.write('我在这儿')
         #self.trade_log.flush()
 
@@ -80,10 +115,21 @@ class Logger(object):
             data_list = self.log_queue.get()
             if data_list is None: break
             #数据格式不对
-            if len(data_list) !=3: continue
             self.level_func[data_list[0]](data_list[1:])
 
+    def renameHisLog(self):
+        """重命名历史日志文件"""
+        # 重命名历史日志文件
+        lognames = ["trade.dat", "equant.log"]
+        time_now = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]
+        for name in lognames:
+            path = self.logpath + name
+            his_path = self.logpath + name[:-4] + time_now + name[-4:]
+            if os.path.exists(path):
+                os.rename(path, his_path)
+
     def _log(self, level, target, s):
+        """s为区分打印信息来源的标志"""
         data = []
         data.append(level)
         data.append(target)
@@ -104,7 +150,10 @@ class Logger(object):
 
     def add_handler(self):
         #设置文件句柄
-        file_handler = logging.FileHandler(self.logpath + "equant.log", mode='a')
+        log_path = self.logpath + "equant.log"
+        #file_handler = logging.FileHandler(self.logpath + "equant.log", mode='a')
+
+        file_handler = MyFileHandler(log_path, mode='w')
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(self.formatter)
         self.logger.addHandler(file_handler)

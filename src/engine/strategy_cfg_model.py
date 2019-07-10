@@ -155,7 +155,15 @@ class StrategyConfig(object):
             kLineInfo = defaultSample[benchmark][0]
             resDict['Sample']['Display'] = {"ContractNo": benchmark, "KLineType": kLineInfo['KLineType'], "KLineSlice": kLineInfo['KLineSlice']}
 
-        # print("sun ======== ", resDict)
+        # 触发方式，给setTriggerType清空界面设置用
+        resDict['Trigger']['SetByUI'] = True
+
+        # 订阅即使行情合约列表
+        resDict['SubQuoteContract'] = []
+
+        # 退订即使行情合约列表
+        resDict['UnsubQuoteContract'] = []
+
         return resDict
 
     def updateBarInterval(self, contNo, inDict, fromDict):
@@ -220,7 +228,7 @@ class StrategyConfig(object):
     # *******************************************************
     # gyt test interface
     def getTriggerContract(self):
-        return self._metaData['SubContract']
+        return self.getContract()
 
     def getSampleInfo(self):
         kLineTypetupleList = []
@@ -326,7 +334,12 @@ class StrategyConfig(object):
     # *******************************************************
     def getContract(self):
         '''获取合约列表'''
-        return self._metaData['SubContract']
+        contNoList = set(self._metaData['SubContract'])
+        if len(self._metaData['SubQuoteContract']) > 0:
+            contNoList = contNoList | set(self._metaData['SubQuoteContract'])
+        if len(self._metaData['UnsubQuoteContract']) > 0:
+            contNoList = contNoList - set(self._metaData['UnsubQuoteContract'])
+        return list(contNoList)
 
     def setPending(self, pending):
         '''设置是否暂停向实盘下单标志'''
@@ -360,9 +373,9 @@ class StrategyConfig(object):
         '''获取触发方式'''
         return self._metaData['Trigger']
 
-    def setTrigger(self, contNo, type, value):
+    def setTrigger(self, type, value):
         '''设置触发方式'''
-        if type not in (1, 2, 3, 4):
+        if type not in (1, 2, 3, 4, 5):
             return -1
         if type == 3 and value%100 != 0:
             return -1
@@ -371,14 +384,26 @@ class StrategyConfig(object):
                 if len(timeStr) != 14 or not self.isVaildDate(timeStr, "%Y%m%d%H%M%S"):
                     return -1
 
-        if len(contNo) > 0:
-            self._metaData['SubContract'].append(contNo)
         trigger = self._metaData['Trigger']
+        # 清空界面设置的触发方式信息
+        if 'SetByUI' in trigger and trigger['SetByUI']:
+            trigger['SnapShot'] = False
+            trigger['Trade'] = False
+            trigger['Cycle'] = None
+            trigger['Timer'] = []
+            trigger['KLine'] = False
+            trigger['SetByUI'] = False
 
-        trigger['SnapShot'] = True if type == 1 else False
-        trigger['Trade'] = True if type == 2 else False
-        trigger['Cycle'] = value if type == 3 else None
-        trigger['Timer'] = value if type ==4 else None
+        if type == 1:
+            trigger['SnapShot'] = True
+        elif type == 2:
+            trigger['Trade'] = True
+        elif type == 3:
+            trigger['Cycle'] = value
+        elif type == 4:
+            trigger['Timer'] = value
+        elif type ==5:
+            trigger['KLine'] = True
 
         return 0
 
@@ -432,66 +457,6 @@ class StrategyConfig(object):
 
         return self._metaData['StopPoint'][contNo]
 
-    def setSample(self, sampleType, sampleValue):
-        '''设置样本数据'''
-        pass
-        '''
-        if sampleType not in ('A', 'D', 'C', 'N'):
-            return -1
-
-        sample = self._metaData['Sample']
-
-        # 使用所有K线
-        if sampleType == 'A':
-            self.setAllKTrueInSample(sample)
-            return 0
-
-        # 指定日期开始触发
-        if sampleType == 'D':
-            if not sampleValue or not isinstance(sampleValue, str):
-                return -1
-            if not self.isVaildDate(sampleValue, "%Y%m%d"):
-                return -1
-            self.setBarPeriodInSample(sampleValue, sample)
-            return 0
-
-        # 使用固定根数
-        if sampleType == 'C':
-            if not isinstance(sampleValue, int) or sampleValue <= 0:
-                return -1
-            self.setBarCountInSample(sampleValue, sample)
-            return 0
-
-        # 不执行历史K线
-        if sampleType == 'N':
-            self.setUseSample(False)
-            return 0
-
-        return -1
-        '''
-
-    def getSample(self, contNo=''):
-        '''获取样本数据'''
-        if contNo in self._metaData['Sample']:
-            return self._metaData['Sample'][contNo]
-        return self._metaData['Sample']
-
-    def getStartTime(self, contNo=''):
-        '''获取回测起始时间'''
-        if contNo in self._metaData['Sample']:
-            if "BeginTime" in self._metaData['Sample'][contNo]:
-                return self._metaData['Sample'][contNo]['BeginTime']
-            else:
-                return 0
-        if "BeginTime" in self._metaData['Sample']:
-            return self._metaData['Sample']['BeginTime']
-        return 0
-
-    def getBarIntervalList(self, contNo):
-        if contNo not in self._metaData['BarInterval']:
-            return []
-        return self._metaData['BarInterval'][contNo]
-
     def getKLineType(self):
         '''获取K线类型'''
         kLineInfo = self.getKLineShowInfo()
@@ -504,54 +469,13 @@ class StrategyConfig(object):
         if 'KLineSlice' in kLineInfo:
             return kLineInfo['KLineSlice']
 
-    def setAllKTrueInSample(self, sample, setForSpread=False):
-        if 'BeginTime' in sample:
-            del sample['BeginTime']
-
-        if 'KLineCount' in sample:
-            del sample['KLineCount']
-
-        sample['AllK'] = True
-        if setForSpread:
-            sample['UseSample'] = True
-        else:
-            self._metaData['RunMode']['Simulate']['UseSample'] = True
-
-    def setBarPeriodInSample(self, beginDate, sample, setForSpread=False):
-        '''设置起止时间'''
-        if 'AllK' in sample:
-            del sample['AllK']
-
-        if 'KLineCount' in sample:
-            del sample['KLineCount']
-
-        sample['BeginTime'] = beginDate
-        if setForSpread:
-            sample['UseSample'] = True
-        else:
-            self._metaData['RunMode']['Simulate']['UseSample'] = True
-
-    def setBarCountInSample(self, count, sample, setForSpread=False):
-        '''设置K线数量'''
-        if 'AllK' in sample:
-            del sample['AllK']
-
-        if 'BeginTime' in sample:
-            del sample['BeginTime']
-
-        sample['KLineCount'] = count
-        if setForSpread:
-            sample['UseSample'] = True
-        else:
-            self._metaData['RunMode']['Simulate']['UseSample'] = True
-
-    def setUseSample(self, isUseSample):
-        self._metaData['RunMode']['Simulate']['UseSample'] = isUseSample
-
     def setBarInterval(self, contNo, barType, barInterval, sampleConfig, trigger=True):
         '''设置K线类型和K线周期'''
-        if barType not in ('t', 'T', 'S', 'M', 'H', 'D', 'W', 'm', 'Y'):
-            return -1
+        # if barType not in ('t', 'T', 'S', 'M', 'H', 'D', 'W', 'm', 'Y'):
+        if barType not in ('T', 'S', 'M', 'D'):
+            raise Exception("请确保设置的K线类型为 'T':分笔，'S':秒线，'M':分钟，'D':日线 中的一个！")
+        if barType == 'S':
+            barType = 'T'
 
         # 清空界面设置的合约K线信息
         contract = self._metaData['Contract']
@@ -723,26 +647,8 @@ class StrategyConfig(object):
             feeDict[k] = deepcopy(initDict)
         return feeDict
 
-    def setTriggerCont(self, contNoTuple):
-        self._metaData['TriggerCont'] = contNoTuple
-
-    def getTriggerCont(self):
-        if 'TriggerCont' in self._metaData:
-            return self._metaData['TriggerCont']
-        return None
-
     def setActual(self):
         self._metaData['RunMode']['Actual']['SendOrder2Actual'] = True
-
-    # def setTradeMode(self, inActual, useSample, useReal):
-    #     runMode = self._metaData['RunMode']
-    #     if inActual:
-    #         # 实盘运行
-    #         runMode['Actual']['SendOrder2Actual'] = True
-    #     else:
-    #         # 模拟盘运行
-    #         runMode['Simulate']['UseSample'] = useSample
-    #         runMode['Simulate']['Continues'] = useReal
 
     def setOrderWay(self, type):
         if type not in (1, 2):
@@ -782,7 +688,7 @@ class StrategyConfig(object):
         return self._metaData['RunMode']['SendOrder']
 
     def hasKLineTrigger(self):
-        return True
+        return bool(self._metaData['Trigger']['KLine'])
 
     def hasTimerTrigger(self):
         return bool(self._metaData['Trigger']['Timer'])
@@ -822,3 +728,17 @@ class StrategyConfig(object):
         if "Params" not in self._metaData:
             return {}
         return self._metaData["Params"]
+
+    def updateSubQuoteContract(self, contNoList):
+        if not isinstance(contNoList, list) or not contNoList:
+            return
+
+        self._metaData['SubQuoteContract'].extend(contNoList)
+
+    def updateUnsubQuoteContract(self, contNoList):
+        if not isinstance(contNoList, list) or not contNoList:
+            return
+
+        self._metaData['UnsubQuoteContract'].extend(contNoList)
+
+

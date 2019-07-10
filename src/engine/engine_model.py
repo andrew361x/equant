@@ -1,5 +1,6 @@
 from capi.event import *
 from copy import deepcopy
+from datetime import datetime,timedelta
 from .trade_model import TradeModel
 
 class DataModel(object):
@@ -26,6 +27,7 @@ class QuoteModel:
         self._exchangeData  = {}  #{key=ExchangeNo,value=ExchangeModel}
         self._commodityData = {}  #{key=CommodityNo, value=CommodityModel}
         self._contractData  = {}  #{key=ContractNo, value=QuoteDataModel}
+        self._underlayData  = {}  #{key=ContractNo, value=UnderlayContractNo}
 
         self._baseDataReady = False
         
@@ -40,6 +42,12 @@ class QuoteModel:
         for k, v in self._exchangeData.items():
             dataDict[k] = v.getExchange()
         return Event({'EventCode':EV_EG2ST_EXCHANGE_RSP, 'Data':dataDict})
+        
+    def getTrendContract(self):
+        dataDict = {}
+        for k, v in self._trendContractData.items():
+            dataDict[k] = v.getTrendContract()
+        return Event({'EventCode':EV_EG2ST_TREND_CONTRACT_RSP, 'Data':dataDict})
 
     def getCommodity(self):
         dataDict = {}
@@ -48,6 +56,23 @@ class QuoteModel:
         #TODO：先不拷贝
         return Event({'EventCode':EV_EG2ST_COMMODITY_RSP, 'Data':dataDict})
 
+    def getContract(self):
+        dataDict = {}
+        for k, v in self._contractData.items():
+            dataDict[k] = v.getContract()
+            dataDict[k]['ContractNo'] = k
+        return Event({'EventCode': EV_EG2ST_CONTRACT_RSP, 'Data': dataDict})
+
+    def getUnderlayMap(self):
+        dataDict = deepcopy(self._underlayData)
+        return Event({'EventCode': EV_ST2EG_UNDERLAYMAPPING_RSP, 'Data': dataDict})
+
+    def getUnderlayContractNo(self, contNo):
+        if contNo not in self._underlayData:
+            return ""
+
+        return self._underlayData[contNo]
+
     # 交易所
     def updateExchange(self, apiEvent):
         dataList = apiEvent.getData()
@@ -55,6 +80,18 @@ class QuoteModel:
             self._exchangeData[dataDict['ExchangeNo']] = ExchangeModel(self.logger, dataDict)
         if apiEvent.isChainEnd():
             self.logger.info('Initialize exchange data(%d) successfully!'%len(self._exchangeData))
+            
+    # 交易所状态
+    def updateExchangeStatus(self, apiEvent):
+        dataList = apiEvent.getData()
+        for dataDict in dataList:
+            if dataDict['ExchangeNo'] not in self._exchangeData:
+                self.logger.error("updateExchangeStatus exchangeno(%s) error!"%dataDict['ExchangeNo'])
+                continue
+            exchangeModel = self._exchangeData[dataDict['ExchangeNo']]
+            exchangeModel.updateStatus(dataDict)
+        if apiEvent.isChainEnd():
+            self.logger.info('Initialize exchange status successfully!') 
 
     # 品种
     def updateCommodity(self, apiEvent):
@@ -79,6 +116,18 @@ class QuoteModel:
         if apiEvent.isChainEnd():
             pass
 
+    # 合约映射
+    def updateUnderlayMap(self, apiEvent):
+        dataList = apiEvent.getData()
+        for data in dataList:
+            contNo = data['ContractNo']
+            underlayContNo = data['UnderlayContractNo']
+            self._underlayData[contNo] = underlayContNo
+            
+        if apiEvent.isChainEnd():
+            self.logger.info('Initialize trend conotract data(%d) successfully!'%len(self._underlayData))
+            self._baseDataReady = True
+
     # 合约
     def updateContract(self, apiEvent):
         dataList = apiEvent.getData()
@@ -88,6 +137,15 @@ class QuoteModel:
         if apiEvent.isChainEnd():
             self.logger.info('Initialize contract data(%d) successfully!'%len(self._contractData))
             self._baseDataReady = True
+            
+    # 真实合约和虚拟合约
+    def updateTrendContract(self, apiEvent):
+        dataList = apiEvent.getData()
+        for dataDict in dataList:
+            self._trendContractData[dataDict['ContractNo']] = TrendContractModel(self.logger, dataDict)
+            
+        if apiEvent.isChainEnd():
+            self.logger.info('Initialize trend contract data(%d) successfully!'%len(self._trendContractData))
 
     def updateLv1(self, apiEvent):
         '''更新普通行情'''
@@ -120,8 +178,12 @@ class QuoteModel:
 class ExchangeModel:
     '''
     _metaData = {
-        'ExchangeNo'   : 'ZCE',             #交易所编号
-        'ExchangeName' : '郑州商品交易所'   #简体中文名称
+        'ExchangeNo'      : 'ZCE',             #交易所编号
+        'ExchangeName'    : '郑州商品交易所'   #简体中文名称
+        'Sign'            : 服务器标识
+        'ExchangeDateTime': 交易所系统时间
+        'LocalDateTime'   : 本地系统时间
+        'TradeState'      : 交易所状态
     }
     '''
     def __init__(self, logger, dataDict):
@@ -134,9 +196,45 @@ class ExchangeModel:
         self.logger = logger
         self._exchangeNo = dataDict['ExchangeNo']
         self._metaData = {
-            'ExchangeNo'   : dataDict['ExchangeNo'],
-            'ExchangeName' : dataDict['ExchangeName']
+            'ExchangeNo'       : dataDict['ExchangeNo'],
+            'ExchangeName'     : dataDict['ExchangeName'],
+            'Sign'             : '',
+            'ExchangeDateTime' : '',
+            'LocalDateTime'    : '',
+            'TradeState'       : ''
         }
+        self._timeDiff = 0
+        self._delta = 0
+        
+    def updateStatus(self, dataDict):
+        if dataDict['Sign'] != '':
+            self._metaData['Sign']  = dataDict['Sign']   
+        if dataDict['ExchangeDateTime'] != '' and dataDict['LocalDateTime'] != '':
+            self._metaData['ExchangeDateTime'] = dataDict['ExchangeDateTime']
+            self._metaData['LocalDateTime']    = dataDict['LocalDateTime'] 
+            #计算差值
+            exchange = datetime.strptime(dataDict['ExchangeDateTime'],"%Y-%m-%d %H:%M:%S")
+            local    = datetime.strptime(dataDict['LocalDateTime'],"%Y-%m-%d %H:%M:%S")
+            if exchange > local:
+                self._timeDiff = (exchange-local).seconds
+            else:
+                self._timeDiff = -((local-exchange).seconds)
+            self._delta = timedelta(seconds=self._timeDiff)
+            self.logger.info("Update %s time diff:%d"%(dataDict['ExchangeNo'], self._timeDiff))
+            
+        if dataDict['TradeState'] != '': 
+            self._metaData['TradeState'] = dataDict['TradeState']
+            self.logger.info("Update exchange status(%s:%s)"%(dataDict['ExchangeNo'], self._metaData['TradeState']))
+
+    def getExchangeTime(self):
+        '''获取交易所时间'''
+        now = datetime.now()
+        delta = timedelta(seconds=self._timeDiff)
+        sys = now + delta
+        return sys.strftime('%Y-%m-%d %H:%M:%S')
+        
+    def getExchangeStatus(self):
+        return self._metaData['TradeState']
 
     def getExchange(self):
         return self._metaData
@@ -231,7 +329,10 @@ class QuoteDataModel:
             'Lv2BidData' : [0 for i in range(10)],    # 买深度
             'Lv2AskData' : [0 for i in range(10)]     # 卖深度
         }
-        
+
+    def getContract(self):
+        return self._metaData
+
     def getEvent(self, strategyId):
         data = deepcopy(self._metaData)
         msg = {
@@ -290,6 +391,23 @@ class QuoteDataModel:
         if key not in self._metaData['Lv1Data']:
             return errRet
         return self._metaData['Lv1Data'][key]
+        
+        
+class TrendContractModel:
+    def __init__(self, logger, dataDict):
+        self.logger = logger
+
+        self._metaData = {
+            'ContractNo'         : dataDict['ContractNo'],
+            'UnderlayContractNo' : dataDict['UnderlayContractNo'],
+        }
+        
+    def getContract():
+        return self._metaData["UnderlayContractNo"]
+        
+    def getTrendContract():
+        return self._metaData
+    
 
 # 历史行情
 class HisQuoteModel:

@@ -19,7 +19,8 @@ class StrategyMenu(object):
         self.language = Language("EquantMainFrame")
 
         self._lClickSelectedItem = None   # 左键选择标签
-        self._rightClickPath = ""    # 记录右键弹出菜单时选中的策略路径
+        self._rightClickPath = ""         # 记录右键弹出菜单时选中的策略路径
+        self._rightClickItem = None       # 记录右键弹出菜单时选中的策略树的item id
 
         self.menu = Menu(self.widget, tearoff=0)
 
@@ -58,6 +59,7 @@ class StrategyMenu(object):
         # 记录右键所选择的策略路径
         if rSelectItem:  # 存在选择的策略
             self._rightClickPath = self.widget.item(rSelectItem)["values"][0]
+            self._rightClickItem = rSelectItem
 
         if self._lClickSelectedItem:
             if rSelectItem:
@@ -95,27 +97,28 @@ class StrategyMenu(object):
         def save(event=None):
             # 新建策略前先保存当前选中的策略
             self._controller.saveStrategy()
-            # TODO：目录树多选时path为list，新建文件的存储位置可能会有问题（总是新建到item最小的文件所在的文件夹）
-            temp_path = self.get_file_path()
-            path = temp_path[0]
-            if os.path.isdir(path):
-                dir_path = path
-            if os.path.isfile(path):
-                dir_path = os.path.dirname(path)
             file_name = newFileWin.nameEntry.get()
             file_type = newFileWin.type_chosen.get()
+            # TODO：目录树多选时path为list，新建文件的存储位置可能会有问题（总是新建到item最小的文件所在的文件夹）
             if file_name == "":
-                messagebox.showinfo(title=self.language.get_text(8), message=self.language.get_text(16), parent=newFileWin)
+                messagebox.showinfo(title=self.language.get_text(8), message=self.language.get_text(16),
+                                    parent=newFileWin)
             else:
+                temp_path = self.get_file_path()
+                path = temp_path[0]
+                if os.path.isdir(path):
+                    dir_path = path
+                if os.path.isfile(path):
+                    dir_path = os.path.dirname(path)
                 file = file_name + file_type
                 if not os.path.exists(os.path.join(dir_path, file)):
-                    # TODO：怎么把文件按文件名插入到合适的位置呢？
                     newFileWin.destroy()
                     filePath = os.path.join(dir_path, file)
                     self._controller.newStrategy(filePath)
                 else:
                     messagebox.showinfo(self.language.get_text(8),
-                                        self.language.get_text(17) + file + self.language.get_text(18), parent=newFileWin)
+                                        self.language.get_text(17) + file + self.language.get_text(18),
+                                        parent=newFileWin)
 
         def cancel():
             newFileWin.destroy()
@@ -131,7 +134,7 @@ class StrategyMenu(object):
 
         def save(event=None):
             # 新建前先保存当前选中的策略
-            self._controller.saveStrategy()
+            # self._controller.saveStrategy()
 
             file_name = newTop.nameEntry.get()
             if file_name == "":
@@ -176,6 +179,8 @@ class StrategyMenu(object):
         """移动文件"""
         # TODO: 可以用treeview的move方法实现吧
         # TODO：进行操作前需要对当前选中的策略进行保存
+        moveWin = MoveToplevel(self._controller.top)
+        moveWin.display()
         pass
 
     def rename(self):
@@ -197,7 +202,6 @@ class StrategyMenu(object):
                 return
             else:
                 if os.path.isfile(path):
-                    # print(os.path.splitext(renameTop.newEntry.get()))
                     if os.path.splitext(renameTop.newEntry.get())[0] == "" \
                             or os.path.splitext(renameTop.newEntry.get())[0] == ".py":
                         messagebox.showinfo("提示", "策略文件后缀名不能为空", parent=renameTop)
@@ -213,13 +217,13 @@ class StrategyMenu(object):
                         return
 
                 if not os.path.exists(newPath):
-                    self.widget.item(self._lClickSelectedItem, values=[newPath, "!@#$%^&*"])
+                    self.widget.item(self._rightClickItem, values=[newPath, "!@#$%^&*"])
                     os.rename(path, newPath)
 
                     if os.path.isfile(newPath):
 
                         text = renameTop.newEntry.get()
-                        self.widget.item(self._lClickSelectedItem, text=text)
+                        self.widget.item(self._rightClickItem, text=text)
                         # TODO:更新标签和model中的editor
                         if path in editorPath:
                             self._controller.setEditorTextCode(newPath)
@@ -227,8 +231,15 @@ class StrategyMenu(object):
 
                     if os.path.isdir(newPath):
                         text = renameTop.newEntry.get()
-                        self.widget.tag_configure(self._lClickSelectedItem, text=text)
-                    self.widget.update()
+                        self.widget.item(self._rightClickItem, text=text)
+
+                        # 如果修改选中策略的上层目录，则要更新选中策略的路径
+                        if path in editorPath:
+                            (_, tempFileName) = os.path.split(editorPath)
+                            self._controller.setEditorTextCode(os.path.join(newPath, tempFileName))
+
+                    # self.widget.update()
+                    self.parent.update_all_tree()
                 else:
                     messagebox.showinfo("提示", self.language.get_text(32), parent=renameTop)
             renameTop.destroy()
@@ -255,7 +266,8 @@ class StrategyMenu(object):
         # 当前选中的策略路径
         editorPath = self._controller.getEditorText()["path"]
         def enter(event=None):
-            self._controller.saveStrategy()
+            # 删除操作不保存选中的策略
+            # self._controller.saveStrategy()
             
             # 先关闭窗口
             deleteTop.destroy()
@@ -324,6 +336,7 @@ class RunMenu(object):
         self.menu.add_command(label="投资报告", command=self.onReport)
         self.menu.add_command(label="图表展示", command=self.onSignal)
         self.menu.add_command(label="属性设置", command=self.onParam)
+        self.menu.add_command(label="全选", command=self.onSelectAll)
 
     def popupmenu(self, event):
         select = self.widget.identify_row(event.y)
@@ -391,3 +404,8 @@ class RunMenu(object):
         # param = self._controller.getUserParam(self._strategyId)
         # path = self._controller.getEditorText()["path"]
         # self._controller.load(path, param)
+
+    def onSelectAll(self):
+        items = self.widget.get_children()
+        self.widget.selection_set(items)
+

@@ -307,7 +307,7 @@ class ReportDetail(object):
 
     @property
     def slippage_cost(self):  # 滑点损耗（还没算）
-        return 0
+        return self._profit["SlippageLoss"]
 
     @property
     def turnover(self):  # 成交额

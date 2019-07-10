@@ -1,7 +1,7 @@
 import numpy as np
 from capi.com_types import *
 from .engine_model import *
-import time, sys
+import time, sys, datetime
 from .trade_model import TradeModel
 
 class StrategyTrade(TradeModel):
@@ -131,7 +131,9 @@ class StrategyTrade(TradeModel):
         :return:
         '''
         if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
-            raise Exception("请确保您的账号已经在客户端登录")
+            #raise Exception("请确保您的账号已经在客户端登录")
+            self.logger.error("User not login")
+            return 0
 
         tUserInfoModel = self._userInfo[self._selectedUserNo]
         if len(tUserInfoModel._position) == 0:
@@ -151,9 +153,23 @@ class StrategyTrade(TradeModel):
         '''
         :return:当前公式应用的帐户下当前商品的买入持仓均价
         '''
-        totalPosPrice = self.getItemSumFromPositionModel('B', contNo, 'PositionPrice')
-        totalPosQty = self.getItemSumFromPositionModel('B', contNo, 'PositionQty')
-        return totalPosPrice/totalPosQty if totalPosQty > 0 else 0
+        if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
+            raise Exception("请确保您的账号已经在客户端登录")
+
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+        if len(tUserInfoModel._position) == 0:
+            return 0
+
+        contNo = self._config.getBenchmark() if not contNo else contNo
+        priceSum = 0.0
+        posSum = 0
+        for orderNo in list(tUserInfoModel._position.keys()):
+            tPositionModel = tUserInfoModel._position[orderNo]
+            if tPositionModel._metaData['Cont'] == contNo and tPositionModel._metaData['Direct'] == 'B':
+                priceSum += tPositionModel._metaData['PositionPrice'] * tPositionModel._metaData['PositionQty']
+                posSum += tPositionModel._metaData['PositionQty']
+
+        return priceSum / posSum if posSum > 0 else 0.0
 
     def getBuyPosition(self, contNo):
         '''
@@ -193,15 +209,29 @@ class StrategyTrade(TradeModel):
         '''
         :return:当前公式应用的帐户下当前商品的买入持仓盈亏
         '''
-        return self.getItemSumFromPositionModel('B', contNo, 'FloatProfit')
+        return self.getItemSumFromPositionModel('B', contNo, 'FloatProfitTBT')
 
     def getSellAvgPrice(self, contNo):
         '''
         :return: 当前公式应用的帐户下当前商品的卖出持仓均价
         '''
-        totalPosPrice = self.getItemSumFromPositionModel('S', contNo, 'PositionPrice')
-        totalPosQty = self.getItemSumFromPositionModel('S', contNo, 'PositionQty')
-        return totalPosPrice / totalPosQty if totalPosQty > 0 else 0
+        if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
+            raise Exception("请确保您的账号已经在客户端登录")
+
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+        if len(tUserInfoModel._position) == 0:
+            return 0
+
+        contNo = self._config.getBenchmark() if not contNo else contNo
+        priceSum = 0.0
+        posSum = 0
+        for orderNo in list(tUserInfoModel._position.keys()):
+            tPositionModel = tUserInfoModel._position[orderNo]
+            if tPositionModel._metaData['Cont'] == contNo and tPositionModel._metaData['Direct'] == 'S':
+                priceSum += tPositionModel._metaData['PositionPrice'] * tPositionModel._metaData['PositionQty']
+                posSum += tPositionModel._metaData['PositionQty']
+
+        return priceSum / posSum if posSum > 0 else 0.0
 
     def getSellPosition(self, contNo):
         '''
@@ -221,21 +251,36 @@ class StrategyTrade(TradeModel):
         '''
         :return: 当前公式应用的帐户下当前商品的卖出持仓盈亏
         '''
-        return self.getItemSumFromPositionModel('S', contNo, 'FloatProfit')
+        return self.getItemSumFromPositionModel('S', contNo, 'FloatProfitTBT')
 
     def getTotalAvgPrice(self, contNo):
         '''
         :return: 当前公式应用的帐户下当前商品的持仓均价
         '''
-        totalPosPrice = self.getItemSumFromPositionModel('', contNo, 'PositionPrice')
-        totalPosQty = self.getItemSumFromPositionModel('', contNo, 'PositionQty')
-        return totalPosPrice / totalPosQty if totalPosQty > 0 else 0
+        if len(self._userInfo) == 0 or self._selectedUserNo not in self._userInfo:
+            raise Exception("请确保您的账号已经在客户端登录")
+
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+        if len(tUserInfoModel._position) == 0:
+            return 0
+
+        contNo = self._config.getBenchmark() if not contNo else contNo
+        priceSum = 0.0
+        posSum = 0
+        for orderNo in list(tUserInfoModel._position.keys()):
+            tPositionModel = tUserInfoModel._position[orderNo]
+            if tPositionModel._metaData['Cont'] == contNo:
+                priceSum += tPositionModel._metaData['PositionPrice'] * tPositionModel._metaData['PositionQty']
+                posSum += tPositionModel._metaData['PositionQty']
+
+        return priceSum / posSum if posSum > 0 else 0.0
 
     def getTotalPosition(self, contNo):
         '''
         :return: 当前公式应用的帐户下当前商品的总持仓
         '''
-        return int(self.getItemSumFromPositionModel('', contNo, 'PositionQty'))
+        totalPos = int(self.getItemSumFromPositionModel('B', contNo, 'PositionQty')) - int(self.getItemSumFromPositionModel('S', contNo, 'PositionQty'))
+        return totalPos
 
     def getTotalProfitLoss(self, contNo):
         '''
@@ -468,6 +513,27 @@ class StrategyTrade(TradeModel):
                     minOrderId = orderModel._metaData['OrderId']
 
         return minOrderId
+
+    def getLastOrderNo(self, contNo1, contNo2):
+        if self._selectedUserNo not in self._userInfo:
+            raise Exception("请先在极星客户端登录您的交易账号")
+
+        tUserInfoModel = self._userInfo[self._selectedUserNo]
+        if len(tUserInfoModel._order) == 0:
+            return -1
+
+        orderId = -1
+        insertSeconds = -1
+        for orderKey in list(tUserInfoModel._order.keys()):
+            orderModel = tUserInfoModel._order[orderKey]
+            if not contNo1 or contNo1 == orderModel._metaData['Cont']:
+                timeDateStr = orderModel._metaData['InsertTime']
+                time1 = datetime.datetime.strptime(timeDateStr, "%Y-%m-%d %H:%M:%S")
+                seconds = float(time.mktime(time1.timetuple()))
+                if seconds >= insertSeconds and orderModel._metaData['OrderId'] > orderId:
+                    orderId = orderModel._metaData['OrderId']
+
+        return orderId
 
     def getFirstQueueOrderNo(self, contNo1, contNo2):
         if self._selectedUserNo not in self._userInfo:

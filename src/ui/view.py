@@ -139,6 +139,9 @@ class QuantApplication(object):
     def updateEditorText(self, text):
         self.quant_editor.updateEditorText(text)
 
+    def updateEditorModifyTime(self, time):
+        self.quant_editor.setModifyTime(time)
+
     # def updateExecuteList(self, executeList):
     #     self.quant_monitor.updateExecuteList(executeList)
         
