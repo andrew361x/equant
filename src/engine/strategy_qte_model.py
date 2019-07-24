@@ -96,17 +96,20 @@ class StrategyQuote(QuoteModel):
     # /////////////////////////////应答消息处理///////////////////
     def onExchange(self, event):
         dataDict = event.getData()
+        strategyId = event.getStrategyId()
         for k, v in dataDict.items():
             self._exchangeData[k] = ExchangeModel(self.logger, v) 
-            self._exchangeData[k].updateStatus(v)
+            self._exchangeData[k].updateStatus(strategyId, v)
        
-    def onExchangeStateNotice(self, event):
-        dataDict = event.getData()
-        for k, v in dataDict.items():
-            if k not in self._exchangeData:
-                continue
-            exchangeModel = self._exchangeData[k]
-            exchangeModel.updateStatus(v) 
+    def onExchangeStatus(self, event):
+        dataList = event.getData()
+        strategyId = event.getStrategyId()
+        for dataDict in dataList:
+            for k, v in dataDict.items():
+                if k not in self._exchangeData:
+                    continue
+                exchangeModel = self._exchangeData[k]
+                exchangeModel.updateStatus(strategyId, v) 
         
     def onCommodity(self, event):
         dataDict = event.getData()
@@ -266,7 +269,7 @@ class StrategyQuote(QuoteModel):
     @paramValidatorFactory(0)
     def getQAvgPrice(self, contNo):
         quoteDataModel = self._contractData[contNo]
-        return quoteDataModel.getLv1Data(15, 0.0)
+        return quoteDataModel.getLv1Data(13, 0.0)
 
     # 合约最新买价
     @paramValidatorFactory(0)

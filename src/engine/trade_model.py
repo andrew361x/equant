@@ -1,5 +1,6 @@
 from capi.event import *
 from copy import *
+import threading
 
 # #####################################交易数据模型#########################################
 class TLogoinModel:
@@ -66,8 +67,9 @@ class TUserInfoModel:
         contPosDict = {}  #cont, bs, h, data
         
         for v in self._position.values():
-            data = v._metaData
-            key = data['cont'] + data['Direct'] + data['Hedge'] 
+            data = v.getdeepdata()
+            if not data: continue
+            key = data['Cont'] + data['Direct'] + data['Hedge'] 
             contPosDict[key] = data
             
         return contPosDict
@@ -75,33 +77,35 @@ class TUserInfoModel:
     def updateMoney(self, data):
         currencyNo = data['CurrencyNo']
         if currencyNo not in self._money:
-            self._money[currencyNo] = TMoneyModel(self.logger, data)
+            money = TMoneyModel(self.logger, data)
+            self._money[currencyNo] = money
         else:
             self._money[currencyNo].updateMoney(data)
 
     def updateOrder(self, data):
         orderId = data['OrderId']
         if orderId not in self._order:
-            self._order[orderId] = TOrderModel(self.logger, data)
+            order = TOrderModel(self.logger, data)
+            self._order[orderId] = order
         else:
-            order = self._order[orderId]
-            order.updateOrder(data)
+            self._order[orderId].updateOrder(data)
 
     def updateMatch(self, data):
         orderNo = data['OrderNo']
         if orderNo not in self._match:
-            self._match[orderNo] = TMatchModel(self.logger, data)
+            match = TMatchModel(self.logger, data)
+            self._match[orderNo] = match
         else:
-            match = self._match[orderNo]
-            match.updateMatch(data)
+            self._match[orderNo].updateMatch(data)
 
     def updatePosition(self, data):
+        #先更新数据，再放队列，可能有线程安全问题
         posNo = data['PositionNo']
         if posNo not in self._position:
-            self._position[posNo] = TPositionModel(self.logger, data)
+            pos = TPositionModel(self.logger, data)
+            self._position[posNo] = pos
         else:
-            pos = self._position[posNo]
-            pos.updatePosition(data)
+            self._position[posNo].updatePosition(data)    
 
     def updateMoneyFromDict(self, moneyInfoDict):
         if len(moneyInfoDict) == 0:
@@ -209,31 +213,39 @@ class TMoneyModel:
     def __init__(self, logger, data):
         self.logger = logger
         self._metaData = {}
+        self._lock = threading.Lock()
         self.updateMoney(data)
         
-    def updateMoney(self, data):    
-        self._metaData['UserNo']           = data['UserNo']        
-        self._metaData['Sign']             = data['Sign']          
-        self._metaData['CurrencyNo']       = data['CurrencyNo']       #币种号
-        self._metaData['ExchangeRate']     = data['ExchangeRate']     #币种汇率
-        self._metaData['FrozenFee']        = data['FrozenFee']        #冻结手续费
-        self._metaData['FrozenDeposit']    = data['FrozenDeposit']    #冻结保证金
-        self._metaData['Fee']              = data['Fee']              #手续费(包含交割手续费)
-        self._metaData['Deposit']          = data['Deposit']          #保证金
-        self._metaData['FloatProfit']      = data['FloatProfit']      #盯式盈亏，不含LME持仓盈亏
-        self._metaData['FloatProfitTBT']   = data['FloatProfitTBT']   #逐笔浮赢
-        self._metaData['CoverProfit']      = data['CoverProfit']      #盯市平盈
-        self._metaData['CoverProfitTBT']   = data['CoverProfitTBT']   #逐笔平盈
-        self._metaData['Balance']          = data['Balance']          #今资金=PreBalance+Adjust+CashIn-CashOut-Fee(TradeFee+DeliveryFee+ExchangeFee)+CoverProfitTBT+Premium
-        self._metaData['Equity']           = data['Equity']           #今权益=Balance+FloatProfitTBT(NewFloatProfit+LmeFloatProfit)+UnExpiredProfit
-        self._metaData['Available']        = data['Available']        #今可用=Equity-Deposit-Frozen(FrozenDeposit+FrozenFee)
-        self._metaData['UpdateTime']       = data['UpdateTime']       #资金更新时间戳
+    def updateMoney(self, data):
+        with self._lock:
+            self._metaData['UserNo']           = data['UserNo']        
+            self._metaData['Sign']             = data['Sign']          
+            self._metaData['CurrencyNo']       = data['CurrencyNo']       #币种号
+            self._metaData['ExchangeRate']     = data['ExchangeRate']     #币种汇率
+            self._metaData['FrozenFee']        = data['FrozenFee']        #冻结手续费
+            self._metaData['FrozenDeposit']    = data['FrozenDeposit']    #冻结保证金
+            self._metaData['Fee']              = data['Fee']              #手续费(包含交割手续费)
+            self._metaData['Deposit']          = data['Deposit']          #保证金
+            self._metaData['FloatProfit']      = data['FloatProfit']      #盯式盈亏，不含LME持仓盈亏
+            self._metaData['FloatProfitTBT']   = data['FloatProfitTBT']   #逐笔浮赢
+            self._metaData['CoverProfit']      = data['CoverProfit']      #盯市平盈
+            self._metaData['CoverProfitTBT']   = data['CoverProfitTBT']   #逐笔平盈
+            self._metaData['Balance']          = data['Balance']          #今资金=PreBalance+Adjust+CashIn-CashOut-Fee(TradeFee+DeliveryFee+ExchangeFee)+CoverProfitTBT+Premium
+            self._metaData['Equity']           = data['Equity']           #今权益=Balance+FloatProfitTBT(NewFloatProfit+LmeFloatProfit)+UnExpiredProfit
+            self._metaData['Available']        = data['Available']        #今可用=Equity-Deposit-Frozen(FrozenDeposit+FrozenFee)
+            self._metaData['UpdateTime']       = data['UpdateTime']       #资金更新时间戳
         
         '''self.logger.info("[MONEY]%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%s"%(
             data['CurrencyNo'], data['Fee'],data['Deposit'], data['FloatProfit'],
             data['FloatProfitTBT'],data['CoverProfit'],data['CoverProfitTBT'],
             data['Balance'], data['Equity'],data['Available'],data['UpdateTime']
         ))'''
+        
+    def getdeepdata(self):
+        data = None
+        with self._lock:
+            data = deepcopy(self._metaData)
+        return data
         
 class TOrderModel:
     '''委托信息'''
@@ -300,23 +312,32 @@ class TPositionModel:
     '''持仓信息'''
     def __init__(self, logger, data):
         self.logger = logger
+        self._lock = threading.Lock()
         self._metaData = {}
         self.updatePosition(data)
         
     def updatePosition(self, data):
-        self._metaData['PositionNo']        =  data['PositionNo']
-        self._metaData['UserNo']            =  data['UserNo']            #             
-        self._metaData['Sign']              =  data['Sign']           
-        self._metaData['Cont']              =  data['Cont']              # 行情合约
-        self._metaData['Direct']            =  data['Direct']            # 买卖方向
-        self._metaData['Hedge']             =  data['Hedge']             # 投机保值
-        self._metaData['Deposit']           =  data['Deposit']           # 初始保证金
-        self._metaData['PositionQty']       =  data['PositionQty']        # 总持仓
-        self._metaData['PrePositionQty']    =  data['PrePositionQty']          # 昨持仓数量
-        self._metaData['PositionPrice']     =  data['PositionPrice']       # 价格
-        self._metaData['ProfitCalcPrice']   =  data['ProfitCalcPrice']          # 浮盈计算价
-        self._metaData['FloatProfit']       =  data['FloatProfit']     # 浮盈
-        self._metaData['FloatProfitTBT']    =  data['FloatProfitTBT']            # 逐笔浮盈
+        #多线程访问
+        with self._lock:
+            self._metaData['PositionNo']        =  data['PositionNo']
+            self._metaData['UserNo']            =  data['UserNo']            #             
+            self._metaData['Sign']              =  data['Sign']           
+            self._metaData['Cont']              =  data['Cont']              # 行情合约
+            self._metaData['Direct']            =  data['Direct']            # 买卖方向
+            self._metaData['Hedge']             =  data['Hedge']             # 投机保值
+            self._metaData['Deposit']           =  data['Deposit']           # 初始保证金
+            self._metaData['PositionQty']       =  data['PositionQty']        # 总持仓
+            self._metaData['PrePositionQty']    =  data['PrePositionQty']          # 昨持仓数量
+            self._metaData['PositionPrice']     =  data['PositionPrice']       # 价格
+            self._metaData['ProfitCalcPrice']   =  data['ProfitCalcPrice']          # 浮盈计算价
+            self._metaData['FloatProfit']       =  data['FloatProfit']     # 浮盈
+            self._metaData['FloatProfitTBT']    =  data['FloatProfitTBT']            # 逐笔浮盈
+            
+    def getdeepdata(self):
+        data = None
+        with self._lock:
+            data = deepcopy(self._metaData)    
+        return data
 
     def getContractNo(self):
         return self._metaData["Cont"]

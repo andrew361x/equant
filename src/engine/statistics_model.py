@@ -8,18 +8,21 @@ class StatisticsModel(object):
         self._strategy = strategy
         self.logger = strategy.logger
         self._config = config
+            
 
     def SMA(self, price:np.array, period, weight):
         sma = 0.0
         smas = []
 
         if period <= 0:
-            return -1, np.array(smas)
+            return np.array(smas)
 
         if weight > period or weight <= 0:
-            return -2, np.array(smas)
+            return np.array(smas)
 
         for i, p in enumerate(price):
+            if np.isnan(p):
+                p = 0.0
             if i == 0:
                 sma = p
             else:
@@ -27,7 +30,7 @@ class StatisticsModel(object):
 
             smas.append(sma)
 
-        return 0, np.array(smas)
+        return np.array(smas)
 
     def ParabolicSAR(self, high:np.array, low:np.array, afstep, aflimit):
         oParClose = None

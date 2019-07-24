@@ -16,7 +16,7 @@ import datetime
 from datetime import datetime
 import copy
 from collections import OrderedDict
-from .trigger_mgr import TriggerMgr
+
 
 
 class StartegyManager(object):
@@ -256,8 +256,6 @@ class StrategyContext:
         self._parameter = parameter
 
 
-
-
 class TradeRecord(object):
     def __init__(self, eSessionId, orderData={}):
         self._eSessionId = eSessionId   # eSessionId
@@ -317,6 +315,7 @@ class Strategy:
         data = event.getData()
         self._filePath = data['Path']
         self._argsDict = data['Args']
+
         # 是否运行initialize函数
         self._noInitialize = "NoInitialize" in data and data["NoInitialize"]
         self._uiConfig = copy.deepcopy(data['Args'])
@@ -327,7 +326,6 @@ class Strategy:
         self._st2uiQueue = args['st2ui']
         moduleDir, moduleName = os.path.split(self._filePath)
         self._strategyName = ''.join(moduleName.split('.')[:-1])
-        self._triggerMgr = None
 
         # 策略所在进程状态, Ready、Running、Exit、Pause
         self._strategyState = StrategyStatusReady
@@ -343,15 +341,15 @@ class Strategy:
         self._localOrder = {} # {本地生成的eSessionId : TradeRecode对象}
         
         self._moneyLastTime = 0
-        #self._userModelDict = {}
+        self._virtualPosTime = 0
+        # self._userModelDict = {}
 
     # ////////////////////////////对外接口////////////////////
-    
     def _initialize(self):
         self._strategyState = StrategyStatusRunning
-        #用户模板函数路径加入系统路径，并扩展baseapi的作用域
+        # 用户模板函数路径加入系统路径，并扩展baseapi的作用域
         workPath = os.path.abspath('.')
-        userPath = workPath + "\strategy\FuncTemplate"
+        userPath = workPath + r"\strategy\扩展函数"
         if userPath not in sys.path:
             sys.path.insert(0, userPath)
         
@@ -378,26 +376,28 @@ class Strategy:
                 self._userModelDict[modelFile] = model
 
         # 1. 加载用户策略
+        import builtins
+        builtins.g_params = {}
         userModule = importlib.import_module(moduleName)
         userModule.__dict__.update(base_api.__dict__)
-
         # 2. 创建策略上下文
         self._context = StrategyContext()
 
         # 5. 初始化用户策略参数
         if not self._noInitialize:
             userModule.initialize(self._context)
-            self._argsDict["Params"] = self._context.params
-            self._dataModel.getConfigModel().setParams(self._context.params)
-        else:
-            self._context.params = self._argsDict["Params"]
+
+        self._dataModel.getConfigModel().setParams(self._argsDict["Params"])
+
+        builtins.g_params = {k:v[0] for k,v in self._argsDict["Params"].items()}
+        #     self._argsDict["Params"] = self._context.params
+        #     self._dataModel.getConfigModel().setParams(self._context.params)
+        # else:
+        #     self._context.params = self._argsDict["Params"]
 
         self._userModule = userModule
         # 5.1 同步配置
         self._sendConfig2Engine()
-
-        self._triggerMgr = TriggerMgr(list(self._dataModel.getConfigModel().getKLineKindsInfo()), self)
-
         # 6. 初始化model
         self._dataModel.initialize()
 
@@ -572,6 +572,23 @@ class Strategy:
             })
 
             self.sendEvent2UI(event)
+            
+    def _noticeVirtualPos(self):
+        nowTime = datetime.now()
+        if self._virtualPosTime == 0 or (nowTime - self._virtualPosTime).total_seconds() >= 1:
+            self._virtualPosTime = nowTime
+            calc = self._dataModel.getCalcCenter()
+            #获取该策略所有合约的虚拟持仓
+            posDict = calc.getPositionInfo()
+            if len(posDict) == 0:
+                return
+            event = Event({
+                "StrategyId" : self._strategyId,
+                "EventCode"   : EV_ST2EG_POSITION_NOTICE,
+                "Data"        : posDict
+            })
+            
+            self.sendEvent2Engine(event)
 
         
     def _runTimer(self):
@@ -588,6 +605,8 @@ class Strategy:
             self._triggerCycle()
             # 通知资金变化
             self._triggerMoney()
+            # 发送持仓变化
+            self._noticeVirtualPos()
             # 休眠100ms
             time.sleep(0.1)
 
@@ -720,60 +739,6 @@ class Strategy:
         
     def _onHisQuoteNotice(self, event):
         self._dataModel.getHisQuoteModel().onHisQuoteNotice(event)
-        if self.isRealTimeStatus():
-            self._triggerMgr.updateData(event)
-            if self._triggerMgr.isAllDataReady(event.getContractNo()):
-                self._sendSyncTriggerEvent(event.getContractNo())
-                self._triggerMgr.restAllData(event.getContractNo())
-
-    def _sendSyncTriggerEvent(self, contractNo):
-        syncTriggerInfo = self._triggerMgr.getSyncTriggerInfo(contractNo)
-
-        # 发送填充k线事件
-        for record, dataEvent in syncTriggerInfo.items():
-            if record[1] ==0 or record[2] == 0:
-                continue
-
-            event = Event({
-                "EventCode": ST_TRIGGER_FILL_DATA,
-                "ContractNo": record[0],
-                "KLineType": record[1],
-                "KLineSlice": record[2],
-                "Data": {
-                    "Data": dataEvent.getData()[0],
-                    "Status": ST_STATUS_CONTINUES
-                }
-            })
-            self.sendTriggerQueue(event)
-
-        for record, dataEvent in syncTriggerInfo.items():
-            if record == (contractNo, 0, 0):
-                dateTimeStamp, tradeDate, lv1Data = self.getTriggerTimeAndData(contractNo)
-                event = Event({
-                    "EventCode": ST_TRIGGER_SANPSHOT_FILL,
-                    "ContractNo": contractNo,
-                    "KLineType": None,
-                    "KLineSlice": None,
-                    "Data": {
-                        "Data": lv1Data,
-                        "DateTimeStamp": dateTimeStamp,
-                        "TradeDate": tradeDate,
-                        "IsLastPriceChanged": 4 in dataEvent.getData()[0]["FieldData"],  # 最新价是否改变
-                    }
-                })
-            else:
-                event = Event({
-                    "EventCode": ST_TRIGGER_KLINE,
-                    "ContractNo": record[0],
-                    "KLineType": record[1],
-                    "KLineSlice": record[2],
-                    "Data": {
-                        "Data": dataEvent.getData()[0],
-                        "DateTimeStamp": dataEvent.getData()[0]["DateTimeStamp"],
-                        "TradeDate": dataEvent.getData()[0]["TradeDate"],
-                    }
-                })
-            self.sendTriggerQueue(event)
 
     # 报告事件, 发到engine进程中，engine进程 再发到ui进程。
     def _onReport(self, event):
@@ -794,6 +759,7 @@ class Strategy:
         '''向界面返回策略加载应答'''
         cfg = self._dataModel.getConfigData()
         key = self._dataModel.getConfigModel().getKLineShowInfoSimple()
+
         revent = Event({
             "EventCode" : EV_EG2UI_LOADSTRATEGY_RESPONSE,
             "StrategyId": self._strategyId,
@@ -807,7 +773,8 @@ class Strategy:
                 "IsActualRun"  : self._dataModel.getConfigModel().isActualRun(),
                 "InitialFund"  : self._dataModel.getConfigModel().getInitCapital(),
                 "Config"       : cfg,
-                "Params"       : self._context.params,
+                "Params"       : self._dataModel.getConfigModel().getParams(),
+                "Path"         : self._filePath,
             }
         })
         self.sendEvent2UI(revent)
@@ -842,6 +809,10 @@ class Strategy:
         # 更新本地订单信息
         dataList = apiEvent.getData()
         eSessionId = apiEvent.getESessionId()
+        # self.logger.debug(f"sun --------------- strategy : ")
+        # self.logger.debug(f"sun ------ eSessionId : {eSessionId}")
+        # for dataDict in dataList:
+        #     self.logger.debug(f"sun ------ OrderId :  {dataDict['OrderId']} , OrderState : {dataDict['OrderState']}")
         for data in dataList:
             self.updateLocalOrder(eSessionId, data)
         if self.isRealTimeStatus():
@@ -864,6 +835,9 @@ class Strategy:
         self._dataModel._trdModel.updatePosData(apiEvent)
 
     def _onTradeOrderQry(self, apiEvent):
+        # self.logger.debug(f"sun --------------- strategy qry : ")
+        # for dataDict in apiEvent.getData():
+        #     self.logger.debug(f"sun ------ OrderId :  {dataDict['OrderId']} , OrderState : {dataDict['OrderState']}")
         self._dataModel._trdModel.updateOrderData(apiEvent)
 
     def _onTradeMatch(self, apiEvent):
@@ -1080,16 +1054,6 @@ class Strategy:
             # 4:最新价 11:成交量 17:最优买价 18:买量 19:最优卖价 20:卖量
             return
 
-        # 如果有成交量变化，将等待该合约所有k线到达后再触发。
-        # if 11 in data[0]["FieldData"].keys():
-        #     self._triggerMgr.updateData(event)
-        #     # ************************************
-        #     if self._triggerMgr.isAllDataReady(event.getContractNo()):
-        #         self._sendSyncTriggerEvent(event.getContractNo())
-        #         self._triggerMgr.restAllData(event.getContractNo())
-        #     return
-            # ************************************
-
         dateTimeStamp, tradeDate, lv1Data = self.getTriggerTimeAndData(event.getContractNo())
         event = Event({
             "EventCode" : ST_TRIGGER_SANPSHOT_FILL,
@@ -1190,6 +1154,3 @@ class Strategy:
     def _onSyncEngineInfo(self, event):
         orderId = event.getData()["MaxOrderId"]
         self._eSessionId = orderId
-
-    def getTriggerMgr(self):
-        return self._triggerMgr

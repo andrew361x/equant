@@ -72,6 +72,7 @@ EV_EG2UI_REPORT_RESPONSE          = 0x102           # 回测报告应答
 EV_EG2UI_CHECK_RESULT             = 0x103           # 检测结果
 EV_EG2ST_MONITOR_INFO             = 0x104           # 监控信息
 EV_EG2UI_STRATEGY_STATUS          = 0x105           # 策略变化事件 
+EV_EG2UI_POSITION_NOTICE          = 0x106           # 持仓同步信息
 
 #////////////////////策略->引擎事件定义////////////////////////
 EV_ST2EG_EXCHANGE_REQ             = 0x201           #查询交易所信息
@@ -91,6 +92,7 @@ EV_ST2EG_UNSUB_HISQUOTE           = 0x224           #退订历史行情
 
 EV_ST2EG_LOGINNO_REQ              = 0x230           #请求登录账号
 EV_ST2EG_USERNO_REQ               = 0x231           #请求资金账号
+EV_ST2EG_POSITION_NOTICE          = 0x232           #同步持仓信息
 
 EV_ST2EG_SWITCH_STRATEGY          = 0x250           #切换策略图
 EV_ST2EG_NOTICE_KLINEDATA         = 0x251           #推送K线数据
@@ -538,14 +540,15 @@ VKLineType                   = "24"     # K线类型
 VKLineSlice                  = "25"     # K线周期
 VSendOrderMode               = "26"     # 发单时机： 0. 实时发单 1. K线稳定后发单
 VIsActual                    = "27"     # 实时发单
-VIsOpenTimes                 = "28"     #每根K线同向开仓次数标志
+VIsOpenTimes                 = "28"     # 每根K线同向开仓次数标志
 VOpenTimes                   = "29"     # 每根K线同向开仓次数
 VIsConOpenTimes              = "30"     # 最大连续同向开仓次数标志
 VConOpenTimes                = "31"     # 最大连续同向开仓次数
 VCanClose                    = "32"     # 开仓的当前K线不允许平仓
 VCanOpen                     = "33"     # 平仓的当前K线不允许开仓
 VParams                      = "34"     # 用户设置的参数
-VContSettings                = "35"     # 多合约设置信息
+VContSettings                = "35"     # 多合约设置信息\
+VIsAlarm                     = "36"     # 发单报警
 
 # K线数据类型
 BarDataClose        = 'C' # 收盘价

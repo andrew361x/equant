@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+# from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 import matplotlib.pyplot as plt, matplotlib.dates as mdate
 from matplotlib import ticker
 
@@ -34,6 +34,7 @@ class ReportView(tk.Frame):
         self.data = data
         self.config(width=800, height=500)
         self.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.YES)
+        self.dire = None
         self.make_widgets()
 
     def make_widgets(self):
@@ -190,9 +191,9 @@ class BaseFrame(tk.Frame):
         canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
         # canvas.draw()
 
-        toolbar = NavigationToolbar2Tk(canvas, parent)
-        toolbar.update()
-        canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        # toolbar = NavigationToolbar2Tk(canvas, parent)
+        # toolbar.update()
+        # canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
 
 class Detail(BaseFrame):

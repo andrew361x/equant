@@ -443,7 +443,7 @@ class SignalText(ParentText):
         self.insert("end", text)
         self.config(state="disabled")
         self.update()
-        if self.rollFlag:
+        if self.rollFlag.get():
             self.see("end")
         else:
             self.see("current")
@@ -481,7 +481,7 @@ class MonitorText(ParentText):
         self.insert("end", text)
         self.config(state="disabled")
         self.update()
-        if self.rollFlag:
+        if self.rollFlag.get():
             self.see("end")
         else:
             self.see("current")
@@ -589,7 +589,7 @@ class ErrorText(ParentText):
         self.insert("end", text + "\n")
         self.config(state="disabled")
         self.update()
-        if self.rollFlag:
+        if self.rollFlag.get():
             self.see("end")
         else:
             self.see("current")

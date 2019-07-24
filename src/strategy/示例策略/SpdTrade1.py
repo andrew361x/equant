@@ -16,7 +16,7 @@ def initialize(context):
     
 def handle_data(context):
     if len(Close(code1, 'M', 1)) < p1 or len(Close(code2, 'M', 1)) < p1:
-        return;
+        return
 
     ma1 = talib.MA(Close(code1, 'M', 1), timeperiod=p1, matype=0)
     ma2 = talib.MA(Close(code2, 'M', 1), timeperiod=p1, matype=0)    

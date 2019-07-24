@@ -1,5 +1,5 @@
 import talib
-
+from datetime import datetime
 
 def initialize(context): 
     SetBarInterval('DCE|F|I|1909', 'M', 1, 1)
@@ -8,7 +8,9 @@ def initialize(context):
     #SetBarInterval('SHFE|F|RB|1910', 'M', 1, 1)
 
 def handle_data(context):
-    LogInfo("DCE", ExchangeTime("DCE"), ExchangeStatus("DCE"))
-    LogInfo("ZCE", ExchangeTime("ZCE"), ExchangeStatus("ZCE"))
-    LogInfo("SHFE", ExchangeTime("SHFE"), ExchangeStatus("SHFE"))
-    LogInfo("INE", ExchangeTime("INE"), ExchangeStatus("INE"))
+    now = datetime.now()
+    LogInfo("DCE", now, ExchangeTime("DCE"), ExchangeStatus("DCE"))
+    LogInfo("ZCE", now,ExchangeTime("ZCE"), ExchangeStatus("ZCE"))
+    LogInfo("SHFE", now,ExchangeTime("SHFE"), ExchangeStatus("SHFE"))
+    LogInfo("INE", now,ExchangeTime("INE"), ExchangeStatus("INE"))
+    LogInfo("CFFEX", now,ExchangeTime("CFFEX"), ExchangeStatus("CFFEX"))

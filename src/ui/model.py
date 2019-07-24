@@ -1,8 +1,10 @@
 import os
 
+import threading
 import copy
 import traceback
 import queue
+from tkinter import messagebox
 
 from utils.utils import load_file
 from capi.com_types import *
@@ -83,13 +85,6 @@ class SendRequest(object):
 
         # 注册发送请求事件
         # self._regRequestCallback()
-
-    # def _regRequestCallback(self):
-    #     self._uiRequestCallback = {
-    #         EV_UI2EG_LOADSTRATEGY: self.,
-    #         EV_UI2EG_REPORT: self.,
-    #
-    #     }
 
     def loadRequest(self, path, config):
         """加载请求"""
@@ -237,7 +232,7 @@ class GetEgData(object):
         self._eg2uiQueue = queue
         self._curStId = None  # 当前加载的策略ID
         self._reportData = {}  # 回测报告请求数据
-        self._stManager = StrategyManager(app)  # 策略管理器
+        self._stManager = StrategyManager(app, logger)  # 策略管理器
         self._exchangeList = []
         self._commodityList = []
         self._contractList = []
@@ -254,6 +249,7 @@ class GetEgData(object):
             EV_EG2UI_CHECK_RESULT:          self._onEgDebugInfo,
             EV_EG2ST_MONITOR_INFO:          self._onEgMonitorInfo,
             EV_EG2UI_STRATEGY_STATUS:       self._onEgStrategyStatus,
+            EV_EG2UI_POSITION_NOTICE:       self._onEgPositionNotice,
             EEQU_SRVEVENT_EXCHANGE:         self._onEgExchangeInfo,
             EEQU_SRVEVENT_COMMODITY:        self._onEgCommodityInfo,
             EEQU_SRVEVENT_CONTRACT:         self._onEgContractInfo,
@@ -278,8 +274,12 @@ class GetEgData(object):
         id = event.getStrategyId()
 
         tempResult = data["Result"]
+        if not tempResult["Fund"]:
+            messagebox.showinfo("提示", "回测数据为空！")
+            return
 
         self._reportData = tempResult
+
         # 取到报告数据弹出报告
         if self._reportData:
             self._app.reportDisplay(self._reportData, id)
@@ -289,6 +289,7 @@ class GetEgData(object):
     def _onEgDebugInfo(self, event):
         """获取引擎策略调试信息"""
         data = event.getData()
+        print("111111111112")
         stId = event.getStrategyId()
         if data:
             errText = data["ErrorText"]
@@ -310,7 +311,7 @@ class GetEgData(object):
         """获取引擎推送交易所信息"""
         exData = event.getData()
         self._exchangeList.extend(exData)
-        
+
     def _onEgExchangeStatus(self, event):
         '''获取交易所状态及时间'''
         pass
@@ -343,7 +344,7 @@ class GetEgData(object):
         self._logger.info(f"[UI][{id}]: Receiving strategy status %s successfully!"%(sStatus))
 
         #TODO: if需要改下
-        if id not in self._stManager.getStrategyDict():
+        if id not in self._stManager.getStrategyDict() and sStatus != ST_STATUS_REMOVE:
             dataDict = {
                 "StrategyId":   id,
                 "Status":       sStatus
@@ -352,21 +353,26 @@ class GetEgData(object):
         else:
             # 策略状态改变后要通知监控界面
             self._stManager.updateStrategyStatus(id, sStatus)
-            # TODO：直接将dataDict传进去？
-            dataDict = self._stManager.getSingleStrategy(id)
-
-            self._app.updateStatus(id, dataDict)
+            # 更新策略Id的运行状态
+            self._app.updateStatus(id, sStatus)
             if sStatus == ST_STATUS_QUIT:
                 # 策略停止时接收策略数据
                 self._stManager.addResultData(id, event.getData()["Result"])
                 self._logger.info(f"[UI][{id}]: Receiving strategy data successfully when strategy quit!")
+            # TODO：引擎发了两遍remove事件
             if sStatus == ST_STATUS_REMOVE:
                 # 删除策略需要接到通知之后再进行删除
-                # 将策略管理器中的该策略也删除掉
                 self._stManager.removeStrategy(id)
                 # 更新界面
-                self._app.delUIStrategy(id)
                 self._logger.info(f"[UI][{id}]: Receiving strategy removing answer info successfully!")
+                self._app.delUIStrategy(id)
+
+    def _onEgPositionNotice(self, event):
+        #TODO：没有登录交易账户时接收不到该事件
+        syncPosition = event.getData()
+        # print("aaaaaaaaaa: ", syncPosition)
+        self._app.updateSyncPosition(syncPosition)
+        # self._logger.info("[UI]: Receiving sync position info successfully!")
 
     def _onEgConnect(self, event):
         src = event.getEventSrc()
@@ -383,13 +389,13 @@ class GetEgData(object):
         self._logger.info(f"[UI]: handlerExit")
 
     def handlerEgEvent(self):
-        # 如果不给出超时则会导致线程退出时阻塞
 
         try:
             # 如果不给出超时则会导致线程退出时阻塞
             event = self._eg2uiQueue.get(timeout=0.1)
+            # event = self._eg2uiQueue.get_nowait()
             eventCode = event.getEventCode()
-            #self._logger.debug("[UI]handlerEgEvent code:%d,strategyid:%d"%(eventCode, event.getStrategyId()))
+
             if eventCode not in self._egAskCallbackDict:
                 self._logger.error(f"[UI]: Unknown engine event{eventCode}")
             else:
@@ -413,6 +419,9 @@ class GetEgData(object):
 
     def getExchange(self):
         """取得接收到的交易所信息"""
+        # 去重
+        # exchangeList = []
+        # [exchangeList.append(ex) for ex in self._exchangeList if not ex in exchangeList]
         return self._exchangeList
 
     def getCommodity(self):
@@ -443,14 +452,16 @@ class StrategyManager(object):
     }
     """
 
-    def __init__(self, app):
+    def __init__(self, app, logger):
         self._app = app
+        self._logger = logger
         self._strategyDict = {}
+        self.lock = threading.RLock()
 
     def addStrategy(self, dataDict):
         id = dataDict['StrategyId']
         self._strategyDict[id] = dataDict
-        self._app.updateSingleExecute(dataDict)
+        self._app.addExecute(dataDict)
 
     def add_(self, dataDict):
         #TODO: 策略状态传过来事件问题
@@ -475,7 +486,8 @@ class StrategyManager(object):
         return self._strategyDict[id]["StrategyName"]
 
     def updateStrategyStatus(self, id, status):
-        self._strategyDict[id]["StrategyState"] = status
+        if id in self._strategyDict:
+            self._strategyDict[id]["StrategyState"] = status
 
     def getStrategyConfigData(self, id):
         """获取运行设置信息"""
@@ -487,7 +499,13 @@ class StrategyManager(object):
 
     def getStrategyDict(self):
         """获取全部运行策略"""
-        return copy.deepcopy(self._strategyDict)
+        self.lock.acquire()
+        try:
+            return copy.deepcopy(self._strategyDict)
+        except RuntimeError:
+            self._logger.warn("strategyDict在访问过程中更改")
+        finally:
+            self.lock.release()
 
     def getSingleStrategy(self, id):
         """获取某个运行策略"""

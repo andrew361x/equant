@@ -1,5 +1,10 @@
+import os
+import sys
 import threading
 import time
+import importlib
+import traceback
+import re
 
 from tkinter import Tk
 from tkinter import messagebox
@@ -73,9 +78,14 @@ class TkinterController(object):
         strategyDict = self.strategyManager.getStrategyDict()
         #TODO: strategyDict的异常策略应该怎么处理?
         for stId in strategyDict:
-            if len(strategyDict[stId]) < 4:
-                return
-            self.app.updateStatus(stId, strategyDict[stId])
+            if "RunningData" not in strategyDict[stId]:
+                continue
+            if strategyDict[stId]["StrategyState"] == ST_STATUS_PAUSE or strategyDict[stId][
+                  "StrategyState"] == ST_STATUS_QUIT or strategyDict[stId][
+                  "StrategyState"] == ST_STATUS_EXCEPTION:
+                continue
+
+            self.app.updateValue(stId, strategyDict[stId]["RunningData"])
 
     def quitThread(self):
         self.logger.info("quitThread exit")
@@ -125,6 +135,47 @@ class TkinterController(object):
         """保存当前策略"""
         self.app.quant_editor.saveEditor()
 
+    def parseStrategtParam(self, strategyPath):
+        """解析策略中的用户参数"""
+        # moduleDir, moduleName = os.path.split(strategyPath)
+        # moduleName = os.path.splitext(moduleName)[0]
+        # if moduleDir not in sys.path:
+        #     sys.path.insert(0, moduleDir)
+        # try:
+        #     userModule = importlib.import_module(moduleName)
+        #     userModule = importlib.reload(userModule)
+        # except:
+        #     errorText = traceback.format_exc(0)
+        #     self.sendErrorMessage(errorText)
+        #     return {}
+        # finally:
+        #     sys.path.remove(sys.path[0])
+        #
+        # g_params = {}
+        # if "g_params" in vars(userModule):
+        #     g_params = vars(userModule)["g_params"]
+        # return g_params
+        g_params = {}
+        with open(strategyPath, 'r', encoding="utf-8") as f:
+            content = [line.strip() for line in f]
+            for c in content:
+                #regex = re.compile(r"\s*g_params[\[][\"\'](.*)[\"\'][\]]\s*=[\s]*([^\s]*)[\s]*(#[\s]*(.*))?")
+                regex = re.compile(r"^g_params[\[][\"\'](.*)[\"\'][\]]\s*=[\s]*([^\s]*)[\s]*(#[\s]*(.*))?")
+                reg = regex.search(c)
+                if reg:
+                    ret = [reg.groups()[1], reg.groups()[3]]
+                    if ret[1] is None: ret[1] = ""
+                    try:
+                        ret[0] = eval(ret[0])
+                    except:
+                        pass
+                    g_params.update(
+                        {
+                            reg.groups()[0]: ret
+                        }
+                    )
+        return g_params
+
     def load(self, strategyPath, param={}):
         #TODO：新增param参数，用于接收用户策略的参数
         """
@@ -133,20 +184,22 @@ class TkinterController(object):
         :param param: 策略参数信息
         :return:
         """
-        self.app.createRunWin(param)
+        # 运行策略前将用户修改保存
+        self.saveStrategy()
+        # 解析策略参数
+        param = self.parseStrategtParam(strategyPath)
+        self.app.createRunWin(param, strategyPath, False)
 
         config = self.app.runWin.getConfig()
         if config:   # 获取到config
             self._request.loadRequest(strategyPath, config)
             self.logger.info("load strategy")
-            return
-
-        return
 
     def paramLoad(self, id):
         """用户参数修改后策略重新启动"""
         param = self.getUserParam(id)
-        self.app.createRunWin(param)
+        strategyPath = self.strategyManager.getSingleStrategy(id)["Path"]
+        self.app.createRunWin(param, strategyPath, True)
 
         config = self.app.runWin.getConfig()
         if config:  # 获取到config
@@ -172,7 +225,6 @@ class TkinterController(object):
                 self.app.reportDisplay(reportData, id)
                 return
             self._request.reportRequest(id)
-
 
     def newStrategy(self, path):
         """右键新建策略"""
@@ -265,14 +317,12 @@ class TkinterController(object):
     def delStrategy(self, strategyIdList):
         # 获取策略管理器
         for id in strategyIdList:
-            # self._request.strategyRemove(id)
             strategyDict = self.strategyManager.getStrategyDict()
             if id in strategyDict:
                 if strategyDict[id]["StrategyState"] == ST_STATUS_QUIT or \
                         strategyDict[id]["StrategyState"] == ST_STATUS_EXCEPTION:  # 策略已经停止或策略异常
                     self.strategyManager.removeStrategy(id)
                     self.app.delUIStrategy(id)
-                    # return
                 self._request.strategyRemove(id)
             else:
                 self.app.delUIStrategy(id)
@@ -307,10 +357,30 @@ class ChildThread(threading.Thread):
         self.isStopped = False
 
     def run(self):
-        while not self.isStopped:
+        # while not self.isStopped:
+        while True:
+            if self.isStopped:
+                break
             self.target()
             time.sleep(self.sleepTime)
 
     def stop(self):
         # 设置停止标志位
         self.isStopped = True
+
+    # def _async_raise(self, tid, exctype):
+    #     """raises the exception, performs cleanup if needed"""
+    #     import ctypes
+    #     import inspect
+    #     tid = ctypes.c_long(tid)
+    #     if not inspect.isclass(exctype):
+    #         exctype = type(exctype)
+    #     res = ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, ctypes.py_object(exctype))
+    #     if res == 0:
+    #         raise ValueError("invalid thread id")
+    #     elif res != 1:
+    #         ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, None)
+    #         raise SystemError("PyThreadState_SetAsyncExc failed")
+    #
+    # def raiseExc(self, exctype):
+    #     self._async_raise( self.ident, exctype)

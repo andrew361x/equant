@@ -84,12 +84,13 @@ class QuoteModel:
     # 交易所状态
     def updateExchangeStatus(self, apiEvent):
         dataList = apiEvent.getData()
+        strategyId = apiEvent.getStrategyId()
         for dataDict in dataList:
             if dataDict['ExchangeNo'] not in self._exchangeData:
                 self.logger.error("updateExchangeStatus exchangeno(%s) error!"%dataDict['ExchangeNo'])
                 continue
             exchangeModel = self._exchangeData[dataDict['ExchangeNo']]
-            exchangeModel.updateStatus(dataDict)
+            exchangeModel.updateStatus(strategyId, dataDict)
         if apiEvent.isChainEnd():
             self.logger.info('Initialize exchange status successfully!') 
 
@@ -206,7 +207,7 @@ class ExchangeModel:
         self._timeDiff = 0
         self._delta = 0
         
-    def updateStatus(self, dataDict):
+    def updateStatus(self, strategyId, dataDict):
         if dataDict['Sign'] != '':
             self._metaData['Sign']  = dataDict['Sign']   
         if dataDict['ExchangeDateTime'] != '' and dataDict['LocalDateTime'] != '':
@@ -220,11 +221,15 @@ class ExchangeModel:
             else:
                 self._timeDiff = -((local-exchange).seconds)
             self._delta = timedelta(seconds=self._timeDiff)
-            self.logger.info("Update %s time diff:%d"%(dataDict['ExchangeNo'], self._timeDiff))
+            #只在引擎中打印
+            if strategyId == 0:
+                self.logger.info("Update %s time diff:%d"%(dataDict['ExchangeNo'], self._timeDiff))
             
         if dataDict['TradeState'] != '': 
             self._metaData['TradeState'] = dataDict['TradeState']
-            self.logger.info("Update exchange status(%s:%s)"%(dataDict['ExchangeNo'], self._metaData['TradeState']))
+            #只在引擎中打印
+            if strategyId == 0:
+                self.logger.info("Update exchange status(%s:%s)"%(dataDict['ExchangeNo'], self._metaData['TradeState']))
 
     def getExchangeTime(self):
         '''获取交易所时间'''

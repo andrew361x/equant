@@ -86,7 +86,9 @@ _all_func_ = {
                     ['GetSessionStartTime' , '交易时段起始时间'],
                     ['GetSessionEndTime'   , '交易时段结束时间'],
                     ['GetNextTimeInfo'     , '获取下一个时间点信息'],
+                    ['CurrentDate'         , '获取当前日期'],
                     ['CurrentTime'         , '获取当前时间'],
+                    ['TimeDiff'            , '返回两个时间之间的间隔秒数'],
                     ['IsInSession'         , '当前时间是否为交易时间'],
                     ['MarginRatio'         , '保证金比例'],
                     ['MaxBarsBack'         , '最大回溯Bar数'],
@@ -124,6 +126,8 @@ _all_func_ = {
                     ['LastEntryPrice'      , '当前持仓的最后一个建仓价格'],
                     ['LastEntryTime'       , '当前持仓的最后一个建仓位置的时间'],
                     ['MarketPosition'      , '当前持仓状态'],
+                    ['PositionProfit'      , '当前持仓的浮动盈亏'],
+                    ['BarsLast'            , '获取最后一次满足条件时距离当前的bar数'],
     #                 ['MaxContracts'        , '当前持仓的最大持仓合约数'],
     #                 ['MaxEntries'          , '最大的建仓次数'],
     #                 ['MaxPositionLoss'     , '当前持仓的最大浮动亏损数'],
@@ -221,7 +225,7 @@ _all_func_ = {
 
                     ['Enum_Period_Tick'    , '周期类型_分笔'],
                     # ['Enum_Period_Dyna'    , '周期类型_分时'],
-                    ['Enum_Period_Second'  , '周期类型_秒线'],
+                    # ['Enum_Period_Second'  , '周期类型_秒线'],
                     ['Enum_Period_Min'     , '周期类型_分钟'],
                     # ['Enum_Period_Hour'    , '周期类型_小时'],
                     ['Enum_Period_Day'     , '周期类型_日线'],
@@ -279,7 +283,7 @@ _all_func_ = {
                 ],
 
     '设置函数': [
-                    ## ['AddUserNo'           , '添加交易账号'],
+                    ['SetUserNo'           , '设置交易账号'],
                     ['SetBarInterval'      , '设置K线类型'],
                     ['SetInitCapital'      , '设置初始资金'],
                     ['SetMargin'           , '设置保证金'],
@@ -294,6 +298,7 @@ _all_func_ = {
                     ['SetTriggerType'      , '设置触发方式'],
                     ['SetWinPoint'         , '设置策略的止盈点'],
                     ['SetStopPoint'        , '设置策略的止损点'],
+                    ['SetFloatStopPoint'   , '设置策略的浮动止损点'],
                     ['SubQuote'            , '订阅指定合约即时行情'],
                     ['UnsubQuote'          , '退订指定合约即时行情'],
                 ],
@@ -317,6 +322,25 @@ _all_func_ = {
                     ['UnPlotStickLine'     ,'取消绘制竖线段'],
                 ],
 
+    '统计函数': [
+                    ['SMA'                 ,'计算加权移动平均值'],
+                    ['ParabolicSAR'        ,'计算抛物线转向'],
+                    ['REF'                 ,'求N周期前数据的值'],
+                    ['Highest'             ,'求最高'],
+                    ['Lowest'              ,'求最低'],
+                    ['CountIf'             ,'获取最近N周期满足条件的计数'],
+                    ['CrossOver'           ,'求是否上穿'],
+                    ['CrossUnder'          ,'求是否下穿'],
+                ],
+
+    '日志函数': [
+                    ['LogDebug'            ,'打印调试信息'],
+                    ['LogInfo'             ,'打印普通信息'],
+                    ['LogWarn'             ,'打印警告信息'],
+                    ['LogError'            ,'打印错误信息'],
+                ],
+                
+    
     'context函数': [
                     ['strategyStatus'      ,'获取当前策略状态'],
                     ['triggerType'         ,'获取当前触发类型'],
@@ -326,20 +350,6 @@ _all_func_ = {
                     ['tradeDate'           ,'获取当前触发的交易日'],
                     ['dateTimeStamp'       ,'获取当前触发的时间戳'],
                     ['triggerData'         ,'获取当前触发类型对应的数据'],
-                ],
-
-    '数学函数': [
-                    ['SMA'                 ,'计算加权移动平均值'],
-                    ['ParabolicSAR'        ,'计算抛物线转向'],
-                    ['Highest'             ,'求最高'],
-                    ['Lowest'              ,'求最低'],
-                ],
-
-    '日志函数': [
-                    ['LogDebug'            ,'打印调试信息'],
-                    ['LogInfo'             ,'打印普通信息'],
-                    ['LogWarn'             ,'打印警告信息'],
-                    ['LogError'            ,'打印错误信息'],
                 ],
 
 }

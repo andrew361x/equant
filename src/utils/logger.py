@@ -19,28 +19,35 @@ class MyHandlerText(logging.StreamHandler):
         self.textctrl.insert("end", msg + "\n")
         self.flush()
         self.textctrl.config(state="disabled")
-        
+
+
 class MyFileHandler(logging.FileHandler):
     def __init__(self, file, mode):
         self.fileFd = open(file, mode=mode)
         logging.FileHandler.__init__(self, file, mode=mode)
-        
-        
+
     def emit(self, record):
         tmpRecord = deepcopy(record)
         tmpRecord.msg = record.msg[0]
         msg = self.format(tmpRecord)
-        self.fileFd.write(msg+'\n')
-        self.fileFd.flush()
+        target = record.msg[1]
+        # if target != 'T' and target != 'S':
+        #     self.fileFd.write(msg+'\n')
+        #     self.fileFd.flush()
+        if target != "T" and target !="S" and target != "U":
+            self.fileFd.write(msg+'\n')
+            self.fileFd.flush()
 
 
 class MyHandlerQueue(logging.StreamHandler):
-    def __init__(self, gui_queue, sig_queue, err_queue, trade_log):
+    def __init__(self, gui_queue, sig_queue, err_queue, trade_log, user_log, sys_log):
         logging.StreamHandler.__init__(self)  # initialize parent
         self.gui_queue = gui_queue
         self.sig_queue = sig_queue
         self.err_queue = err_queue
         self.trade_log = trade_log
+        self.user_log  = user_log
+        self.sys_log   = sys_log
 
     def emit(self, record):
         #最多等待1秒
@@ -64,6 +71,16 @@ class MyHandlerQueue(logging.StreamHandler):
         elif target == 'T':
             self.trade_log.write(msg+"\n")
             self.trade_log.flush()
+        elif target == "U":   # 用户日志标志
+            try:
+                # 用户日志同时写入文件和界面
+                self.user_log.write(msg+"\n")
+                self.user_log.flush()
+                self.gui_queue.put_nowait(msg)
+            except queue.Full:
+                time.sleep(0.1)
+                print("界面日志放入队列时阻塞")
+
         else:
             try:
                 self.gui_queue.put_nowait(msg)
@@ -72,30 +89,37 @@ class MyHandlerQueue(logging.StreamHandler):
                 print("界面日志放入队列时阻塞")
             # self.gui_queue.put_nowait(msg, block=False, timeout=1)
 
+
 class Logger(object):
     def __init__(self):
         #process queue
-        self.log_queue = Queue(2000)
-        self.gui_queue = Queue(2000)
+        self.log_queue = Queue(200000)
+        self.gui_queue = Queue(200000)
         # 信号队列
-        self.sig_queue = Queue(2000)
+        self.sig_queue = Queue(20000)
         self.err_queue = Queue(100)
         
     def _initialize(self):
 
         self.logpath = r"./log/"
-        if not os.path.exists(self.logpath):
-            os.makedirs(self.logpath)
+        self.hispath = r"./log/his/"
+        for path in (self.logpath, self.hispath):
+            if not os.path.exists(path):
+                os.makedirs(path)
 
         # 重命名历史日志
         self.renameHisLog()
 
         trade_path = self.logpath + "trade.dat"
+        user_path  = self.logpath + "user.log"
+        sys_path   = self.logpath + "equant.log"
 
         #交易日志
         self.trade_log = open(trade_path, mode='a', encoding='utf-8')
-        #self.trade_log.write('我在这儿')
-        #self.trade_log.flush()
+        #用户日志
+        self.user_log  = open(user_path, mode='a', encoding='utf-8')
+        #系统日志
+        self.sys_log   = open(sys_path, mode='a', encoding='utf-8')
 
         #logger config
         self.logger = logging.getLogger("equant")
@@ -120,11 +144,12 @@ class Logger(object):
     def renameHisLog(self):
         """重命名历史日志文件"""
         # 重命名历史日志文件
-        lognames = ["trade.dat", "equant.log"]
+        lognames = ["trade.dat", "equant.log", "user.log"]
         time_now = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]
         for name in lognames:
             path = self.logpath + name
-            his_path = self.logpath + name[:-4] + time_now + name[-4:]
+            his_path = self.hispath + name[:-4] + time_now + name[-4:]
+
             if os.path.exists(path):
                 os.rename(path, his_path)
 
@@ -158,7 +183,8 @@ class Logger(object):
         file_handler.setFormatter(self.formatter)
         self.logger.addHandler(file_handler)
         #设置窗口句柄
-        gui_handler = MyHandlerQueue(self.gui_queue, self.sig_queue, self.err_queue, self.trade_log)
+        gui_handler = MyHandlerQueue(self.gui_queue, self.sig_queue, self.err_queue,
+                                     self.trade_log, self.user_log, self.sys_log)
         gui_handler.setLevel(logging.DEBUG)
         gui_handler.setFormatter(self.formatter)
         self.logger.addHandler(gui_handler)
@@ -168,24 +194,38 @@ class Logger(object):
         cout_handler.setFormatter(self.formatter)
         self.logger.addHandler(cout_handler)
 
-    def debug(self, s, target=""):
+    def debug(self, s, target="s"):
         self._log("DEBUG", s, target)
 
-    def info(self, s, target=""):
+    def info(self, s, target="s"):
         self._log("INFO", s, target)
 
-    def warn(self, s, target=""):
+    def warn(self, s, target="s"):
         self._log("WARN", s, target)
 
-    def error(self, s, target=""):
+    def error(self, s, target="s"):
         self._log("ERROR", s, target)
 
     def sig_info(self, s, target='S'):
         self.info(s, target)
-        
+
+    # 交易日志接口
     def trade_info(self, s, target='T'):
         self.info(s, target)
 
     # 策略错误
     def err_error(self, s, target='E'):
+        self.error(s, target)
+
+    # 用户日志接口
+    def user_debug(self, s, target="U"):
+        self.debug(s, target)
+
+    def user_info(self, s, target="U"):
+        self.info(s, target)
+
+    def user_warn(self, s, target="U"):
+        self.warn(s, target)
+
+    def user_error(self, s, target="U"):
         self.error(s, target)

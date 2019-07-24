@@ -5,7 +5,7 @@ import talib
 import time, sys
 import math
 import pandas as pd
-from .strategy_cfg_model import StrategyConfig
+from .strategy_cfg_model_new import StrategyConfig_new
 from .strategy_his_model import StrategyHisQuote
 from .strategy_qte_model import StrategyQuote
 from .strategy_trd_model import StrategyTrade
@@ -14,6 +14,11 @@ import copy
 
 from engine.calc import CalcCenter
 from datetime import datetime
+
+try:
+    from .play_audio import PlayAudio
+except:
+    pass
 
 
 class StrategyModel(object):
@@ -28,7 +33,7 @@ class StrategyModel(object):
         self._plotedDict = {}
 
         # Notice：会抛异常
-        self._cfgModel = StrategyConfig(self._argsDict)
+        self._cfgModel = StrategyConfig_new(self._argsDict)
         self._config = self._cfgModel
         # 回测计算
         self._calcCenter = CalcCenter(self.logger)
@@ -75,7 +80,7 @@ class StrategyModel(object):
         self._trdModel.initialize()
 
     def initializeCalc(self):
-        contNo = self._cfgModel.getContract()[0]
+        contNo = self._cfgModel.getBenchmark()
         strategyParam = {
             "InitialFunds": float(self._cfgModel.getInitCapital()),  # 初始资金
             "StrategyName": self._strategy.getStrategyName(),  # 策略名称
@@ -90,7 +95,7 @@ class StrategyModel(object):
             "CloseTodayRatio": self._cfgModel.getCloseTodayRatio(),
             "CloseTodayFixed": self._cfgModel.getCloseTodayFixed(),
             "KLineType": "M",  # todo
-            "KLineSlice": 1,  # todo
+            "KLineSlice": 1,   # todo
             "TradeDot": self.getContractUnit(contNo),  # 每手乘数
             "PriceTick": self.getPriceScale(contNo),  # 最小变动价位
             "Limit": self._config.getLimit(),
@@ -146,7 +151,7 @@ class StrategyModel(object):
     def onUnderlayMap(self, event):
         self._qteModel.onUnderlayMap(event)
 
-    def onExchangeStateNotice(self, event):
+    def onExchangeStatus(self, event):
         self._qteModel.onExchangeStatus(event)
 
     def onQuoteRsp(self, event):
@@ -271,6 +276,19 @@ class StrategyModel(object):
     def getHisBarsInfo(self, contNo, kLineType, kLineValue, maxLength):
         multiContKey = self.getKey(contNo, kLineType, kLineValue)
         return self._hisModel.getHisBarsInfo(multiContKey, maxLength)
+
+    def getBarsLast(self, condition):
+        conLen = len(condition)
+        if conLen == 0:
+            return 0
+
+        count = 0
+        for i in range(conLen-1, -1, -1):
+            if condition[i]:
+                break
+            else:
+                count += 1
+        return count
 
     # ////////////////////////即时行情////////////////////////////
     def getQUpdateTime(self, symbol):
@@ -397,6 +415,9 @@ class StrategyModel(object):
     # ////////////////////////策略函数////////////////////////////
     def setBuy(self, userNo, contractNo, share, price, needCover=True):
         contNo = contractNo if contractNo else self._cfgModel.getBenchmark()
+        
+        if contNo not in self._cfgModel.getContract():
+            raise Exception(f"请先在设置界面获知使用SetBarInterval方法订阅 {contNo} 合约！")
 
         underlayContNo = self._qteModel.getUnderlayContractNo(contNo)
         if len(underlayContNo) > 0:
@@ -405,8 +426,7 @@ class StrategyModel(object):
         # 非K线触发的策略，不使用Bar
         curBar = None
         # 计算考虑滑点损耗后的价格
-        if not self._cfgModel.isActualRun():
-            price = self._calcCenter.calcOrderPrice(contNo, dBuy, price)
+        price = self._calcCenter.calcOrderPrice(contNo, dBuy, price)
 
         # 对于开仓，需要平掉反向持仓
         qty = self._calcCenter.needCover(userNo, contNo, dBuy, share, price)
@@ -420,6 +440,9 @@ class StrategyModel(object):
     def setBuyToCover(self, userNo, contractNo, share, price):
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
 
+        if contNo not in self._cfgModel.getContract():
+            raise Exception(f"请先在设置界面获知使用SetBarInterval方法订阅 {contNo} 合约！")
+
         underlayContNo = self._qteModel.getUnderlayContractNo(contNo)
         if len(underlayContNo) > 0:
             contNo = underlayContNo
@@ -427,8 +450,7 @@ class StrategyModel(object):
         curBar = None
 
         # 计算考虑滑点损耗后的价格
-        if not self._cfgModel.isActualRun():
-            price = self._calcCenter.calcOrderPrice(contNo, dBuy, price)
+        price = self._calcCenter.calcOrderPrice(contNo, dBuy, price)
 
         # 交易计算、生成回测报告
         eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oCover, hSpeculate, price, share, curBar)
@@ -437,6 +459,9 @@ class StrategyModel(object):
     def setSell(self, userNo, contractNo, share, price):
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
 
+        if contNo not in self._cfgModel.getContract():
+            raise Exception(f"请先在设置界面获知使用SetBarInterval方法订阅 {contNo} 合约！")
+
         underlayContNo = self._qteModel.getUnderlayContractNo(contNo)
         if len(underlayContNo) > 0:
             contNo = underlayContNo
@@ -444,8 +469,7 @@ class StrategyModel(object):
         curBar = None
 
         # 计算考虑滑点损耗后的价格
-        if not self._cfgModel.isActualRun():
-            price = self._calcCenter.calcOrderPrice(contNo, dSell, price)
+        price = self._calcCenter.calcOrderPrice(contNo, dSell, price)
 
         # 交易计算、生成回测报告
         eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oCover, hSpeculate, price, share, curBar)
@@ -454,6 +478,9 @@ class StrategyModel(object):
     def setSellShort(self, userNo, contractNo, share, price, needCover=True):
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
 
+        if contNo not in self._cfgModel.getContract():
+            raise Exception(f"请先在设置界面获知使用SetBarInterval方法订阅 {contNo} 合约！")
+
         underlayContNo = self._qteModel.getUnderlayContractNo(contNo)
         if len(underlayContNo) > 0:
             contNo = underlayContNo
@@ -461,8 +488,7 @@ class StrategyModel(object):
         curBar = None
 
         # 计算考虑滑点损耗后的价格
-        if not self._cfgModel.isActualRun():
-            price = self._calcCenter.calcOrderPrice(contNo, dSell, price)
+        price = self._calcCenter.calcOrderPrice(contNo, dSell, price)
 
         qty = self._calcCenter.needCover(userNo, contNo, dSell, share, price)
         if qty > 0 and needCover:
@@ -505,6 +531,13 @@ class StrategyModel(object):
             }
         })
         self._strategy.sendEvent2Engine(signalNoticeEvent)
+        
+        #处理报警
+        if self._strategy.isRealTimeStatus() and self._cfgModel.getAlarm():
+            try:
+                PlayAudio.play('Signal')
+            except:
+                self.logger.error('No module named PlayAudio')
 
     def setStartTrade(self):
         self._cfgModel.setPending(False)
@@ -521,8 +554,8 @@ class StrategyModel(object):
     def getConfig(self):
         return self._cfgModel._metaData
 
-    def addUserNo(self, userNo):
-        self._cfgModel.addUserNo(userNo)
+    def setUserNo(self, userNo):
+        self._cfgModel.setUserNo(userNo)
 
     def setBarInterval(self, contractNo, barType, barInterval, sampleConfig, trigger=True):
         self._cfgModel.setBarInterval(contractNo, barType, barInterval, sampleConfig, trigger)
@@ -530,9 +563,9 @@ class StrategyModel(object):
     def setSample(self, sampleType, sampleValue):
         return self._cfgModel.setSample(sampleType, sampleValue)
 
-    def setInitCapital(self, capital, userNo):
+    def setInitCapital(self, capital):
         initFund = capital if capital else 1000000
-        self._cfgModel.setInitCapital(initFund, userNo)
+        self._cfgModel.setInitCapital(initFund)
         return 0
 
     def setMargin(self, type, value, contNo):
@@ -599,7 +632,7 @@ class StrategyModel(object):
         return 0
 
     def setTriggerMode(self, type, value):
-        return self._cfgModel.setTrigger(type, value)
+        return self._cfgModel.setTrigger(type, value, False)
 
     def setWinPoint(self, winPoint, nPriceType, nAddTick, contNo):
         if not contNo:
@@ -611,15 +644,25 @@ class StrategyModel(object):
             contNo = self._cfgModel.getBenchmark()
         return self._cfgModel.setStopPoint(stopPoint, nPriceType, nAddTick, contNo)
 
-    def subscribeContract(self, contNo):
-        contList = [contNo]
-        self._cfgModel.updateSubQuoteContract(contList)
-        return self.subQuoteList(contList)
+    def setFloatStopPoint(self, startPoint, stopPoint, nPriceType, nAddTick, contNo):
+        if not contNo:
+            contNo = self._cfgModel.getBenchmark()
+        return self._cfgModel.setFloatStopPoint(startPoint, stopPoint, nPriceType, nAddTick, contNo)
 
-    def unsubscribeContract(self, contNo):
-        contList = [contNo]
-        self._cfgModel.updateUnsubQuoteContract(contList)
-        return self.unsubQuoteList(contList)
+    def subscribeQuote(self, contNoTuple):
+        if len(contNoTuple) <= 0:
+            return
+
+        contNoList = list(contNoTuple)
+        self._cfgModel.updateSubQuoteContract(contNoList)
+        return self.subQuoteList(contNoList)
+
+    def unsubscribeQuote(self, contNoTuple):
+        if len(contNoTuple) <= 0:
+            return
+        contNoList = list(contNoTuple)
+        self._cfgModel.updateUnsubQuoteContract(contNoList)
+        return self.unsubQuoteList(contNoList)
 
     # ///////////////////////账户函数///////////////////////////
     def getAccountId(self):
@@ -650,42 +693,55 @@ class StrategyModel(object):
         return self._trdModel.getTotalFreeze()
 
     def getBuyAvgPrice(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getBuyAvgPrice(contNo)
 
     def getBuyPosition(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getBuyPosition(contNo)
 
     def getBuyPositionCanCover(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getBuyPositionCanCover(contNo)
 
     def getBuyProfitLoss(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getBuyProfitLoss(contNo)
 
     def getSellAvgPrice(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getSellAvgPrice(contNo)
 
     def getSellPosition(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getSellPosition(contNo)
 
     def getSellPositionCanCover(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getSellPositionCanCover(contNo)
 
     def getSellProfitLoss(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getSellProfitLoss(contNo)
 
     def getTotalAvgPrice(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getTotalAvgPrice(contNo)
 
     def getTotalPosition(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getTotalPosition(contNo)
 
     def getTotalProfitLoss(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getTotalProfitLoss(contNo)
 
     def getTodayBuyPosition(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getTodayBuyPosition(contNo)
 
     def getTodaySellPosition(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getTodaySellPosition(contNo)
 
     def getOrderBuyOrSell(self, eSession):
@@ -713,21 +769,32 @@ class StrategyModel(object):
         return self._trdModel.getOrderTime(eSession)
 
     def getFirstOrderNo(self, contNo1, contNo2):
+        contNo1 = self.getIndexMap(contNo1)
+        contNo2 = self.getIndexMap(contNo2)
         return self._trdModel.getFirstOrderNo(contNo1, contNo2)
 
     def getNextOrderNo(self, orderId, contNo1, contNo2):
+        contNo1 = self.getIndexMap(contNo1)
+        contNo2 = self.getIndexMap(contNo2)
         return self._trdModel.getNextOrderNo(orderId, contNo1, contNo2)
 
     def getLastOrderNo(self, contNo1, contNo2):
+        contNo1 = self.getIndexMap(contNo1)
+        contNo2 = self.getIndexMap(contNo2)
         return self._trdModel.getLastOrderNo(contNo1, contNo2)
 
     def getFirstQueueOrderNo(self, contNo1, contNo2=''):
+        contNo1 = self.getIndexMap(contNo1)
+        contNo2 = self.getIndexMap(contNo2)
         return self._trdModel.getFirstQueueOrderNo(contNo1, contNo2)
 
     def getNextQueueOrderNo(self, orderId, contNo1, contNo2=''):
+        contNo1 = self.getIndexMap(contNo1)
+        contNo2 = self.getIndexMap(contNo2)
         return self._trdModel.getNextQueueOrderNo(orderId, contNo1, contNo2)
 
     def getAllQueueOrderNo(self, contNo):
+        contNo = self.getIndexMap(contNo)
         orderIdList = []
         orderId = self.getFirstQueueOrderNo(contNo)
         if orderId != -1:
@@ -739,6 +806,7 @@ class StrategyModel(object):
         return orderIdList
 
     def getALatestFilledTime(self, contNo):
+        contNo = self.getIndexMap(contNo)
         return self._trdModel.getALatestFilledTime(contNo)
 
     def getOrderContractNo(self, orderId):
@@ -939,7 +1007,7 @@ class StrategyModel(object):
         '''A函数 发送实盘信号'''
         curBar = self.getHisQuoteModel().getCurBar(self._config.getKLineShowInfoSimple())
         if aFunc and self._config.hasKLineTrigger() and curBar:
-            self.logger.debug(f"实盘信号已经发送，k线时间戳：{curBar['DateTimeStamp']}")
+            #self.logger.debug(f"实盘信号已经发送，k线时间戳：{curBar['DateTimeStamp']}")
             self.sendSignalEvent(self._signalName, aOrder["Cont"], aOrder["Direct"], aOrder["Offset"],
                                  aOrder["OrderPrice"], aOrder["OrderQty"], curBar)
         self.logger.trade_info(f"发送实盘订单，策略Id:{strategyId}, 本地订单号：{eId}, 订单数据：{repr(aOrder)}")
@@ -957,6 +1025,7 @@ class StrategyModel(object):
         return orderId, orderNo
 
     def deleteAllOrders(self, contNo):
+        contNo = self.getIndexMap(contNo)
         orderList = self.getAllQueueOrderNo(contNo)
         if len(orderList) == 0:
             return True
@@ -1446,19 +1515,19 @@ class StrategyModel(object):
 
     def LogDebug(self, args):
         logInfo = self.formatArgs(args)
-        self.logger.debug(logInfo)
+        self.logger.user_debug(logInfo)
 
     def LogInfo(self, args):
         logInfo = self.formatArgs(args)
-        self.logger.info(logInfo)
+        self.logger.user_info(logInfo)
 
     def LogWarn(self, args):
         logInfo = self.formatArgs(args)
-        self.logger.warn(logInfo)
+        self.logger.user_warn(logInfo)
 
     def LogError(self, args):
         logInfo = self.formatArgs(args)
-        self.logger.error(logInfo)
+        self.logger.user_error(logInfo)
 
     # ///////////////////////属性函数///////////////////////////
     def getBarInterval(self):
@@ -1595,10 +1664,57 @@ class StrategyModel(object):
                 return {'Time': float(timeTuple[0]) / 1000000000, 'TradeState': timeTuple[1]}
 
         return {'Time': float(timeList[0][0]) / 1000000000, 'TradeState': timeList[0][1]}
+        
+    def getCurrentDate(self):
+        if not self._strategy.isRealTimeStatus():
+            return self.getBarDate('', '', 0)
+            
+        date = datetime.now().strftime('%Y%m%d')
+        return int(date)
 
     def getCurrentTime(self):
+        if not self._strategy.isRealTimeStatus():
+            return self.getBarTime('', '', 0)
+            
         currentTime = datetime.now().strftime('0.%H%M%S')
         return float(currentTime)
+        
+    def _gethms(self, time):
+        itime = int((time + 1e-9) * 1000000)
+        hh,mm,ss = 0, 0, 0
+        if itime > 0:
+            hh = int(itime / 10000)
+            mm = int((itime % (10000)) / 100)
+            ss = itime % 100
+            
+        return hh, mm, ss
+        
+    def getTimeDiff(self, time1, time2):
+        if not isinstance(time1, float):
+            return 0
+            
+        if not isinstance(time2, float):
+            return 0    
+         
+        ftime1 = math.modf(time1)[0]
+        ftime2 = math.modf(time2)[0]
+        
+        hh1,mm1,ss1 = self._gethms(ftime1)
+        hh2,mm2,ss2 = self._gethms(ftime2)
+
+        now = datetime.now()
+        
+        mtime1 = datetime(now.year, now.month, now.day, hh1, mm1, ss1)
+        mtime2 = datetime(now.year, now.month, now.day, hh2, mm2, ss2)
+        if time2 + 1.0 < 1e-9:
+            mtime2 = now
+        
+        if mtime2 > mtime1:
+            delta = (mtime2 - mtime1).seconds
+        else:
+            delta = -(mtime1 - mtime2).seconds
+
+        return delta
 
     def isInSession(self, contNo):
         if not contNo:
@@ -1609,7 +1725,7 @@ class StrategyModel(object):
         if len(contNoInfo) >= 4 and (contNoInfo[1] == 'S' or contNoInfo[1] == 's'):
             contNo = contNoInfo[0] + '|F|' + contNoInfo[2] + '|' + contNoInfo[3]
 
-        currentTime = self.getCurrentTime()
+        currentTime = float(datetime.now().strftime('0.%H%M%S'))
         sessionCount = self.getGetSessionCount(contNo)
         for index in range(0, sessionCount):
             startTime = self.getGetSessionStartTime(contNo, index)
@@ -1690,7 +1806,7 @@ class StrategyModel(object):
         return 0
 
     def getSymbol(self):
-        return self._cfgModel.getContract()
+        return self._cfgModel.getBenchmark()
 
     def getSymbolName(self, contNo):
         commodityInfo = self.getCommodityInfoFromContNo(contNo)
@@ -1705,14 +1821,17 @@ class StrategyModel(object):
     def getSymbolType(self, contNo):
         return self.getCommodityInfoFromContNo(contNo)['CommodityCode']
 
-    def getIndexMap(self, contNo):
-        return self._qteModel.getUnderlayContractNo(contNo)
+    def getIndexMap(self, contNo=''):
+        if not contNo:
+            contNo = self._config.getBenchmark()
+
+        underlayCont = self._qteModel.getUnderlayContractNo(contNo)
+        return contNo if len(underlayCont) == 0 else underlayCont
 
     # ///////////////////////策略状态///////////////////////////
     def getAvgEntryPrice(self, contNo):
         '''当前持仓的平均建仓价格'''
-        if not contNo:
-            contNo = self._config.getBenchmark()
+        contNo = self.getIndexMap(contNo)
 
         posInfo = self._calcCenter.getPositionInfo(contNo)
         if not posInfo:
@@ -1751,6 +1870,7 @@ class StrategyModel(object):
 
     def getBarsSinceEntry(self, contNo):
         '''获得当前持仓中指定合约的第一个建仓位置到当前位置的Bar计数'''
+        contNo = self.getIndexMap(contNo)
         barIndex = self.getFirstOpenOrderInfo(contNo, 'CurBarIndex')
         if barIndex == -1:
             return barIndex
@@ -1760,8 +1880,7 @@ class StrategyModel(object):
 
     def getBarsSinceExit(self, contNo):
         '''获得当前持仓中指定合约的最近平仓位置到当前位置的Bar计数'''
-        if not contNo:
-            contNo = self._cfgModel.getBenchmark()
+        contNo = self.getIndexMap(contNo)
 
         orderInfo = self._calcCenter.getLatestCoverOrder(contNo)
         if not orderInfo or 'CurBarIndex' not in orderInfo:
@@ -1774,8 +1893,7 @@ class StrategyModel(object):
 
     def getBarsSinceLastEntry(self, contNo):
         '''获得当前持仓的最后一个建仓位置到当前位置的Bar计数'''
-        if not contNo:
-            contNo = self._cfgModel.getBenchmark()
+        contNo = self.getIndexMap(contNo)
 
         if self.getMarketPosition(contNo) == 0:
             return -1
@@ -1790,7 +1908,8 @@ class StrategyModel(object):
         return (int(curBar['KLineIndex']) - barIndex)
 
     def getBarsSinceToday(self, contractNo, barType, barValue):
-        key = self.getKey(contractNo, barType, barValue)
+        contNo = self.getIndexMap(contractNo)
+        key = self.getKey(contNo, barType, barValue)
         curBar = self._hisModel.getCurBar(key)
         tradeDate = curBar['TradeDate']
         barList = self._hisModel._curBarDict[key].getTradeDateKLine(tradeDate)
@@ -1817,6 +1936,7 @@ class StrategyModel(object):
 
     def getContractProfit(self, contNo):
         '''获得当前持仓的每手浮动盈亏'''
+        contNo = self.getIndexMap(contNo)
         holdProfit = self.getPositionValue(contNo, 'HoldProfit')
         if holdProfit == -1:
             return 0
@@ -1828,6 +1948,7 @@ class StrategyModel(object):
 
     def getCurrentContracts(self, contNo):
         '''获得策略当前的持仓合约数(净持仓)'''
+        contNo = self.getIndexMap(contNo)
         totalBuy = self.getPositionValue(contNo, 'TotalBuy')
         totalSell = self.getPositionValue(contNo, 'TotalSell')
 
@@ -1838,6 +1959,7 @@ class StrategyModel(object):
 
     def getEntryDate(self, contNo):
         '''获得当前持仓的第一个建仓位置的日期'''
+        contNo = self.getIndexMap(contNo)
         entryDate = self.getFirstOpenOrderInfo(contNo, 'TradeDate')
         if entryDate == -1:
             return 19700101
@@ -1845,16 +1967,27 @@ class StrategyModel(object):
 
     def getBuyPositionInStrategy(self, contNo):
         '''获得当前持仓的买入方向的持仓量'''
-        return self.getPositionValue(contNo, 'TotalBuy')
+        contNo = self.getIndexMap(contNo)
+
+        positionInfo = self._calcCenter.getPositionInfo(contNo)
+        if not positionInfo or 'TotalBuy' not in positionInfo:
+            return -1
+
+        return positionInfo['TotalBuy']
 
     def getSellPositionInStrategy(self, contNo):
         '''当前持仓的卖出持仓量'''
-        return self.getPositionValue(contNo, 'TotalSell')
+        contNo = self.getIndexMap(contNo)
+
+        positionInfo = self._calcCenter.getPositionInfo(contNo)
+        if not positionInfo or 'TotalSell' not in positionInfo:
+            return -1
+
+        return positionInfo['TotalSell']
 
     def getEntryPrice(self, contNo):
         '''获得当前持仓的第一次建仓的委托价格'''
-        if not contNo:
-            contNo = self._cfgModel.getBenchmark()
+        contNo = self.getIndexMap(contNo)
 
         orderInfo = self._calcCenter.getFirstOpenOrder(contNo)
         if not orderInfo or 'OrderPrice' not in orderInfo:
@@ -1864,6 +1997,7 @@ class StrategyModel(object):
 
     def getEntryTime(self, contNo):
         '''获得当前持仓的第一个建仓位置的时间'''
+        contNo = self.getIndexMap(contNo)
         dateTimeStamp = self.getFirstOpenOrderInfo(contNo, 'DateTimeStamp')
         if dateTimeStamp == -1:
             return 0
@@ -1871,8 +2005,7 @@ class StrategyModel(object):
 
     def getExitDate(self, contNo):
         ''' 获得最近平仓位置Bar日期'''
-        if not contNo:
-            contNo = self._cfgModel.getBenchmark()
+        contNo = self.getIndexMap(contNo)
 
         orderInfo = self._calcCenter.getLatestCoverOrder(contNo)
         if not orderInfo or 'TradeDate' not in orderInfo:
@@ -1882,8 +2015,7 @@ class StrategyModel(object):
 
     def getExitPrice(self, contNo):
         '''获得合约最近一次平仓的委托价格'''
-        if not contNo:
-            contNo = self._cfgModel.getBenchmark()
+        contNo = self.getIndexMap(contNo)
 
         orderInfo = self._calcCenter.getLatestCoverOrder(contNo)
         if not orderInfo or 'OrderPrice' not in orderInfo:
@@ -1893,8 +2025,7 @@ class StrategyModel(object):
 
     def getExitTime(self, contNo):
         '''获得最近平仓位置Bar时间'''
-        if not contNo:
-            contNo = self._cfgModel.getBenchmark()
+        contNo = self.getIndexMap(contNo)
 
         orderInfo = self._calcCenter.getLatestCoverOrder(contNo)
         if not orderInfo or 'DateTimeStamp' not in orderInfo:
@@ -1905,8 +2036,7 @@ class StrategyModel(object):
 
     def getLastEntryDate(self, contNo):
         '''获得当前持仓的最后一个建仓位置的日期'''
-        if not contNo:
-            contNo = self._cfgModel.getBenchmark()
+        contNo = self.getIndexMap(contNo)
 
         orderInfo = self._calcCenter.getLatestOpenOrder(contNo)
         if not orderInfo or 'TradeDate' not in orderInfo:
@@ -1916,8 +2046,7 @@ class StrategyModel(object):
 
     def getLastEntryPrice(self, contNo):
         '''获得当前持仓的最后一次建仓的委托价格'''
-        if not contNo:
-            contNo = self._cfgModel.getBenchmark()
+        contNo = self.getIndexMap(contNo)
 
         orderInfo = self._calcCenter.getLatestOpenOrder(contNo)
         if not orderInfo or 'OrderPrice' not in orderInfo:
@@ -1927,8 +2056,7 @@ class StrategyModel(object):
 
     def getLastEntryTime(self, contNo):
         '''获得当前持仓的最后一个建仓位置的时间'''
-        if not contNo:
-            contNo = self._cfgModel.getBenchmark()
+        contNo = self.getIndexMap(contNo)
 
         orderInfo = self._calcCenter.getLatestOpenOrder(contNo)
         if not orderInfo or 'DateTimeStamp' not in orderInfo:
@@ -1938,8 +2066,7 @@ class StrategyModel(object):
         return (int(dateTimeStamp) % 1000000000) / 1000000000
 
     def getMarketPosition(self, contNo):
-        if not contNo:
-            contNo = self._cfgModel.getBenchmark()
+        contNo = self.getIndexMap(contNo)
 
         positionInfo = self._calcCenter.getPositionInfo(contNo)
         if not positionInfo:
@@ -1950,6 +2077,15 @@ class StrategyModel(object):
         if buy == sell:
             return 0
         return 1 if buy > sell else -1
+
+    def getPositionProfit(self, contNo):
+        contNo = self.getIndexMap(contNo)
+
+        if contNo not in list(self._calcCenter.getPositionInfo()):
+            return 0.0
+
+        positionInfo = self._calcCenter.getPositionInfo(contNo)
+        return positionInfo['HoldProfit']
 
     # ///////////////////////策略性能///////////////////////////
     def getAvailable(self):
@@ -1964,8 +2100,7 @@ class StrategyModel(object):
         return fundRecordDict['DynamicEquity']
 
     def getFloatProfit(self, contNo):
-        if not contNo:
-            contNo = self._cfgModel.getBenchmark()
+        contNo = self.getIndexMap(contNo)
         return self._calcCenter._getHoldProfit(contNo)
 
     def getGrossLoss(self):
@@ -2036,6 +2171,12 @@ class StrategyModel(object):
     def ParabolicSAR(self, high, low, afstep, aflimit):
         '''计算抛物线转向'''
         return self._staModel.ParabolicSAR(high, low, afstep, aflimit)
+        
+    def getRef(self, price, length):
+        if length >= len(price):
+            return price[0]
+        else:
+            return price[-length-1]
 
     def getHighest(self, price, length):
         if (not isinstance(price, np.ndarray) and not isinstance(price, list)) or len(price) == 0:
@@ -2056,3 +2197,33 @@ class StrategyModel(object):
             return arr
 
         return talib.MIN(arr, length)
+        
+    def getCountIf(self, cond, peroid):
+        sum = 0
+        for i in range(len(cond)-1, len(cond)-peroid-1, -1):
+            if cond[i]: sum += 1
+            if i == 0: break
+            
+        return sum
+        
+    def getCrossOver(self, price1, price2):
+        if price1[-1]  <= price2[-1]:
+            return False
+
+        for i in range(len(price1)-1, -1, -1):
+            if price1[i] < price2[i]:
+                return True
+            if i == 0:break
+
+        return False
+
+    def getCrossUnder(self, price1, price2):
+        if price1[-1]  >= price2[-1]:
+            return False
+
+        for i in range(len(price1)-1, -1, -1):
+            if price1[i] > price2[i]:
+                return True
+            if i == 0:break
+
+        return False

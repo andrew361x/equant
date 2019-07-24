@@ -1482,8 +1482,7 @@ class PyAPI(object):
                 'StrategyOrderId'  : None,
             }
             dataList.append(idict)
-        
-        #
+
         def getStrategyIdAndOrderId(apiSessionId, args):
             strategyId, eSessionId = 0, 0
             if apiSessionId in args:
@@ -1508,6 +1507,9 @@ class PyAPI(object):
 
         # 发送到引擎
         apiEvent.setData(dataList)
+        # self.logger.debug(f"sun --------------- py2c : ")
+        # for dataDict in dataList:
+        #     self.logger.debug(f"sun ------ OrderId :  {dataDict['OrderId']} , OrderState : {dataDict['OrderState']}")
         self._api2egQueue.put(apiEvent)
 
     def _onMatchData(self, apiEvent):
@@ -1726,6 +1728,8 @@ class PyAPI(object):
                 'TradeState'        : data.TradeState.decode('utf-8')
             }
             dataList.append(idict)
+        
+        #self.logger.debug("AAAAA:%s"%dataList)
         
         #发送到引擎  
         apiEvent.setData(dataList)

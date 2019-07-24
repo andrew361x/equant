@@ -9,7 +9,9 @@ from .monitor_view import QuantMonitor
 from .run_view import RunWin
 
 from report.reportview import ReportView
-from .com_view import HistoryToplevel
+from .com_view import HistoryToplevel, AlarmToplevel
+
+from datetime import datetime
 
 
 class QuantApplication(object):
@@ -116,6 +118,7 @@ class QuantApplication(object):
         # self.create_monitor()
         self.quant_monitor.createSignal()
         self.quant_monitor.createErr()
+        self.quant_monitor.createPos()
 
     def updateLogText(self):
         self.quant_monitor.updateLogText()
@@ -145,15 +148,19 @@ class QuantApplication(object):
     # def updateExecuteList(self, executeList):
     #     self.quant_monitor.updateExecuteList(executeList)
         
-    def updateSingleExecute(self, dataDict):
-        self.quant_monitor.updateSingleExecute(dataDict)
+    def addExecute(self, dataDict):
+        self.quant_monitor.addExecute(dataDict)
 
-    def createRunWin(self, param):
+    def sortStrategyExecute(self):
+        self.quant_monitor.sortStrategyExecute()
+
+    def createRunWin(self, param, path, flag):
         """弹出量化设置界面"""
         self.setLoadState("disabled")
-        # 运行策略前将用户修改保存
-        self.quant_editor.saveEditor()
-        self.runWin = RunWin(self.control, self.root, param)
+        # a = AlarmToplevel("ABCDE", self.root)
+        # a.display()
+        # return
+        self.runWin = RunWin(self.control, path, flag, self.root, param)
         self.runWin.display()
         self.setLoadState("normal")
 
@@ -169,6 +176,11 @@ class QuantApplication(object):
             # 退出子线程和主线程
             self.control.quitThread()
 
+    def autoExit(self):
+        """量化终端自动退出"""
+        self.control.sendExitRequest()
+        self.control.quitThread()
+
     def reportDisplay(self, data, id):
         """
         显示回测报告
@@ -182,22 +194,41 @@ class QuantApplication(object):
         stName = os.path.basename(strategyPath)
 
         stData = stManager.getSingleStrategy(id)
-        runMode = stData["Config"]["RunMode"]["Actual"]["SendOrder2Actual"]
+        # runMode = stData["Config"]["RunMode"]["Actual"]["SendOrder2Actual"]
+        runMode = stData["Config"]["RunMode"]["SendOrder2Actual"]
         # 保存报告数据
         save(data, runMode, stName)
 
         self.hisTop = HistoryToplevel(self, self.root)
+
         ReportView(data, self.hisTop)
+
+        # def test():
+        #     #TODO: 增加matplotlib.pyplot.close()
+        #     # a.dire.detail_frame.fund.canvas.destroy()
+        #     # a.dire.detail_frame.graph.canvas.destroy()
+        #     self.hisTop.destroy()
+        #
+        # self.hisTop.protocol("WM_DELETE_WINDOW", test)
         self.hisTop.display_()
 
-    def updateStatus(self, strategyId, dataDict):
+    def updateStatus(self, strategyId, status):
         """
         更新策略状态
-        :param strategyIdList: 策略Id列表
-        :param dataDict: strategeId对应的策略的所有信息
+        :param strategyId: 策略Id
+        :param dataDict: strategeId对应的策略状态信息
         :return:
         """
-        self.quant_monitor.updateStatus(strategyId, dataDict)
+        self.quant_monitor.updateStatus(strategyId, status)
+
+    def updateValue(self, strategyId, values):
+        """
+        更新策略的运行数据
+        :param strategyId: 策略id
+        :param values: 策略的运行数据
+        :return:
+        """
+        self.quant_monitor.updateValue(strategyId, values)
 
     def delUIStrategy(self, strategyId):
         """
@@ -210,28 +241,34 @@ class QuantApplication(object):
     def setConnect(self, src):
 
         if src == 'Q':
-            self.quant_editor_head.stateLabel.config(text="即时行情连接成功")
+            self.quant_editor_head.stateLabel.config(text="即时行情连接成功", fg="black")
         if src == 'H':
-            self.quant_editor_head.stateLabel.config(text="历史行情连接成功")
+            self.quant_editor_head.stateLabel.config(text="历史行情连接成功", fg="black")
 
         if src == 'T':
-            self.quant_editor_head.stateLabel.config(text="交易服务连接成功")
+            self.quant_editor_head.stateLabel.config(text="交易服务连接成功", fg="black")
 
         if src == 'S':
-            self.quant_editor_head.stateLabel.config(text="极星9.5连接成功")
+            self.quant_editor_head.stateLabel.config(text="极星9.5连接成功", fg="black")
 
     def setDisconnect(self, src):
         if src == 'Q':
-            self.quant_editor_head.stateLabel.config(text="即时行情断连")
+            self.quant_editor_head.stateLabel.config(text="即时行情断连", fg="red")
         if src == 'H':
-            self.quant_editor_head.stateLabel.config(text="历史行情断连")
+            self.quant_editor_head.stateLabel.config(text="历史行情断连", fg="red")
 
         if src == 'T':
-            self.quant_editor_head.stateLabel.config(text="交易服务断连")
+            self.quant_editor_head.stateLabel.config(text="交易服务断连", fg="red")
 
         if src == 'S':
-            self.quant_editor_head.stateLabel.config(text="极星9.5退出")
+            self.quant_editor_head.stateLabel.config(text="极星9.5退出", fg="red")
+            messagebox.showerror("错误", "极星9.5退出", parent=self.root)
+
 
     def clearError(self):
         """清除错误信息"""
         self.quant_monitor.clearErrorText("")
+
+    def updateSyncPosition(self, positions):
+        """更新组合监控持仓信息"""
+        self.quant_monitor.updatePos(positions)

@@ -30,7 +30,7 @@ class BaseApi(object):
               当前Bar的日期
 
         【语法】
-              int Date(string contractNo, char kLineType, int kLineValue)
+              int Date(string contractNo='', char kLineType='', int kLineValue=0)
 
         【参数】
 			  contractNo 合约编号, 默认基准合约
@@ -51,7 +51,7 @@ class BaseApi(object):
               当前Bar的时间
 
         【语法】
-              float Time(string contractNo, char kLineType, int kLineValue)
+              float Time(string contractNo='', char kLineType='', int kLineValue=0)
 
         【参数】
               contractNo 合约编号, 默认基准合约
@@ -74,7 +74,7 @@ class BaseApi(object):
               指定合约指定周期的开盘价
 
         【语法】
-              array Open(string contractNo, char kLineType, int kLineValue)
+              array Open(string contractNo='', char kLineType='', int kLineValue=0)
 
         【参数】
               contractNo 合约编号, 默认基准合约
@@ -97,7 +97,7 @@ class BaseApi(object):
               指定合约指定周期的最高价
 
         【语法】
-              array High(string contractNo, char kLineType, int kLineValue)
+              array High(string contractNo='', char kLineType='', int kLineValue=0)
 
         【参数】
               contractNo 合约编号,默认基准合约
@@ -120,7 +120,7 @@ class BaseApi(object):
               指定合约指定周期的最低价
 
         【语法】
-              array Low(string contractNo, char klineType, int kLineValue)
+              array Low(string contractNo='', char klineType='', int kLineValue=0)
 
         【参数】
               contractNo 合约编号, 默认基准合约
@@ -143,7 +143,7 @@ class BaseApi(object):
               指定合约指定周期的收盘价
 
         【语法】
-              array Close(string contractNo, char kLineType, int kLineValue)
+              array Close(string contractNo='', char kLineType='', int kLineValue=0)
 
         【参数】
               contractNo 合约编号, 默认基准合约
@@ -165,7 +165,7 @@ class BaseApi(object):
               指定合约指定周期N天前的开盘价
 
         【语法】
-              float OpenD(int daysAgo, string contractNo)
+              float OpenD(int daysAgo=0, string contractNo='')
 
         【参数】
               daysAgo 第几天前，默认值为0，即当天
@@ -186,7 +186,7 @@ class BaseApi(object):
               指定合约指定周期N天前的收盘价
 
         【语法】
-              float CloseD(int daysAgo, string contractNo)
+              float CloseD(int daysAgo=0, string contractNo='')
 
         【参数】
               daysAgo 第几天前，默认值为0，即当天
@@ -207,7 +207,7 @@ class BaseApi(object):
               指定合约指定周期N天前的最高价
 
         【语法】
-              float HighD(int daysAgo, string contractNo)
+              float HighD(int daysAgo=0, string contractNo='')
 
         【参数】
               daysAgo 第几天前，默认值为0，即当天
@@ -228,7 +228,7 @@ class BaseApi(object):
               指定合约指定周期N天前的最低价
 
         【语法】
-              float LowD(int daysAgo, string contractNo)
+              float LowD(int daysAgo=0, string contractNo='')
 
         【参数】
               daysAgo 第几天前，默认值为0，即当天
@@ -249,7 +249,7 @@ class BaseApi(object):
               指定合约指定周期的成交量
 
         【语法】
-              array Vol(string contractNo, char kLineType, int kLineValue)
+              array Vol(string contractNo='', char kLineType='', int kLineValue=0)
 
         【参数】
               contractNo 合约编号, 默认基准合约
@@ -271,7 +271,7 @@ class BaseApi(object):
               指定合约指定周期的持仓量
 
         【语法】
-              numpy.array OpenInt(string contractNo, char kLineType, int kLineValue)
+              numpy.array OpenInt(string contractNo='', char kLineType='', int kLineValue=0)
 
         【参数】
               contractNo 合约编号, 默认基准合约
@@ -293,7 +293,7 @@ class BaseApi(object):
               指定合约当前Bar的交易日
 
         【语法】
-              int TradeDate(string contractNo, char kLineType, int kLineValue)
+              int TradeDate(string contractNo='', char kLineType='', int kLineValue=0)
 
         【参数】
               contractNo 合约编号, 默认基准合约
@@ -314,7 +314,7 @@ class BaseApi(object):
               指定合约Bar的总数
 
         【语法】
-              int BarCount(string contractNo, char kLineType, int kLineValue)
+              int BarCount(string contractNo='', char kLineType='', int kLineValue=0)
 
         【参数】
               contractNo 合约编号, 默认基准合约
@@ -335,7 +335,7 @@ class BaseApi(object):
               指定合约当前Bar的索引值
 
         【语法】
-              int CurrentBar(string contractNo, kLineType, kLineValue)
+              int CurrentBar(string contractNo='', char kLineType='', int kLineValue=0)
 
         【参数】
               contractNo 合约编号, 默认基准合约
@@ -359,7 +359,7 @@ class BaseApi(object):
               指定合约当前Bar的状态值
 
         【语法】
-              int BarStatus(string contractNo, kLineType, kLineValue)
+              int BarStatus(string contractNo='', char kLineType='', int kLineValue=0)
 
         【参数】
               contractNo 合约编号, 默认基准合约
@@ -380,7 +380,7 @@ class BaseApi(object):
               指定合约的历史数据是否有效
 
         【语法】
-              bool HistoryDataExist(string contractNo, kLineType, kLineValue)
+              bool HistoryDataExist(string contractNo='', char kLineType='', int kLineValue=0)
 
         【参数】
               contractNo 合约编号, 默认基准合约
@@ -442,7 +442,7 @@ class BaseApi(object):
               获取最多maxLength根指定类型的历史K线详细数据
 
         【语法】
-               list HisBarsInfo(string contractNo, enum kLineType, int kLineValue, int maxLength)
+               list HisBarsInfo(string contractNo='', char kLineType='', int kLineValue=0, int maxLength=None)
 
         【参数】
               contractNo 合约编号, 为空时取当前合约
@@ -482,7 +482,7 @@ class BaseApi(object):
               获取指定合约即时行情的更新时间
 
         【语法】
-              string Q_UpdateTime(string contractNo)
+              string Q_UpdateTime(string contractNo='')
 
         【参数】
               contractNo 合约编号, 默认当前合约
@@ -502,7 +502,7 @@ class BaseApi(object):
               合约最优卖价
 
         【语法】
-              float Q_AskPrice(string contractNo, int level)
+              float Q_AskPrice(string contractNo='', int level=1)
 
         【参数】
               contractNo 合约编号, 默认当前合约;level 档位数,默认1档
@@ -521,7 +521,7 @@ class BaseApi(object):
               卖盘价格变化标志
 
         【语法】
-              int Q_AskPriceFlag(string contractNo)
+              int Q_AskPriceFlag(string contractNo='')
 
         【参数】
               contractNo 合约编号, 默认当前合约
@@ -540,7 +540,7 @@ class BaseApi(object):
               合约最优卖量
 
         【语法】
-              float Q_AskVol(string contractNo, int level)
+              float Q_AskVol(string contractNo='', int level=1)
 
         【参数】
               contractNo 合约编号, 默认当前合约;level 档位数,默认1档
@@ -559,7 +559,7 @@ class BaseApi(object):
               当前合约的实时均价
 
         【语法】
-              float Q_AvgPrice(string contractNo)
+              float Q_AvgPrice(string contractNo='')
 
         【参数】
               contractNo 合约编号, 默认当前合约
@@ -578,7 +578,7 @@ class BaseApi(object):
               合约最优买价
 
         【语法】
-              float Q_BidPrice(string contractNo, int level)
+              float Q_BidPrice(string contractNo='', int level=1)
 
         【参数】
               contractNo 合约编号, 默认当前合约;level 档位数,默认1档
@@ -597,7 +597,7 @@ class BaseApi(object):
               买盘价格变化标志
 
         【语法】
-              int Q_AskPriceFlag(string contractNo)
+              int Q_AskPriceFlag(string contractNo='')
 
         【参数】
               contractNo 合约编号,  默认当前合约
@@ -617,7 +617,7 @@ class BaseApi(object):
               合约最优买量
 
         【语法】
-              float Q_BidVol(string contractNo, int level)
+              float Q_BidVol(string contractNo='', int level=1)
 
         【参数】
               contractNo 合约编号, 默认当前合约;level 档位数,默认1档
@@ -636,7 +636,7 @@ class BaseApi(object):
               当日收盘价，未收盘则取昨收盘
 
         【语法】
-              float Q_Close(string contractNo)
+              float Q_Close(string contractNo='')
 
         【参数】
               contractNo 合约编号,默认当前合约
@@ -655,7 +655,7 @@ class BaseApi(object):
               当日最高价
 
         【语法】
-              float Q_High(string contractNo)
+              float Q_High(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -674,7 +674,7 @@ class BaseApi(object):
               历史最高价
 
         【语法】
-              float Q_HisHigh(string contractNo)
+              float Q_HisHigh(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -693,7 +693,7 @@ class BaseApi(object):
               历史最低价
 
         【语法】
-              float Q_HisLow(string contractNo)
+              float Q_HisLow(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -712,7 +712,7 @@ class BaseApi(object):
               内盘量
 
         【语法】
-              float Q_InsideVol(string contractNo)
+              float Q_InsideVol(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -731,7 +731,7 @@ class BaseApi(object):
               最新价
 
         【语法】
-              float Q_Last(string contractNo)
+              float Q_Last(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -750,7 +750,7 @@ class BaseApi(object):
               最新成交日期
 
         【语法】
-              int Q_LastDate(string contractNo)
+              int Q_LastDate(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -769,7 +769,7 @@ class BaseApi(object):
               最新成交时间
 
         【语法】
-              float Q_LastTime(string contractNo)
+              float Q_LastTime(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -789,7 +789,7 @@ class BaseApi(object):
               现手
 
         【语法】
-              float Q_LastVol(string contractNo)
+              float Q_LastVol(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -808,7 +808,7 @@ class BaseApi(object):
               当日最低价
 
         【语法】
-              float Q_Low(string contractNo)
+              float Q_Low(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -827,7 +827,7 @@ class BaseApi(object):
               当日跌停板价
 
         【语法】
-              float Q_LowLimit(string contractNo)
+              float Q_LowLimit(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -846,7 +846,7 @@ class BaseApi(object):
               当日开盘价
 
         【语法】
-              float Q_Open(string contractNo)
+              float Q_Open(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -865,7 +865,7 @@ class BaseApi(object):
               持仓量
 
         【语法】
-              float Q_OpenInt(string contractNo)
+              float Q_OpenInt(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -884,7 +884,7 @@ class BaseApi(object):
               持仓量变化标志
 
         【语法】
-              int  Q_OpenIntFlag(string contractNo)
+              int  Q_OpenIntFlag(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -903,7 +903,7 @@ class BaseApi(object):
               外盘量
 
         【语法】
-              float Q_OutsideVol(string contractNo)
+              float Q_OutsideVol(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -922,7 +922,7 @@ class BaseApi(object):
               昨持仓量
 
         【语法】
-              float Q_PreOpenInt(string contractNo)
+              float Q_PreOpenInt(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -941,7 +941,7 @@ class BaseApi(object):
               昨结算
 
         【语法】
-              float Q_PreSettlePrice(string contractNo)
+              float Q_PreSettlePrice(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -960,7 +960,7 @@ class BaseApi(object):
               当日涨跌
 
         【语法】
-              float Q_PriceChg(string contractNo)
+              float Q_PriceChg(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -980,7 +980,7 @@ class BaseApi(object):
               当日涨跌幅
 
         【语法】
-              float Q_PriceChgRadio(string contractNo)
+              float Q_PriceChgRadio(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -999,7 +999,7 @@ class BaseApi(object):
               当日开仓量
 
         【语法】
-              float Q_TodayEntryVol(string contractNo)
+              float Q_TodayEntryVol(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -1018,7 +1018,7 @@ class BaseApi(object):
               当日平仓量
 
         【语法】
-              float Q_TodayExitVol(string contractNo)
+              float Q_TodayExitVol(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -1037,7 +1037,7 @@ class BaseApi(object):
               当日成交量
 
         【语法】
-              float Q_TotalVol(string contractNo)
+              float Q_TotalVol(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -1056,7 +1056,7 @@ class BaseApi(object):
               当日成交额
 
         【语法】
-              float Q_TurnOver(string contractNo)
+              float Q_TurnOver(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -1075,7 +1075,7 @@ class BaseApi(object):
               当日涨停板价
 
         【语法】
-              float Q_UpperLimit(string contractNo)
+              float Q_UpperLimit(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -1094,7 +1094,7 @@ class BaseApi(object):
               行情数据是否有效
 
         【语法】
-              Bool QuoteDataExist(string contractNo)
+              Bool QuoteDataExist(string contractNo='')
 
         【参数】
               contractNo 合约编号
@@ -1114,14 +1114,14 @@ class BaseApi(object):
               产生一个多头建仓操作
 
         【语法】
-              Bool Buy(int Share=0, float Price=0, string ContractNo=None, bool NeedCover = True, string UserNo=')
+              Bool Buy(int share=0, float price=0, string contractNo=None, bool needCover = True, string userNo=')
 
         【参数】
-              Share 买入数量，为整型值，默认为0；
-              Price 买入价格，为浮点数，默认为0；
-              Contract 合约代码，为字符串，默认使用基准合约；
-              NeedCover 是否先清掉方向持仓，默认为True；
-              UserNo 用户编号，为字符串，默认使用界面选定用户编号。
+              share 买入数量，为整型值，默认为0；
+              price 买入价格，为浮点数，默认为0；
+              contract 合约代码，为字符串，默认使用基准合约；
+              needCover 是否先清掉方向持仓，默认为True；
+              userNo 用户编号，为字符串，默认使用界面选定用户编号。
 
         【备注】
               产生一个多头建仓操作，返回值为布尔型，执行成功返回True，否则返回False。
@@ -1144,19 +1144,19 @@ class BaseApi(object):
         '''
         return self._dataModel.setBuy(userNo, contractNo, share, price, needCover)
 
-    def BuyToCover(self, contractNo, share=0, price=0, userNo=''):
+    def BuyToCover(self, share=0, price=0, contractNo='', userNo=''):
         '''
         【说明】
               产生一个空头平仓操作
 
         【语法】
-              Bool BuyToCover(int Share=0, float Price=0, string ContractNo=None, string UserNo='')
+              Bool BuyToCover(int share=0, float price=0, string contractNo=None, string userNo='')
 
         【参数】
-              Share 买入数量，为整型值，默认为0；
-              Price 买入价格，为浮点数，默认为0；
-              Contract 合约代码，为字符串，默认使用基准合约；
-              UserNo 用户编号，为字符串，默认使用界面选定用户编号。
+              share 买入数量，为整型值，默认为0；
+              price 买入价格，为浮点数，默认为0；
+              contract 合约代码，为字符串，默认使用基准合约；
+              userNo 用户编号，为字符串，默认使用界面选定用户编号。
 
         【备注】
               产生一个空头平仓操作，返回值为布尔型，执行成功返回True，否则返回False。
@@ -1176,19 +1176,19 @@ class BaseApi(object):
         '''
         return self._dataModel.setBuyToCover(userNo, contractNo, share, price)
 
-    def Sell(self, contractNo, share=0, price=0, userNo=''):
+    def Sell(self, share, price, contractNo, userNo):
         '''
         【说明】
               产生一个多头平仓操作
 
         【语法】
-              Bool Sell(int Share=0, float Price=0, string ContractNo=None, string UserNo='')
+              Bool Sell(int share=0, float price=0, string contractNo=None, string userNo='')
 
         【参数】
-              Share 买入数量，为整型值，默认为0；
-              Price 买入价格，为浮点数，默认为0；
-              Contract 合约代码，为字符串，默认使用基准合约；
-              UserNo 用户编号，为字符串，默认使用界面选定用户编号。
+              share 买入数量，为整型值，默认为0；
+              price 买入价格，为浮点数，默认为0；
+              contract 合约代码，为字符串，默认使用基准合约；
+              userNo 用户编号，为字符串，默认使用界面选定用户编号。
 
         【备注】
               产生一个多头平仓操作，返回值为布尔型，执行成功返回True，否则返回False。
@@ -1214,14 +1214,14 @@ class BaseApi(object):
               产生一个空头建仓操作
 
         【语法】
-              Bool SellShort(int Share=0, float Price=0, string ContractNo=None, bool NeedCover = True, string UserNo='')
+              Bool SellShort(int share=0, float price=0, string contractNo=None, bool needCover = True, string userNo='')
 
         【参数】
-              Share 买入数量，为整型值，默认为0；
-              Price 买入价格，为浮点数，默认为0；
-              Contract 合约代码，为字符串，默认使用基准合约；
-              NeedCover 是否先清掉方向持仓，默认为True；
-              UserNo 用户编号，为字符串，默认使用界面选定用户编号。
+              share 买入数量，为整型值，默认为0；
+              price 买入价格，为浮点数，默认为0；
+              contract 合约代码，为字符串，默认使用基准合约；
+              needCover 是否先清掉方向持仓，默认为True；
+              userNo 用户编号，为字符串，默认使用界面选定用户编号。
 
         【备注】
               产生一个空头建仓操作，返回值为布尔型，执行成功返回True，否则返回False。
@@ -1359,7 +1359,7 @@ class BaseApi(object):
               买卖盘个数
 
         【语法】
-              int BidAskSize(contractNo)
+              int BidAskSize(string contractNo='')
 
         【参数】
               contractNo: 合约编号，为空时，取基准合约。
@@ -1379,7 +1379,7 @@ class BaseApi(object):
               合约是否支持交易
 
         【语法】
-              Bool CanTrade(contractNo)
+              Bool CanTrade(string contractNo='')
 
         【参数】
               contractNo: 合约编号，为空时，取基准合约。
@@ -1398,7 +1398,7 @@ class BaseApi(object):
               每张合约包含的基本单位数量, 即每手乘数
 
         【语法】
-              int ContractUnit(contractNo)
+              int ContractUnit(string contractNo='')
 
         【参数】
               contractNo: 合约编号，为空时，取基准合约。
@@ -1417,7 +1417,7 @@ class BaseApi(object):
               合约对应交易所名称
 
         【语法】
-              string ExchangeName(contractNo)
+              string ExchangeName(string contractNo='')
 
         【参数】
               contractNo: 合约编号，为空时，取基准合约。
@@ -1436,7 +1436,7 @@ class BaseApi(object):
               合约对应交易所名称
 
         【语法】
-              string ExchangeTime(exchangeNo)
+              string ExchangeTime(string contractNo)
 
         【参数】
               exchangeNo: 交易所编号，例如"ZCE","DCE","SHFE","CFFEX","INE"
@@ -1455,7 +1455,7 @@ class BaseApi(object):
               合约对应交易所名称
 
         【语法】
-              string ExchangeStatus(exchangeNo)
+              string ExchangeStatus(string contractNo)
 
         【参数】
               exchangeNo: 交易所编号，例如"ZCE","DCE","SHFE","CFFEX","INE"
@@ -1488,7 +1488,7 @@ class BaseApi(object):
               合约最后交易日
 
         【语法】
-              string ExpiredDate(contractNo)
+              string ExpiredDate(string contractNo='')
 
         【参数】
               contractNo: 合约编号，为空时，取基准合约。
@@ -1507,7 +1507,7 @@ class BaseApi(object):
               获取交易时间段的个数
 
         【语法】
-              int GetSessionCount(contractNo)
+              int GetSessionCount(string contractNo='')
 
         【参数】
               contractNo: 合约编号，为空时，取基准合约。
@@ -1526,7 +1526,7 @@ class BaseApi(object):
               获取指定交易时间段的结束时间。
 
         【语法】
-              float GetSessionEndTime(contractNo, index)
+              float GetSessionEndTime(string contractNo='', int index=0)
 
         【参数】
               contractNo 合约编号，为空时，取基准合约。
@@ -1552,7 +1552,7 @@ class BaseApi(object):
               获取指定交易时间段的开始时间。
 
         【语法】
-              float GetSessionStartTime(contractNo, index)
+              float GetSessionStartTime(string contractNo='', int index=0)
 
         【参数】
               contractNo 合约编号，为空时，取基准合约。
@@ -1575,7 +1575,7 @@ class BaseApi(object):
               dict GetNextTimeInfo(string contractNo, float timeStamp)
 
         【参数】
-              contractNo 合约编号，为空时，取基准合约。
+              contractNo 合约编号。
               timeStr 指定的时间点，格式为0.HHMMSS。
 
         【备注】
@@ -1607,10 +1607,29 @@ class BaseApi(object):
         '''
         return self._dataModel.getNextTimeInfo(contractNo, timeStamp)
 
+    def CurrentDate(self):
+        '''
+        【说明】
+              公式处于历史阶段时，返回历史K线当时的日期。处于实时阶段时，返回客户端所在操作系统的日期
+
+        【语法】
+              int CurrentDate()
+
+        【参数】
+              无
+
+        【备注】
+              格式为YYMMDD的整数。
+
+        【示例】
+              如果当前日期为2019-7-13，CurrentDate返回值为20190713
+        '''
+        return self._dataModel.getCurrentDate()
+        
     def CurrentTime(self):
         '''
         【说明】
-              获取操作系统的当前时间。
+              公式处于历史阶段时，返回历史K线当时的时间。处于实时阶段时，返回客户端所在操作系统的时间
 
         【语法】
               float CurrentTime()
@@ -1619,12 +1638,33 @@ class BaseApi(object):
               无
 
         【备注】
-              获取操作系统的当前时间，格式为0.HHMMSS的浮点数。
+              格式为0.HHMMSS的浮点数。
 
         【示例】
               如果当前时间为11:34:21，CurrentTime返回值为0.113421。
         '''
         return self._dataModel.getCurrentTime()
+        
+    def TimeDiff(self, datetime1, datetime2):
+        '''
+        【说明】
+              返回两个时间之间的间隔秒数，忽略日期差异
+
+        【语法】
+              int TimeDiff(self, float datetime1, float datetime2)
+
+        【参数】
+              datetime1 输入较早时间
+              datetime2 输入较晚个时间
+
+        【备注】
+              该函数只计算两个时间之间的差值，不考虑两个参数的日期
+
+        【示例】
+              TimeDiff(20190404.104110,20110404.104120);返回两时间相差10秒；
+              TimeDiff(20190404.1041,20110404.1043);返回两时间相差2分钟，即120秒
+        '''
+        return self._dataModel.getTimeDiff(datetime1, datetime2)
 
     def IsInSession(self, contractNo):
         '''
@@ -1632,7 +1672,7 @@ class BaseApi(object):
               操作系统的当前时间是否为指定合约的交易时间。
 
         【语法】
-              bool IsInSession(string contractNo)
+              bool IsInSession(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基础合约。
@@ -1651,7 +1691,7 @@ class BaseApi(object):
               获取合约默认保证金比率
 
         【语法】
-              float MarginRatio()
+              float MarginRatio(string contractNo='')
 
         【参数】
               contractNo 合约编号，为空时，取基准合约。
@@ -1708,7 +1748,7 @@ class BaseApi(object):
               合约最小变动价
 
         【语法】
-              int PriceTick(string contractNo)
+              int PriceTick(string contractNo='')
 
         【参数】
               contractNo 合约编号，为空时，取基准合约。
@@ -1727,7 +1767,7 @@ class BaseApi(object):
               期权类型，欧式还是美式
 
         【语法】
-              int OptionStyle(string contractNo)
+              int OptionStyle(string contractNo='')
 
         【参数】
               contractNo 合约编号，为空时，取基准合约。
@@ -1746,7 +1786,7 @@ class BaseApi(object):
               返回期权的类型，是看涨还是看跌期权
 
         【语法】
-              int OptionType(string contractNo)
+              int OptionType(string contractNo='')
 
         【参数】
               contractNo 合约编号，为空时，取基准合约。
@@ -1765,7 +1805,7 @@ class BaseApi(object):
               合约价格精度
 
         【语法】
-              float PriceScale(string contractNo)
+              float PriceScale(string contractNo='')
 
         【参数】
               contractNo 合约编号，为空时，取基准合约。
@@ -1824,7 +1864,7 @@ class BaseApi(object):
     def Symbol(self):
         '''
         【说明】
-              获取合约编号
+              获取展示合约，即基准合约的编号
 
         【语法】
               string Symbol()
@@ -1858,7 +1898,7 @@ class BaseApi(object):
               获取合约名称
 
         【语法】
-              string SymbolName(string contractNo)
+              string SymbolName(string contractNo='')
 
         【参数】
               contractNo 合约编号，为空时，取基准合约。
@@ -1877,7 +1917,7 @@ class BaseApi(object):
               获取合约所属的品种编号
 
         【语法】
-              string SymbolType(string contractNo)
+              string SymbolType(string contractNo='')
 
         【参数】
               contractNo 合约编号，为空时，取基准合约。
@@ -1896,10 +1936,10 @@ class BaseApi(object):
               获取商品主连/近月对应的合约
 
         【语法】
-              string GetTrendContract(string contractNo)
+              string GetTrendContract(string contractNo="")
 
         【参数】
-              contractNo 取商品主连/近月编号，不能为空。
+              contractNo 取商品主连/近月编号，为空时，取基准合约。
 
         【备注】
               返回字符串
@@ -1917,7 +1957,7 @@ class BaseApi(object):
               获得当前持仓指定合约的平均建仓价格。
 
         【语法】
-              float AvgEntryPrice(string contractNo)
+              float AvgEntryPrice(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -1936,7 +1976,7 @@ class BaseApi(object):
               获得当前持仓中指定合约的第一个建仓位置到当前位置的Bar计数。
 
         【语法】
-              int BarsSinceEntry(string contractNo)
+              int BarsSinceEntry(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -1957,7 +1997,7 @@ class BaseApi(object):
               获得当前持仓中指定合约的最近平仓位置到当前位置的Bar计数。
 
         【语法】
-              int BarsSinceExit(string contractNo)
+              int BarsSinceExit(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -1978,7 +2018,7 @@ class BaseApi(object):
               获得当前持仓的最后一个建仓位置到当前位置的Bar计数。
 
         【语法】
-              int BarsSinceLastEntry(string contractNo)
+              int BarsSinceLastEntry(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -1999,7 +2039,7 @@ class BaseApi(object):
               获得当天的第一根Bar到当前的Bar个数。
 
         【语法】
-              int BarsSinceToday(string contractNo, char kLineType, int kLineValue)
+              int BarsSinceToday(string contractNo='', char kLineType='', int kLineValue='')
 
         【参数】
               contractNo 合约编号，默认为基准合约
@@ -2020,7 +2060,7 @@ class BaseApi(object):
               获得当前持仓的每手浮动盈亏。
 
         【语法】
-              float ContractProfit(string contractNo)
+              float ContractProfit(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -2039,7 +2079,7 @@ class BaseApi(object):
               获得策略当前的持仓合约数(净持仓)。
 
         【语法】
-              int CurrentContracts(string contractNo)
+              int CurrentContracts(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -2058,12 +2098,11 @@ class BaseApi(object):
         【说明】
               获得当前持仓的买入方向的持仓量。
          【语法】
-              int BuyPosition(string contractNo)
+              int BuyPosition(string contractNo='')
          【参数】
               contractNo 合约编号，默认为基准合约。
          【备注】
               获得策略当前持仓的买入方向的持仓量，返回值为整数。
-              只有当MarketPosition != 0时，即有持仓的状况下，该函数才有意义，否则返回-1。
          【示例】
               无
         '''
@@ -2074,12 +2113,11 @@ class BaseApi(object):
         【说明】
               获得当前持仓的卖出方向的持仓量。
          【语法】
-              int SellPosition(string contractNo)
+              int SellPosition(string contractNo='')
          【参数】
               contractNo 合约编号，默认为基准合约。
          【备注】
               获得策略当前持仓的卖出持仓量，返回值为整数。
-              只有当MarketPosition != 0时，即有持仓的状况下，该函数才有意义，否则返回-1。
          【示例】
               无
         '''
@@ -2091,7 +2129,7 @@ class BaseApi(object):
               获得当前持仓的第一个建仓位置的日期。
 
         【语法】
-              int EntryDate(string contractNo)
+              int EntryDate(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -2110,7 +2148,7 @@ class BaseApi(object):
               获得当前持仓的第一次建仓的委托价格。
 
         【语法】
-              float EntryPrice(string contractNo)
+              float EntryPrice(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -2130,7 +2168,7 @@ class BaseApi(object):
               获得当前持仓的第一个建仓位置的时间。
 
         【语法】
-              float EntryTime(string contractNo)
+              float EntryTime(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -2150,7 +2188,7 @@ class BaseApi(object):
               获得最近平仓位置Bar日期。
 
         【语法】
-              int ExitDate(string contractNo)
+              int ExitDate(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -2170,7 +2208,7 @@ class BaseApi(object):
               获得合约最近一次平仓的委托价格。
 
         【语法】
-              float ExitPrice(string contractNo)
+              float ExitPrice(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -2190,7 +2228,7 @@ class BaseApi(object):
               获得最近平仓位置Bar时间。
 
         【语法】
-              float ExitTime(string contractNo)
+              float ExitTime(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -2210,7 +2248,7 @@ class BaseApi(object):
               获得当前持仓的最后一个建仓位置的日期。
 
         【语法】
-              int LastEntryDate(string contractNo)
+              int LastEntryDate(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -2230,7 +2268,7 @@ class BaseApi(object):
               获得当前持仓的最后一次建仓的委托价格。
 
         【语法】
-              float LastEntryPrice(string contractNo)
+              float LastEntryPrice(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -2250,7 +2288,7 @@ class BaseApi(object):
               获得当前持仓的最后一个建仓位置的时间。
 
         【语法】
-              float LastEntryTime(string contractNo)
+              float LastEntryTime(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -2270,7 +2308,7 @@ class BaseApi(object):
                获得当前持仓状态 。
 
         【语法】
-              int MarketPosition(string contractNo)
+              int MarketPosition(string contractNo='')
 
         【参数】
               contractNo 合约编号，默认为基准合约。
@@ -2287,6 +2325,45 @@ class BaseApi(object):
               if(MarketPosition("ZCE|F|SR|905")!=0)判断合约ZCE|F|SR|905当前是否有持仓，无论持空仓或多仓
         '''
         return self._dataModel.getMarketPosition(contractNo)
+
+    def PositionProfit(self, contractNo):
+        '''
+        【说明】
+               获得当前持仓的浮动盈亏 。
+
+        【语法】
+              float PositionProfit(string contractNo='')
+
+        【参数】
+              contractNo 合约编号，默认为基准合约。
+
+        【备注】
+              若策略当前持仓为0，则返回0
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getPositionProfit(contractNo)
+
+    def BarsLast(self, condition):
+        '''
+        【说明】
+              返回最后一次满足条件时距离当前的bar数
+
+        【语法】
+               int BarsLast(bool condition)
+
+        【参数】
+              condition  传入的条件表达式
+
+        【备注】
+              返回最后一次满足条件时距离当前的bar数。
+
+        【示例】
+              BarsLast(Close > Open); 从当前Bar开始，最近出现Close>Open的Bar到当前Bar的偏移值。如果为0，即当前Bar为最近的满足条件的Bar。
+
+        '''
+        return self._dataModel.getBarsLast(condition)
 
     #////////////////////////////策略性能/////////////////
     def Available(self):
@@ -2333,7 +2410,7 @@ class BaseApi(object):
               返回指定合约的浮动盈亏。
 
         【语法】
-              float FloatProfit(string contractNo)
+              float FloatProfit(string contractNo='')
 
         【参数】
               contractNo 合约编号，为空时返回基准合约的浮动盈亏。
@@ -2390,7 +2467,7 @@ class BaseApi(object):
               返回指定合约的持仓保证金。
 
         【语法】
-              float Margin(string contractNo)
+              float Margin(string contractNo='')
 
         【参数】
               contractNo 合约编号，为空时返回基准合约的浮动盈亏。
@@ -2797,7 +2874,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的买入持仓均价。
 
         【语法】
-              float A_BuyAvgPrice(string contractNo)
+              float A_BuyAvgPrice(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -2817,7 +2894,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的买入持仓。
 
         【语法】
-              float A_BuyPosition(string contractNo)
+              float A_BuyPosition(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -2837,7 +2914,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下买仓可平数量。
 
         【语法】
-              int A_BuyPositionCanCover(string contractNo)
+              int A_BuyPositionCanCover(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -2856,7 +2933,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的买入持仓盈亏。
 
         【语法】
-              float A_BuyProfitLoss(string contractNo)
+              float A_BuyProfitLoss(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -2876,7 +2953,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的卖出持仓均价。
 
         【语法】
-              float A_SellAvgPrice(string contractNo)
+              float A_SellAvgPrice(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -2896,7 +2973,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的卖出持仓。
 
         【语法】
-              float A_SellPosition(string contractNo)
+              float A_SellPosition(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -2916,7 +2993,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下卖仓可平数量。
 
         【语法】
-              int A_SellPositionCanCover(string contractNo)
+              int A_SellPositionCanCover(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -2935,7 +3012,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的卖出持仓盈亏。
 
         【语法】
-              float A_SellProfitLoss(string contractNo)
+              float A_SellProfitLoss(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -2955,7 +3032,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的持仓均价。
 
         【语法】
-              float A_TotalAvgPrice(string contractNo)
+              float A_TotalAvgPrice(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -2975,7 +3052,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的总持仓。
 
         【语法】
-              int A_TotalPosition(string contractNo)
+              int A_TotalPosition(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -2996,7 +3073,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的总持仓盈亏。
 
         【语法】
-              float A_TotalProfitLoss(string contractNo)
+              float A_TotalProfitLoss(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -3016,7 +3093,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的当日买入持仓。
 
         【语法】
-              float A_TodayBuyPosition(string contractNo)
+              float A_TodayBuyPosition(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -3036,7 +3113,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的当日卖出持仓。
 
         【语法】
-              float A_TodaySellPosition(string contractNo)
+              float A_TodaySellPosition(string contractNo='')
 
         【参数】
               contractNo，指定商品的合约编号，为空时采用基准合约编号。
@@ -3056,7 +3133,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的某个委托单的买卖类型。
 
         【语法】
-              char A_OrderBuyOrSell(int|string localOrderId)
+              char A_OrderBuyOrSell(int|string localOrderId='')
 
         【参数】
               localOrderId 定单号，或者使用A_SendOrder返回的下单编号。
@@ -3082,7 +3159,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的某个委托单的开平仓状态。
 
         【语法】
-              char A_OrderEntryOrExit(int|string localOrderId)
+              char A_OrderEntryOrExit(int|string localOrderId='')
 
         【参数】
               localOrderId 定单号，或者使用A_SendOrder返回的下单编号。
@@ -3111,7 +3188,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的某个委托单的成交数量。
 
         【语法】
-              float A_OrderFilledLot(int|string localOrderId)
+              float A_OrderFilledLot(int|string localOrderId='')
 
         【参数】
               localOrderId 定单号，或者使用A_SendOrder返回的下单编号。
@@ -3131,7 +3208,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的某个委托单的成交价格。
 
         【语法】
-              float A_OrderFilledPrice(int|string localOrderId)
+              float A_OrderFilledPrice(int|string localOrderId='')
 
         【参数】
               localOrderId 定单号，或者使用A_SendOrder返回的下单编号。
@@ -3152,7 +3229,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的某个委托单的委托数量。
 
         【语法】
-              float A_OrderLot(int|string localOrderId)
+              float A_OrderLot(int|string localOrderId='')
 
         【参数】
               localOrderId 定单号，或者使用A_SendOrder返回的下单编号。
@@ -3172,7 +3249,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的某个委托单的委托价格。
 
         【语法】
-              float A_OrderPrice(int|string localOrderId)
+              float A_OrderPrice(int|string localOrderId='')
 
         【参数】
               localOrderId 定单号，或者使用A_SendOrder返回的下单编号。
@@ -3192,7 +3269,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的某个委托单的状态。
 
         【语法】
-              char A_OrderStatus(int|string localOrderId)
+              char A_OrderStatus(int|string localOrderId='')
 
         【参数】
               localOrderId 定单号，或者使用A_SendOrder返回的下单编号。
@@ -3233,7 +3310,7 @@ class BaseApi(object):
               返回当前公式应用的帐户下当前商品的某个委托单的委托时间。
 
         【语法】
-              struct_time A_OrderTime(int|string localOrderId)
+              struct_time A_OrderTime(int|string localOrderId='')
 
         【参数】
               localOrderId 定单号，或者使用A_SendOrder返回的下单编号。
@@ -3253,7 +3330,7 @@ class BaseApi(object):
               返回当前账户第一个订单号。
 
         【语法】
-              int A_FirstOrderNo(string contractNo)
+              int A_FirstOrderNo(string contractNo='')
 
         【参数】
               contractNo 合约代码，默认为遍历所有合约。
@@ -3273,10 +3350,10 @@ class BaseApi(object):
               返回当前账户下一个订单号。
 
         【语法】
-              int A_NextOrderNo(int localOrderId, string contractNo)
+              int A_NextOrderNo(int localOrderId=0, string contractNo='')
 
         【参数】
-              localOrderId 定单号，不能为空，
+              localOrderId 定单号，默认为0，
               contractNo 合约代码，默认为遍历所有合约。
 
         【备注】
@@ -3294,7 +3371,7 @@ class BaseApi(object):
               返回当前账户最近发送的订单号。
 
         【语法】
-              int A_LastOrderNo(string contractNo)
+              int A_LastOrderNo(string contractNo='')
 
         【参数】
               contractNo 合约代码，默认为遍历所有合约。
@@ -3313,7 +3390,7 @@ class BaseApi(object):
               返回当前账户第一个排队(可撤)订单号。
 
         【语法】
-              int A_FirstQueueOrderNo(string contractNo)
+              int A_FirstQueueOrderNo(string contractNo='')
 
         【参数】
               contractNo 合约代码，默认为遍历所有合约。
@@ -3333,10 +3410,10 @@ class BaseApi(object):
               返回当前账户下一个排队(可撤)订单号。
 
         【语法】
-              int A_NextQueueOrderNo(int localOrderId, string contractNo)
+              int A_NextQueueOrderNo(int localOrderId=0, string contractNo='')
 
         【参数】
-              localOrderId 定单号，不能为空，
+              localOrderId 定单号，默认为0，
               contractNo 合约代码，默认为遍历所有合约。
 
         【备注】
@@ -3354,7 +3431,7 @@ class BaseApi(object):
               返回当前账户所有排队(可撤)订单号。
 
         【语法】
-              list A_AllQueueOrderNo(string contractNo)
+              list A_AllQueueOrderNo(string contractNo='')
 
         【参数】
               contractNo 合约代码，默认为遍历所有合约，指定后只遍历指定合约。
@@ -3373,7 +3450,7 @@ class BaseApi(object):
               返回当前账户最新一笔完全成交委托单对应的时间。
 
         【语法】
-              float A_LatestFilledTime(string contractNo)
+              float A_LatestFilledTime(string contractNo='')
 
         【参数】
               contractNo 合约代码，默认为遍历所有合约，指定后只遍历指定合约。
@@ -3392,7 +3469,7 @@ class BaseApi(object):
               返回订单的合约号。
 
         【语法】
-              string A_OrderContractNo(int|string localOrderId)
+              string A_OrderContractNo(int|string localOrderId=0)
 
         【参数】
               localOrderId 定单号，或者使用A_SendOrder返回的下单编号。
@@ -3544,7 +3621,7 @@ class BaseApi(object):
               批量撤单函数。
 
         【语法】
-              bool DeleteAllOrders(string contractNo)
+              bool DeleteAllOrders(string contractNo='')
 
         【参数】
               contractNo 合约代码，默认为所有合约，指定后只撤指定合约。
@@ -4930,10 +5007,10 @@ class BaseApi(object):
     def GetConfig(self):
         return self._dataModel.getConfig()
 
-    def AddUserNo(self, userNo):
+    def SetUserNo(self, userNo):
         '''
         【说明】
-              添加实盘交易账户
+              设置实盘交易账户
 
         【语法】
               int SetUserNo(string userNo)
@@ -4948,7 +5025,7 @@ class BaseApi(object):
         【示例】
               SetUserNo('ET001')
         '''
-        return self._dataModel.addUserNo(userNo)
+        return self._dataModel.setUserNo(userNo)
 
     def SetBarInterval(self, contractNo, barType, barInterval, sampleConfig):
         '''
@@ -4956,11 +5033,11 @@ class BaseApi(object):
               设置指定合约的K线类型和K线周期，以及策略历史回测的起始点信息
 
         【语法】
-              int SetBarInterval(string contractNo, char barType, int barInterval, int|string|char sampleConfig)
+              int SetBarInterval(string contractNo, char barType, int barInterval, int|string|char sampleConfig=2000)
 
         【参数】
               contractNo 合约编号
-              barType K线类型 T分笔，S秒线，M分钟，D日线
+              barType K线类型 T分笔，M分钟，D日线
               barInterval K线周期
               sampleConfig 策略历史回测的起始点信息，可选的值为：
                 字符A : 使用所有K线
@@ -5012,25 +5089,24 @@ class BaseApi(object):
         '''
         return self._dataModel.setSample(sampleType, sampleValue)
         
-    def SetInitCapital(self, capital, userNo):
+    def SetInitCapital(self, capital):
         '''
         【说明】
               设置初始资金，不设置默认100万
 
         【语法】
-              int SetInitCapital(float capital=10000000, string usrNo='')
+              int SetInitCapital(float capital=10000000)
 
         【参数】
               capital 初始资金，默认为10000000
-              usrNo 账号名称，默认为设置界面选中的账号
 
         【备注】
               返回整型，0成功，-1失败
 
         【示例】
-              SetInitCapital(200*10000, 'ET001'), 设置账户ET001的初始资金为200万
+              SetInitCapital(200*10000), 设置初始资金为200万
         '''
-        return self._dataModel.setInitCapital(capital, userNo)
+        return self._dataModel.setInitCapital(capital)
         
     def SetMargin(self, type, value, contractNo):
         '''
@@ -5038,7 +5114,7 @@ class BaseApi(object):
               设置保证金参数，不设置取交易所公布参数
 
         【语法】
-              int SetMargin(float type, float value, string contractNo)
+              int SetMargin(float type, float value=0, string contractNo='')
 
         【参数】
               type 0：按比例收取保证金， 1：按定额收取保证金，
@@ -5060,7 +5136,7 @@ class BaseApi(object):
               设置手续费收取方式
 
         【语法】
-              int SetTradeFee(string type, int feeType, float feeValue, string contractNo)
+              int SetTradeFee(string type, int feeType, float feeValue, string contractNo='')
 
         【参数】
               type 手续费类型，A-全部，O-开仓，C-平仓，T-平今
@@ -5144,10 +5220,10 @@ class BaseApi(object):
              设置最小下单量，单位为手，默认值为1手。
 
         【语法】
-              int SetMinTradeQuantity(int tradeQty)
+              int SetMinTradeQuantity(int tradeQty=1)
 
         【参数】
-              tradeQty 最小下单量，不超过1000
+              tradeQty 最小下单量，默认为1，不超过1000
 
         【备注】
               返回整型，0成功，-1失败
@@ -5205,7 +5281,7 @@ class BaseApi(object):
              设置触发方式
 
         【语法】
-              int SetTriggerType(int type, int|list value)
+              int SetTriggerType(int type, int|list value=None)
 
         【参数】
               type 触发方式，可使用的值为：
@@ -5233,12 +5309,12 @@ class BaseApi(object):
              设置触发方式
 
         【语法】
-              int SetWinPoint(int winPoint, int nPriceType, int nAddTick, string contractNo)
+              void SetWinPoint(int winPoint, int nPriceType = 0, int nAddTick = 0, string contractNo = "")
 
         【参数】
               winPoint 赢利点数值，若当前价格相对于最近一次开仓价格的盈利点数达到或超过该值，就进行止盈；
-              nPriceType 平仓下单价格类型 0:最新价 1：对盘价 2：挂单价 3：市价 4：停板价；
-              nAddTick 超价点数 仅当nPrice为0，1，2时有效；
+              nPriceType 平仓下单价格类型 0:最新价 1：对盘价 2：挂单价 3：市价 4：停板价，默认值为0；
+              nAddTick 超价点数 仅当nPrice为0，1，2时有效，默认为0；
               contractNo 合约代码，默认为基准合约。
 
         【备注】
@@ -5255,12 +5331,12 @@ class BaseApi(object):
              设置触发方式
 
         【语法】
-              int SetWinPoint(int stopPoint, int nPriceType, int nAddTick, string contractNo)
+              void SetWinPoint(int stopPoint, int nPriceType = 0, int nAddTick = 0, string contractNo = "")
 
         【参数】
               stopPoint 止损点数，若当前价格相对于最近一次开仓价格亏损点数达到或跌破该值，就进行止损；
-              nPriceType 平仓下单价格类型 0:最新价 1：对盘价 2：挂单价 3：市价 4：停板价；
-              nAddTick 超价点数 仅当nPrice为0，1，2时有效；
+              nPriceType 平仓下单价格类型 0:最新价 1：对盘价 2：挂单价 3：市价 4：停板价，默认值为0；
+              nAddTick 超价点数 仅当nPrice为0，1，2时有效，默认为0；
               contractNo 合约代码，默认为基准合约。
 
         【备注】
@@ -5271,13 +5347,37 @@ class BaseApi(object):
         '''
         return self._dataModel.setStopPoint(stopPoint, nPriceType, nAddTick, contractNo)
 
-    def SubQuote(self, contractNo):
+    def SetFloatStopPoint(self, startPoint, stopPoint, nPriceType, nAddTick, contractNo):
+        '''
+        【说明】
+             设置触发方式
+
+        【语法】
+              int SetFloatStopPoint(int startPoint, int stopPoint, int nPriceType = 0, int nAddTick = 0, string contractNo = "")
+
+        【参数】
+              startPoint 启动点数，当前价格相对于最后一次开仓价格盈利点数超过该值后启动浮动止损监控；
+              stopPoint 止损点数，若当前价格相对于最近一次开仓价格亏损点数达到或跌破该值，就进行止损；
+              nPriceType 平仓下单价格类型 0:最新价 1：对盘价 2：挂单价 3：市价 4：停板价，默认为0；
+              nAddTick 超价点数 仅当nPrice为0，1，2时有效，默认为0；
+              contractNo 合约代码，默认为基准合约。
+
+        【备注】
+              无
+
+        【示例】
+              SetFloatStopPoint(20,10)
+              举例：郑棉合约，多头方向。开仓价格为15000，当前价格突破15100后开启浮动止损，若此，止损点会随着价格上升而不断上升。假如价格上涨到15300，则此时的止损价格为(15300-50),即15250，若价格从15300回落到15250，则进行自动平仓。
+        '''
+        return self._dataModel.setFloatStopPoint(startPoint, stopPoint, nPriceType, nAddTick, contractNo)
+
+    def SubQuote(self, contNoTuple):
         '''
         【说明】
              订阅指定合约的即时行情。
 
         【语法】
-              bool SubQuote(string contractNo)
+              bool SubQuote(string contractNo1, string contractNo2, string contractNo3, ...)
 
         【参数】
               contractNo 合约编号，为空不做任何操作
@@ -5287,17 +5387,18 @@ class BaseApi(object):
 
         【示例】
               SubQuote("ZCE|F|TA|909") 订阅合约TA909的即时行情；
+              SubQuote("ZCE|F|TA|909", "ZCE|F|TA|910") 订阅合约TA909和TA910的即时行情；
               SubQuote("ZCE|F|TA") 订阅TA品种下所有合约的即时行情
         '''
-        return self._dataModel.subscribeContract(contractNo)
+        return self._dataModel.subscribeQuote(contNoTuple)
 
-    def UnsubQuote(self, contractNo):
+    def UnsubQuote(self, contNoTuple):
         '''
         【说明】
              退订指定合约的即时行情。
 
         【语法】
-              bool UnsubQuote(string contractNo)
+              bool UnsubQuote(string contractNo1, string contractNo2, string contractNo3, ...)
 
         【参数】
               contractNo 合约编号
@@ -5306,10 +5407,11 @@ class BaseApi(object):
               该方法可用策略中的initialize(context)方法中退订指定合约的即时行情，也可在handle_data(context)方法中动态的退订指定合约的即使行情。
 
         【示例】
-              UnsubQuote(['ZCE|F|SR|909', 'ZCE|F|SR|910']) 退订合约'ZCE|F|SR|909'和'ZCE|F|SR|910'的即时行情；
-              UnsubQuote(['ZCE|F|SR']) 退订合约商品'ZCE|F|SR'对应的所有合约的即时行情。
+              UnsubQuote('ZCE|F|SR|909') 退订合约'ZCE|F|SR|909'的即时行情；
+              UnsubQuote('ZCE|F|SR|909', 'ZCE|F|SR|910') 退订合约'ZCE|F|SR|909'和'ZCE|F|SR|910'的即时行情；
+              UnsubQuote('ZCE|F|SR') 退订合约商品'ZCE|F|SR'对应的所有合约的即时行情。
         '''
-        return self._dataModel.unsubscribeContract(contractNo)
+        return self._dataModel.unsubscribeQuote(contNoTuple)
 
     # //////////////////////其他函数////////////////////
 
@@ -5779,6 +5881,26 @@ class BaseApi(object):
             SMA(Close(), 12, 2)
         '''
         return self._dataModel.SMA(price, period, weight)
+        
+    def REF(self, price, length):
+        '''
+        【说明】
+            求N周期前数据的值
+        【语法】
+            float REF(float Price,int Length)
+            
+        【参数】
+            Price   价格
+            Length  需要计算的周期数。
+
+        【备注】
+            Length不能小于0
+
+        【示例】
+            REF(Close, 1); 获得上一周期的收盘价，等价于Close[-2]
+            REF((Close + High + Low)/ 3, 10); 返回10周期前的高低收价格的平均值。
+        '''
+        return self._dataModel.getRef(price, length)
 
     def ParabolicSAR(self, high, low, afstep, aflimit):
         '''
@@ -5848,6 +5970,70 @@ class BaseApi(object):
             Lowest (HisData(Enum_Data_Typical()), 10); 计算10周期以来高低收价格的平均值的最低值。
         '''
         return self._dataModel.getLowest(price, length)
+        
+    def CountIf(self, cond, period):
+        '''
+        【说明】
+            获取最近N周期条件满足的计数
+
+        【语法】
+            int CountIf(condition, period):
+
+        【参数】
+            condition 传入的条件表达式；
+            period 计算条件的周期数
+
+        【备注】
+            获取最近N周期条件满足的计数
+
+        【示例】
+            CountIf(Close > Open , 10); 最近10周期出现Close>Open的周期总数
+        '''
+        return self._dataModel.getCountIf(cond, period)
+        
+    def CrossOver(self, price1, price2):
+        '''
+        【说明】
+            求是否上穿
+
+        【语法】
+            Bool CrossOver(np.array Price1, np.array Price2)
+
+        【参数】
+            Price1 求相关系统的数据源1，必须是np数组;
+            Price2 求相关系统的数据源2，必须是np数组;
+
+        【备注】
+            该函数返回Price1数值型序列值是否上穿Price2数值型序列值，返回值为布尔型。
+
+        【示例】
+            CrossOver(Close[1], AvgPrice); 判断上一个Bar的收盘价Close是否上穿AvgPrice.
+            注意：在使用判断穿越的函数时，要尽量避免使用例如close等不确定的元素，否则会导致信号消失，
+            一般情况下，Close可以改用High和Low分别判断向上突破（函数CrossOver）和向下突破（函数CrossUnder）。
+        '''
+        return self._dataModel.getCrossOver(price1, price2)
+        
+    def CrossUnder(self, price1, price2):
+        '''
+        【说明】
+            求是否下破
+
+        【语法】
+            Bool CrossUnder(np.array Price1, np.array Price2)
+
+        【参数】
+            Price1 求相关系统的数据源1，必须是np数组;
+            Price2 求相关系统的数据源2，必须是np数组;
+
+        【备注】
+            该函数返回Price1数值型序列值是否上穿Price2数值型序列值，返回值为布尔型。
+
+        【示例】
+            CrossOver(Close[1], AvgPrice); 判断上一个Bar的收盘价Close是否上穿AvgPrice.
+            注意：在使用判断穿越的函数时，要尽量避免使用例如close等不确定的元素，否则会导致信号消失，
+            一般情况下，Close可以改用High和Low分别判断向上突破（函数CrossOver）和向下突破（函数CrossUnder）。
+        '''
+        return self._dataModel.getCrossUnder(price1, price2)
 
     def strategyStatus(self):
         '''
@@ -5918,7 +6104,7 @@ class BaseApi(object):
               无
 
         【备注】
-              返回字符, 'T' 分笔; 'S' 秒线; 'M' 分钟; 'D' 日线;
+              返回字符, 'T' 分笔; 'M' 分钟; 'D' 日线;
 
         【示例】
               无
@@ -6245,6 +6431,13 @@ def LastEntryTime(contractNo=''):
 
 def MarketPosition(contractNo=''):
     return baseApi.MarketPosition(contractNo)
+
+def PositionProfit(contractNo=''):
+    return baseApi.PositionProfit(contractNo)
+
+def BarsLast(condition):
+    return baseApi.BarsLast(condition)
+
 # 策略性能
 def Available():
     return baseApi.Available()
@@ -6409,7 +6602,7 @@ def A_AllQueueOrderNo(contractNo=''):
 def A_LatestFilledTime(contractNo=''):
     return baseApi.A_LatestFilledTime(contractNo)
 
-def A_OrderContractNo(localOrderId):
+def A_OrderContractNo(localOrderId=0):
     return baseApi.A_OrderContractNo(localOrderId)
 
 def A_SendOrder(orderDirct, entryOrExit, orderQty, orderPrice, contractNo='', userNo='', orderType='2', validType='0', hedge='T', triggerType='N', triggerMode='N', triggerCondition='N', triggerPrice=0):
@@ -6429,10 +6622,10 @@ def Buy(share=0, price=0, contractNo=None, needCover=True, userNo=''):
     return baseApi.Buy(share, price, contractNo, needCover, userNo)
 
 def BuyToCover(share=0, price=0, contractNo=None, userNo=''):
-    return baseApi.BuyToCover(contractNo, share, price, userNo)
+    return baseApi.BuyToCover(share, price, contractNo, userNo)
 
 def Sell(share=0, price=0, contractNo=None, userNo=''):
-    return baseApi.Sell(contractNo, share, price, userNo)
+    return baseApi.Sell(share, price, contractNo, userNo)
 
 def SellShort(share=0, price=0, contractNo=None, needCover=True, userNo=''):
     return baseApi.SellShort(share, price, contractNo, needCover, userNo)
@@ -6513,8 +6706,8 @@ def Enum_Period_Tick():
 # def Enum_Period_Dyna():
 #     return baseApi.Enum_Period_Dyna()
 #
-def Enum_Period_Second():
-    return baseApi.Enum_Period_Second()
+# def Enum_Period_Second():
+#     return baseApi.Enum_Period_Second()
     
 def Enum_Period_Min():
     return baseApi.Enum_Period_Min()
@@ -6554,6 +6747,9 @@ def RGB_Gray():
 
 def RGB_Brown():
     return baseApi.RGB_Brown()
+    
+def RGB_Yellow():
+    return baseApi.RGB_Yellow()
 
 def Enum_Order_Market():
     return baseApi.Enum_Order_Market()
@@ -6664,8 +6860,8 @@ def Enum_Data_Time():
 def GetConfig():
     return baseApi.GetConfig()
 
-# def AddUserNo(userNo):
-#     return baseApi.AddUserNo(userNo)
+def SetUserNo(userNo):
+    return baseApi.SetUserNo(userNo)
 
 def SetBarInterval(contractNo, barType, barInterval, barCount=2000):
     return baseApi.SetBarInterval(contractNo, barType, barInterval, barCount)
@@ -6673,8 +6869,8 @@ def SetBarInterval(contractNo, barType, barInterval, barCount=2000):
 # def SetSample(sampleType='C', sampleValue=2000):
 #     return baseApi.SetSample(sampleType, sampleValue)
 
-def SetInitCapital(capital=10000000, userNo=''):
-    return baseApi.SetInitCapital(capital, userNo)
+def SetInitCapital(capital=10000000):
+    return baseApi.SetInitCapital(capital)
 
 def SetMargin(type, value=0, contractNo=''):
     return baseApi.SetMargin(type, value, contractNo)
@@ -6712,11 +6908,14 @@ def SetWinPoint(winPoint, nPriceType=0, nAddTick=0, contractNo=''):
 def SetStopPoint(stopPoint, nPriceType=0, nAddTick=0, contractNo=''):
     return baseApi.SetStopPoint(stopPoint, nPriceType, nAddTick, contractNo)
 
-def SubQuote(contNo):
-    return baseApi.SubQuote(contNo)
+def SetFloatStopPoint(startPoint, stopPoint, nPriceType=0, nAddTick=0, contractNo=''):
+    return baseApi.SetFloatStopPoint(startPoint, stopPoint, nPriceType, nAddTick, contractNo)
 
-def UnsubQuote(contNo):
-    return baseApi.UnsubQuote(contNo)
+def SubQuote(*args):
+    return baseApi.SubQuote(args)
+
+def UnsubQuote(*args):
+    return baseApi.UnsubQuote(args)
 
 # 属性函数
 def BarInterval():
@@ -6760,6 +6959,12 @@ def GetNextTimeInfo(contractNo, timeStr):
 
 def CurrentTime():
     return baseApi.CurrentTime()
+    
+def CurrentDate():
+    return baseApi.CurrentDate()
+
+def TimeDiff(datetime1, datetime2=-1.0):
+    return baseApi.TimeDiff(datetime1, datetime2)
 
 def IsInSession(contractNo=''):
     return baseApi.IsInSession(contractNo)
@@ -6866,6 +7071,9 @@ def LogError(*args):
 
 def SMA(price, period, weight):
     return baseApi.SMA(price, period, weight)
+    
+def REF(price, length):
+    return baseApi.REF(price, length)
 
 def ParabolicSAR(high, low, afstep, aflimit):
     return baseApi.ParabolicSAR(high, low, afstep, aflimit)
@@ -6875,3 +7083,13 @@ def Highest(price, length):
 
 def Lowest(price, length):
     return baseApi.Lowest(price, length)
+    
+def CountIf(cond, peroid):
+    return baseApi.CountIf(cond, peroid) 
+
+def CrossOver(price1, price2):
+    return baseApi.CrossOver(price1, price2) 
+
+def CrossUnder(price1, price2):
+    return baseApi.CrossUnder(price1, price2)     
+    
