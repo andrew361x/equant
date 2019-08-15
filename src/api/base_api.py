@@ -6084,7 +6084,7 @@ class BaseApi(object):
         '''
         return self._dataModel.getSwingLow(Price, Length, Instance, Strength)
         
-    def Alert(self, Info, bKeep):
+    def Alert(self, Info, bKeep, level):
         '''
         【说明】
             弹出警告提醒
@@ -6107,7 +6107,7 @@ class BaseApi(object):
         【示例】
             Alert("Hello"); 弹出提示
         '''
-        return self._dataModel.setAlert(Info, bKeep)
+        return self._dataModel.setAlert(Info, bKeep, level)
         
     def strategyStatus(self):
         '''
@@ -7173,7 +7173,7 @@ def SwingHigh(Price, Length, Instance, Strength):
 def SwingLow(Price, Length, Instance, Strength):
     return baseApi.SwingLow(Price, Length, Instance, Strength)
 
-def Alert(Info, bKeep=True):
-    return baseApi.Alert(Info, bKeep)
+def Alert(Info, bKeep=True, level='Signal'):
+    return baseApi.Alert(Info, bKeep, level)
 
     
