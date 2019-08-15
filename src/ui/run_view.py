@@ -70,9 +70,9 @@ class RunWin(QuantToplevel, QuantFrame):
 
         self.fColor = self.bgColor
         self.sColor = self.bgColor
-        self.rColor = self.bgColor
+        self.rColor = self.bgColorW
         self.pColor = self.bgColor
-        self.cColor = self.bgColorW
+        self.cColor = self.bgColor
 
         self.createNotebook(self.topFrame)
 
@@ -83,15 +83,14 @@ class RunWin(QuantToplevel, QuantFrame):
         self.contFrame   = tk.Frame(self.topFrame, bg=rgb_to_hex(255, 255, 255))
 
         # self.contFrame.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
+        self.runFrame.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
 
-        self.createCont(self.contFrame)
         self.createRun(self.runFrame)
+        self.createCont(self.contFrame)
         self.createFund(self.fundFrame)
         self.createSample(self.sampleFrame)
         self.createParma(self.paramFrame)
         self.addButton(self.topFrame)
-
-        self.contFrame.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
 
         # TODO： 如果将配置文件内容删除会报错
         self.setDefaultConfigure()
@@ -130,6 +129,7 @@ class RunWin(QuantToplevel, QuantFrame):
         self.sendOrderMode    =   tk.IntVar()     # 发单时机： 0. 实时发单 1. K线稳定后发单
         self.isActual         =   tk.IntVar()     # 实时发单
         self.isAlarm          =   tk.IntVar()     # 发单报警
+        self.isPop            =   tk.IntVar()     # 允许弹窗
 
         self.isOpenTimes      =   tk.IntVar()     # 每根K线同向开仓次数标志
         self.openTimes        =   tk.StringVar()  # 每根K线同向开仓次数
@@ -198,6 +198,11 @@ class RunWin(QuantToplevel, QuantFrame):
             except KeyError as e:
                 self.isAlarm.set(0)
 
+            try:
+                self.isPop.set(conf[VIsPop])
+            except KeyError as e:
+                self.isPop.set(0)
+
             self.isOpenTimes.set(conf[VIsOpenTimes]),
             self.openTimes.set(conf[VOpenTimes]),
             self.isConOpenTimes.set(conf[VIsConOpenTimes]),
@@ -236,6 +241,8 @@ class RunWin(QuantToplevel, QuantFrame):
             self.isActual.set(0)
             # 发单报警
             self.isAlarm.set(0)
+            # 允许弹窗
+            self.isPop.set(0)
 
             # 初始资金
             self.initFund.set(10000000)
@@ -330,8 +337,8 @@ class RunWin(QuantToplevel, QuantFrame):
         self.paramBtn = tk.Button(nbFrame, text="参数设置", relief=tk.FLAT, padx=14, pady=1.5, bg=self.pColor,
                                   bd=0, highlightthickness=1, command=self.toParamFrame)
 
-        self.contBtn.pack(side=tk.LEFT, expand=tk.NO)
         self.runBtn.pack(side=tk.LEFT, expand=tk.NO)
+        self.contBtn.pack(side=tk.LEFT, expand=tk.NO)
         self.fundBtn.pack(side=tk.LEFT, expand=tk.NO)
         self.sampleBtn.pack(side=tk.LEFT, expand=tk.NO)
         self.paramBtn.pack(side=tk.LEFT, expand=tk.NO)
@@ -564,7 +571,7 @@ class RunWin(QuantToplevel, QuantFrame):
         """恢复用户选择的参数信息"""
         for key in self._userParam:
             self.paramTree.insert("", tk.END, values=tuple(
-                [key, self._userParam[key][0], type(self._userParam[key][0]), self._userParam[key][1]]), tags=key)
+                [key, self._userParam[key][0], type(self._userParam[key][0]).__name__, self._userParam[key][1]]), tags=key)
             # self.paramTree.insert("", tk.END, values=tuple(
             #     [key, self._userParam[key][0], type(self._userParam[key]), self._userParam[key][1]]), tags=key)
 
@@ -1044,6 +1051,11 @@ class RunWin(QuantToplevel, QuantFrame):
                                          anchor=tk.W, variable=self.isAlarm)
         self.alarmCheck.pack(side=tk.LEFT, padx=50)
 
+        # 发单报警
+        self.popCheck = tk.Checkbutton(runModeFrame, text="允许弹窗", bg=rgb_to_hex(255, 255, 255),
+                                       anchor=tk.W, variable=self.isPop)
+        self.popCheck.pack(side=tk.LEFT, padx=30)
+
     def setSendOrderLimit(self, frame):
         sendModeFrame = tk.LabelFrame(frame, text="发单设置", bg=rgb_to_hex(255, 255, 255), padx=5)
         sendModeFrame.pack(side=tk.TOP, fill=tk.X, anchor=tk.W, padx=15, pady=15)
@@ -1212,6 +1224,7 @@ class RunWin(QuantToplevel, QuantFrame):
 
         isActual = self.isActual.get()
         isAlarm  = self.isAlarm.get()
+        isPop    = self.isPop.get()
         # isContinue = self.isContinue.get()
         isOpenTimes = self.isOpenTimes.get()
         openTimes = self.openTimes.get()
@@ -1352,8 +1365,10 @@ class RunWin(QuantToplevel, QuantFrame):
             self._strConfig.setActual()
         # 发单报警
         self._strConfig.setAlarm(True) if int(isAlarm) else self._strConfig.setAlarm(False)
+        # 允许弹窗
+        self._strConfig.setPop(True) if int(isPop) else self._strConfig.setPop(False)
+
         # 账户
-        #TODO: user类型对不对呢？
         self._strConfig.setUserNo(user)
         # 初始资金
         self._strConfig.setInitCapital(int(initFund))
@@ -1427,7 +1442,7 @@ class RunWin(QuantToplevel, QuantFrame):
         self._strConfig.setParams(params)
 
         self.config = self._strConfig.getConfig()
-        #print("-----------: ", self.config)
+        # print("-----------: ", self.config)
 
 
         # -------------保存用户配置--------------------------
@@ -1462,6 +1477,7 @@ class RunWin(QuantToplevel, QuantFrame):
                 VSendOrderMode: sendOrderMode,
                 VIsActual: isActual,
                 VIsAlarm: isAlarm,
+                VIsPop  : isPop,
                 VIsOpenTimes: isOpenTimes,
                 VOpenTimes: openTimes,
                 VIsConOpenTimes: isConOpenTimes,
@@ -1680,14 +1696,11 @@ class SelectContractWin(QuantToplevel, QuantFrame):
 
         self._master.codeEntry.config(state="disabled")
 
-        # 不加self._master.display()会出现选择合约确定后设置窗口后移
         # self._master.focus()
         self.destroy()
-        self._master.display()
 
     def cancel(self):
         self.destroy()
-        self._master.display()
 
     def updateContractFrame(self, event):
         contractItems = self.contractTree.get_children()
@@ -2118,16 +2131,11 @@ class AddContWin(QuantToplevel, QuantFrame):
         else:
             self._master.contTree.insert("", tk.END, values=selectRlt)
 
-        # 不加self._master.display()会出现选择合约确定后设置窗口后移
-        # self._master.focus()
-        # TODO：点击量化主界面后master窗口会消失
         self.destroy()
-        self._master.display()
 
     def cancel(self):
         """关闭窗口"""
         self.destroy()
-        self._master.display()
 
     def setUserContract(self, contList):
         """设置用户所选数据合约"""

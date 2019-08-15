@@ -27,3 +27,4 @@ def handle_data(context):
     PlotNumeric("ma11", ma11[-1], color=RGB_Red())
     PlotNumeric("ma12", ma12[-1], color=RGB_Green())
     PlotNumeric("diff2", diff2, color=RGB_Blue(), main=False)
+    

@@ -14,11 +14,8 @@ import copy
 
 from engine.calc import CalcCenter
 from datetime import datetime
-
-try:
-    from .play_audio import PlayAudio
-except:
-    pass
+from .popup_win import *
+import winsound
 
 
 class StrategyModel(object):
@@ -42,6 +39,18 @@ class StrategyModel(object):
         self._hisModel = StrategyHisQuote(strategy, self._cfgModel, self._calcCenter, self)
         self._trdModel = StrategyTrade(strategy, self._cfgModel)
         self._staModel = StatisticsModel(strategy, self._cfgModel)
+        
+        self._bsMap = {dBuy : '买', dSell: '卖', dBoth: '双边'}
+        self._ocMap = {oNone: '无', oOpen: '开仓', oCover: '平仓', oCoverT: '平今', oOpenCover: '开平', oCoverOpen: '平开'}
+        
+        
+        self._audioDict = {
+            'Signal' : r'./audio/Signal.wav',
+            'Info'   : r'./audio/Info.wav',
+            'Warn'   : r'./audio/Warn.wav',
+            'Error'   : r'./audio/Error.wav',
+        }
+        
 
     def setRunStatus(self, status):
         self._runStatus = status
@@ -86,7 +95,7 @@ class StrategyModel(object):
             "StrategyName": self._strategy.getStrategyName(),  # 策略名称
             "StartTime": "2019-04-01",  # 回测开始时间
             "EndTime": "2019-04-17",  # 回测结束时间
-            "Margin": self._cfgModel.getMarginValue() if not self._cfgModel.getMarginValue() else 0.08,  # 保证金
+            "Margin": self._cfgModel.getMarginValue(),  # 保证金
             "Slippage": self._cfgModel.getSlippage(),  # 滑点
             "OpenRatio": self._cfgModel.getOpenRatio(),
             "CloseRatio": self._cfgModel.getCloseRatio(),
@@ -423,18 +432,27 @@ class StrategyModel(object):
         if len(underlayContNo) > 0:
             contNo = underlayContNo
 
+        if share <= 0:
+            share = self.getDefaultShare(contNo, price)
+        defaultPrice = self._qteModel.getQLast(contNo) if price <= 0 else -1
+
         # 非K线触发的策略，不使用Bar
         curBar = None
         # 计算考虑滑点损耗后的价格
+        if defaultPrice > 0:
+            price = defaultPrice
         price = self._calcCenter.calcOrderPrice(contNo, dBuy, price)
 
+        userNo = self._cfgModel.getUserNo() if not userNo else userNo
+        if not userNo:
+            userNo = "Default"
         # 对于开仓，需要平掉反向持仓
         qty = self._calcCenter.needCover(userNo, contNo, dBuy, share, price)
         if qty > 0 and needCover:
-            eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oCover, hSpeculate, price, qty, curBar)
+            eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oCover, hSpeculate, price, qty, curBar, (defaultPrice > 0))
             if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
-        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oOpen, hSpeculate, price, share, curBar)
+        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oOpen, hSpeculate, price, share, curBar, (defaultPrice > 0))
         if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
     def setBuyToCover(self, userNo, contractNo, share, price):
@@ -447,13 +465,22 @@ class StrategyModel(object):
         if len(underlayContNo) > 0:
             contNo = underlayContNo
 
+        if share <= 0:
+            share = self.getDefaultShare(contNo, price)
+        defaultPrice = self._qteModel.getQLast(contNo) if price <= 0 else -1
+
         curBar = None
 
         # 计算考虑滑点损耗后的价格
+        if defaultPrice > 0:
+            price = defaultPrice
         price = self._calcCenter.calcOrderPrice(contNo, dBuy, price)
 
+        userNo = self._cfgModel.getUserNo() if not userNo else userNo
+        if not userNo:
+            userNo = "Default"
         # 交易计算、生成回测报告
-        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oCover, hSpeculate, price, share, curBar)
+        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oCover, hSpeculate, price, share, curBar, (defaultPrice > 0))
         if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
     def setSell(self, userNo, contractNo, share, price):
@@ -466,13 +493,22 @@ class StrategyModel(object):
         if len(underlayContNo) > 0:
             contNo = underlayContNo
 
+        if share <= 0:
+            share = self.getDefaultShare(contNo, price)
+        defaultPrice = self._qteModel.getQLast(contNo) if price <= 0 else -1
+
         curBar = None
 
         # 计算考虑滑点损耗后的价格
+        if defaultPrice > 0:
+            price = defaultPrice
         price = self._calcCenter.calcOrderPrice(contNo, dSell, price)
 
+        userNo = self._cfgModel.getUserNo() if not userNo else userNo
+        if not userNo:
+            userNo = "Default"
         # 交易计算、生成回测报告
-        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oCover, hSpeculate, price, share, curBar)
+        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oCover, hSpeculate, price, share, curBar, (defaultPrice > 0))
         if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
     def setSellShort(self, userNo, contractNo, share, price, needCover=True):
@@ -485,20 +521,75 @@ class StrategyModel(object):
         if len(underlayContNo) > 0:
             contNo = underlayContNo
 
+        if share <= 0:
+            share = self.getDefaultShare(contNo, price)
+        defaultPrice = self._qteModel.getQLast(contNo) if price <= 0 else -1
+
         curBar = None
 
         # 计算考虑滑点损耗后的价格
+        if defaultPrice > 0:
+            price = defaultPrice
         price = self._calcCenter.calcOrderPrice(contNo, dSell, price)
 
+        userNo = self._cfgModel.getUserNo() if not userNo else userNo
+        if not userNo:
+            userNo = "Default"
         qty = self._calcCenter.needCover(userNo, contNo, dSell, share, price)
         if qty > 0 and needCover:
-            eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oCover, hSpeculate, price, qty,
-                                           curBar)
+            eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oCover, hSpeculate, price, qty, curBar, (defaultPrice > 0))
             if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
         # 交易计算、生成回测报告
-        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oOpen, hSpeculate, price, share, curBar)
+        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oOpen, hSpeculate, price, share, curBar, (defaultPrice > 0))
         if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
+
+    def getDefaultShare(self, contNo, price):
+        defaultPrice = self._qteModel.getQLast(contNo)
+        defaultOrderType = self._cfgModel.getOrderQtyType()
+        minQty = self._cfgModel.getMinQty()
+
+        if defaultOrderType == '1':
+            # 按固定合约数
+            defaultShare = self._cfgModel.getOrderQtyCount()
+            # 异常处理
+            if defaultShare < minQty:
+                raise Exception(f"请确保您设置的默认下单量 {defaultShare} 对应的手数不小于您设置的最小下单量 {minQty} ！")
+            fixCapital = self._calcCenter.getAvailableFund()
+            if price <= 0:
+                if fixCapital < defaultPrice * defaultShare:
+                    raise Exception(f"您当前的可用资金 {fixCapital} 小于当前最新价 {defaultPrice} 与您设置的默认下单量 {defaultShare} 的乘积！")
+            else:
+                if fixCapital < price * defaultShare:
+                    raise Exception(f"您当前的可用资金 {fixCapital} 小于您设置的价格 {price} 与您设置的默认下单量 {defaultShare} 的乘积！")
+            return defaultPrice
+        elif defaultOrderType == '2':
+            # 按固定资金
+            fixCapital = self._cfgModel.getOrderQtyCount()
+            # 异常处理
+            if price <= 0:
+                if fixCapital < defaultPrice * minQty:
+                    raise Exception(f"请确保您设置的默认下单量对应的固定资金 {fixCapital} 不小于当前最新价 {defaultPrice} 与您设置的最小下单量 {minQty} 的乘积！")
+            else:
+                if fixCapital < price * minQty:
+                    raise Exception(f"请确保您设置的默认下单量对应的固定资金 {fixCapital} 不小于您设置的价格 {price} 与您设置的最小下单量 {minQty} 的乘积！")
+
+            return fixCapital // price if price > 0 else fixCapital // defaultPrice
+        elif defaultOrderType == '3':
+            # 按资金比例
+            capitalRatio = self._cfgModel.getOrderQtyCount()
+            fixCapital = capitalRatio * self._calcCenter.getAvailableFund()
+
+            # 异常处理
+            if price <= 0:
+                if fixCapital < defaultPrice * minQty:
+                    raise Exception(f"请确保您当前的资金 {fixCapital} 不小于当前最新价 {defaultPrice} 与您设置的最小下单量 {minQty} 的乘积！")
+            else:
+                if fixCapital < price * minQty:
+                    raise Exception(f"请确保您当前的资金 {fixCapital} 不小于您设置的价格 {price} 与您设置的最小下单量 {minQty} 的乘积！")
+
+            return fixCapital // price if price > 0 else fixCapital // defaultPrice
+        return -1
 
     def sendFlushEvent(self):
         flushEvent = Event({
@@ -507,7 +598,7 @@ class StrategyModel(object):
         })
         self._strategy.sendEvent2Engine(flushEvent)
 
-    def sendSignalEvent(self, signalName, contNo, direct, offset, price, share, curBar):
+    def sendSignalEvent(self, signalName, userNo, contNo, direct, offset, price, share, curBar):
         if not curBar:
             return
 
@@ -532,12 +623,26 @@ class StrategyModel(object):
         })
         self._strategy.sendEvent2Engine(signalNoticeEvent)
         
+        if not userNo:
+            userNo = self._cfgModel.getUserNo()
+        
         #处理报警
         if self._strategy.isRealTimeStatus() and self._cfgModel.getAlarm():
-            try:
-                PlayAudio.play('Signal')
-            except:
-                self.logger.error('No module named PlayAudio')
+        #if self._cfgModel.getAlarm():
+            #出声音
+            audioName = self._audioDict['Signal']
+            winsound.PlaySound(audioName, winsound.SND_ASYNC)
+            #弹窗,合约，方向，手数，价格
+            alarmStr = '策略: ' + str(self._strategy.getStrategyId()) + '\n' +\
+                       '账户: ' + userNo + '\n' +\
+                       '合约: ' + contNo + '\n' +\
+                       '方向: ' + self._bsMap[direct] + self._ocMap[offset] + '\n' +\
+                       '数量: ' + str(share) + '\n' +\
+                       '价格: ' + str(price) + '\n' +\
+                       '时间: ' + str(curBar['DateTimeStamp']) + '\n'
+            #允许弹窗
+            if self._cfgModel.getPop():
+                createAlarmWin(alarmStr, self._strategy.getStrategyId(), self._strategy.getStrategyName())
 
     def setStartTrade(self):
         self._cfgModel.setPending(False)
@@ -769,32 +874,60 @@ class StrategyModel(object):
         return self._trdModel.getOrderTime(eSession)
 
     def getFirstOrderNo(self, contNo1, contNo2):
-        contNo1 = self.getIndexMap(contNo1)
-        contNo2 = self.getIndexMap(contNo2)
+        underlayCont1 = self._qteModel.getUnderlayContractNo(contNo1)
+        if len(underlayCont1) > 0:
+            contNo1 = underlayCont1
+        underlayCont2 = self._qteModel.getUnderlayContractNo(contNo2)
+        if len(underlayCont2) > 0:
+            contNo2 = underlayCont2
+
         return self._trdModel.getFirstOrderNo(contNo1, contNo2)
 
     def getNextOrderNo(self, orderId, contNo1, contNo2):
-        contNo1 = self.getIndexMap(contNo1)
-        contNo2 = self.getIndexMap(contNo2)
+        underlayCont1 = self._qteModel.getUnderlayContractNo(contNo1)
+        if len(underlayCont1) > 0:
+            contNo1 = underlayCont1
+        underlayCont2 = self._qteModel.getUnderlayContractNo(contNo2)
+        if len(underlayCont2) > 0:
+            contNo2 = underlayCont2
+
         return self._trdModel.getNextOrderNo(orderId, contNo1, contNo2)
 
     def getLastOrderNo(self, contNo1, contNo2):
-        contNo1 = self.getIndexMap(contNo1)
-        contNo2 = self.getIndexMap(contNo2)
+        underlayCont1 = self._qteModel.getUnderlayContractNo(contNo1)
+        if len(underlayCont1) > 0:
+            contNo1 = underlayCont1
+        underlayCont2 = self._qteModel.getUnderlayContractNo(contNo2)
+        if len(underlayCont2) > 0:
+            contNo2 = underlayCont2
+
         return self._trdModel.getLastOrderNo(contNo1, contNo2)
 
     def getFirstQueueOrderNo(self, contNo1, contNo2=''):
-        contNo1 = self.getIndexMap(contNo1)
-        contNo2 = self.getIndexMap(contNo2)
+        underlayCont1 = self._qteModel.getUnderlayContractNo(contNo1)
+        if len(underlayCont1) > 0:
+            contNo1 = underlayCont1
+        underlayCont2 = self._qteModel.getUnderlayContractNo(contNo2)
+        if len(underlayCont2) > 0:
+            contNo2 = underlayCont2
+
         return self._trdModel.getFirstQueueOrderNo(contNo1, contNo2)
 
     def getNextQueueOrderNo(self, orderId, contNo1, contNo2=''):
-        contNo1 = self.getIndexMap(contNo1)
-        contNo2 = self.getIndexMap(contNo2)
+        underlayCont1 = self._qteModel.getUnderlayContractNo(contNo1)
+        if len(underlayCont1) > 0:
+            contNo1 = underlayCont1
+        underlayCont2 = self._qteModel.getUnderlayContractNo(contNo2)
+        if len(underlayCont2) > 0:
+            contNo2 = underlayCont2
+
         return self._trdModel.getNextQueueOrderNo(orderId, contNo1, contNo2)
 
     def getAllQueueOrderNo(self, contNo):
-        contNo = self.getIndexMap(contNo)
+        underlayCont = self._qteModel.getUnderlayContractNo(contNo)
+        if len(underlayCont) > 0:
+            contNo = underlayCont
+
         orderIdList = []
         orderId = self.getFirstQueueOrderNo(contNo)
         if orderId != -1:
@@ -806,7 +939,9 @@ class StrategyModel(object):
         return orderIdList
 
     def getALatestFilledTime(self, contNo):
-        contNo = self.getIndexMap(contNo)
+        underlayCont = self._qteModel.getUnderlayContractNo(contNo)
+        if len(underlayCont) > 0:
+            contNo = underlayCont
         return self._trdModel.getALatestFilledTime(contNo)
 
     def getOrderContractNo(self, orderId):
@@ -816,7 +951,7 @@ class StrategyModel(object):
         return self._trdModel.deleteOrder(eSession)
 
     def buySellOrder(self, userNo, contNo, orderType, validType, orderDirct, \
-                     entryOrExit, hedge, orderPrice, orderQty, curBar, signal=True):
+                     entryOrExit, hedge, orderPrice, orderQty, curBar, isPriceZero = False, signal=True):
         '''
             1. buySell下单，经过calc模块，会判断虚拟资金，会产生平仓单
             2. 如果支持K线触发，会产生下单信号
@@ -835,10 +970,6 @@ class StrategyModel(object):
         if curShowBar:
             curBar = copy.deepcopy(curShowBar)
             curBarIndex = curBar["KLineIndex"]
-
-        userNo = self._cfgModel.getUserNo() if not userNo else userNo
-        if not userNo:
-            userNo = "Default"
 
         orderParam = {
             "UserNo": userNo,  # 账户编号
@@ -877,10 +1008,11 @@ class StrategyModel(object):
         '''
         curBar = self.getHisQuoteModel().getCurBar(self._config.getKLineShowInfoSimple())
         if self._config.hasKLineTrigger() and curBar:
-            self.sendSignalEvent(self._signalName, contNo, orderDirct, entryOrExit, orderPrice, orderQty, curBar)
+            self.sendSignalEvent(self._signalName, userNo, contNo, orderDirct, entryOrExit, orderPrice, orderQty, curBar)
 
+        realPrice = 0 if isPriceZero else orderPrice
         retCode, eSessionId = self.sendOrder(userNo, contNo, orderType, validType, orderDirct, entryOrExit, hedge,
-                                             orderPrice, orderQty)
+                                             realPrice, orderQty)
         return eSessionId if retCode == 0 else ""
 
     def sendOrder(self, userNo, contNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty, \
@@ -900,11 +1032,11 @@ class StrategyModel(object):
         # 发送下单信号,K线触发、即时行情触发
         # 未选择实盘运行
         if not self._cfgModel.isActualRun():
-            #self.logger.warn(f"未选择实盘运行，请在设置界面勾选'实盘运行'，或者在策略代码中调用SetActual()")
+            # self.logger.warn(f"未选择实盘运行，请在设置界面勾选'实盘运行'，或者在策略代码中调用SetActual()")
             return -1, '未选择实盘运行，请在设置界面勾选"实盘运行"，或者在策略代码中调用SetActual()方法选择实盘运行'
 
         if not self._strategy.isRealTimeStatus():
-            #self.logger.warn(f"策略当前状态不是实盘运行状态， 不会产生实盘订单")
+            # self.logger.warn(f"策略当前状态不是实盘运行状态， 不会产生实盘订单")
             return -2, "策略当前状态不是实盘运行状态， 不会产生实盘订单"
 
         # 账户错误
@@ -922,8 +1054,8 @@ class StrategyModel(object):
             contNo = underlayContNo
 
         eId = str(self._strategy.getStrategyId()) + '-' + str(self._strategy.getESessionId())
-        # 上期所特殊处理
-        if "SHFE|" in contNo and entryOrExit == oCover:
+        # 上期所特殊处理, 只对buy/sell函数生效
+        if "SHFE|" in contNo and entryOrExit == oCover and not aFunc:
             if orderDirct == dBuy:
                 positionInfo = self._trdModel.getUserModel(userNo).getPositionInfo(contNo, dSell)
             elif orderDirct == dSell:
@@ -953,7 +1085,7 @@ class StrategyModel(object):
                 'Remark': '',
                 'AddOneIsValid': tsDay,
             }
-            self.sendActualOrder2Engine(aOrder, eId, self._strategy.getStrategyId(), aFunc)
+            self.sendActualOrder2Engine(userNo, aOrder, eId, self._strategy.getStrategyId(), aFunc)
             if orderQty > positionInfo["TodayPos"]:
                 orderQty = orderQty - positionInfo["TodayPos"]
                 entryOrExit = oCover
@@ -985,7 +1117,7 @@ class StrategyModel(object):
             'AddOneIsValid': tsDay,
         }
 
-        self.sendActualOrder2Engine(aOrder, eId, self._strategy.getStrategyId(), aFunc)
+        self.sendActualOrder2Engine(userNo, aOrder, eId, self._strategy.getStrategyId(), aFunc)
         # self.logger.trade_info(self._strategy.getStrategyId(), aOrder)
         # 更新策略的订单信息
         self._strategy.setESessionId(self._strategy.getESessionId() + 1)
@@ -993,7 +1125,7 @@ class StrategyModel(object):
         return 0, eId
 
     # afunc表明是由A函数调用的，还是buy/sell调用的
-    def sendActualOrder2Engine(self, aOrder, eId, strategyId, aFunc):
+    def sendActualOrder2Engine(self, userNo, aOrder, eId, strategyId, aFunc):
         if int(aOrder["OrderQty"] + 0.5) <= 0:
             return
         aOrder["OrderQty"] = int(aOrder["OrderQty"] + 0.5)
@@ -1008,7 +1140,7 @@ class StrategyModel(object):
         curBar = self.getHisQuoteModel().getCurBar(self._config.getKLineShowInfoSimple())
         if aFunc and self._config.hasKLineTrigger() and curBar:
             #self.logger.debug(f"实盘信号已经发送，k线时间戳：{curBar['DateTimeStamp']}")
-            self.sendSignalEvent(self._signalName, aOrder["Cont"], aOrder["Direct"], aOrder["Offset"],
+            self.sendSignalEvent(self._signalName, userNo, aOrder["Cont"], aOrder["Direct"], aOrder["Offset"],
                                  aOrder["OrderPrice"], aOrder["OrderQty"], curBar)
         self.logger.trade_info(f"发送实盘订单，策略Id:{strategyId}, 本地订单号：{eId}, 订单数据：{repr(aOrder)}")
 
@@ -1025,7 +1157,10 @@ class StrategyModel(object):
         return orderId, orderNo
 
     def deleteAllOrders(self, contNo):
-        contNo = self.getIndexMap(contNo)
+        underlayCont = self._qteModel.getUnderlayContractNo(contNo)
+        if len(underlayCont) > 0:
+            contNo = underlayCont
+
         orderList = self.getAllQueueOrderNo(contNo)
         if len(orderList) == 0:
             return True
@@ -2207,23 +2342,53 @@ class StrategyModel(object):
         return sum
         
     def getCrossOver(self, price1, price2):
+        '''price1是否上穿price2,前一个在下，当前跟在上'''
         if price1[-1]  <= price2[-1]:
             return False
-
-        for i in range(len(price1)-1, -1, -1):
-            if price1[i] < price2[i]:
-                return True
-            if i == 0:break
-
-        return False
+        #只有一根线，不做比较
+        if len(price1) <= 1:
+            return False
+            
+        #如果前一根相等，则继续往前找上一根
+        pos = -2;
+        while price1[pos] == price2[pos]:
+            pos = pos -1
+            if pos <= -len(price1):
+                break
+        return price1[pos] < price2[pos]
 
     def getCrossUnder(self, price1, price2):
+        '''price1是否下破price2,前一个在上，当前跟在下'''
         if price1[-1]  >= price2[-1]:
             return False
-
-        for i in range(len(price1)-1, -1, -1):
-            if price1[i] > price2[i]:
-                return True
-            if i == 0:break
-
-        return False
+            
+        #只有一根线，不做比较
+        if len(price1) <= 1:
+            return False
+            
+        #如果前一根相等，则继续往前找上一根
+        pos = -2;
+        while price1[pos] == price2[pos]:
+            pos = pos -1
+            if pos <= -len(price1):
+                break
+        return price1[pos] > price2[pos]
+        
+    def getSwingHigh(self, Price, Length, Instance, Strength):
+        ispivot, pivot, bar = self._staModel.Pivot(Price,Length,Strength,Strength,Instance,1);
+        return pivot;
+        
+    def getSwingLow(self, Price, Length, Instance, Strength):
+        ispivot, pivot, bar = self._staModel.Pivot(Price,Length,Strength,Strength,Instance,-1);
+        return pivot;
+        
+    def setAlert(self, Info, bKeep, level):
+        #出声音
+        if bKeep:
+            if level in self._audioDict:
+                audioName = self._audioDict[level]
+            else:
+                audioName = 'SystemQuestion'
+            winsound.PlaySound(audioName, winsound.SND_ASYNC) 
+        #弹窗        
+        createAlarmWin(Info, self._strategy.getStrategyId(), self._strategy.getStrategyName());

@@ -289,7 +289,6 @@ class GetEgData(object):
     def _onEgDebugInfo(self, event):
         """获取引擎策略调试信息"""
         data = event.getData()
-        print("111111111112")
         stId = event.getStrategyId()
         if data:
             errText = data["ErrorText"]
@@ -370,9 +369,7 @@ class GetEgData(object):
     def _onEgPositionNotice(self, event):
         #TODO：没有登录交易账户时接收不到该事件
         syncPosition = event.getData()
-        # print("aaaaaaaaaa: ", syncPosition)
         self._app.updateSyncPosition(syncPosition)
-        # self._logger.info("[UI]: Receiving sync position info successfully!")
 
     def _onEgConnect(self, event):
         src = event.getEventSrc()
@@ -389,11 +386,10 @@ class GetEgData(object):
         self._logger.info(f"[UI]: handlerExit")
 
     def handlerEgEvent(self):
-
         try:
             # 如果不给出超时则会导致线程退出时阻塞
-            event = self._eg2uiQueue.get(timeout=0.1)
-            # event = self._eg2uiQueue.get_nowait()
+            # event = self._eg2uiQueue.get(timeout=0.1)
+            event = self._eg2uiQueue.get_nowait()
             eventCode = event.getEventCode()
 
             if eventCode not in self._egAskCallbackDict:

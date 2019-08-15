@@ -7,6 +7,7 @@ p2=20
 
 def initialize(context): 
     SetActual()
+    #SetUserNo('Q437104345')
     SetBarInterval("NYMEX|F|CL|1909", 'M', 1, 2000)
     pass
 
@@ -19,7 +20,6 @@ def handle_data(context):
     PlotNumeric("ma1", ma1[-1], color=RGB_Red())
     PlotNumeric("ma2", ma2[-1], color=RGB_Green())    
     PlotNumeric("fit", NetProfit(), RGB_Red(), False)
-
     # 执行下单操作
     if MarketPosition() <= 0 and ma1[-1] > ma2[-1]:
         Buy(1, Close()[-1])

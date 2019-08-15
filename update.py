@@ -3,8 +3,10 @@ import shutil
 import requests
 import zipfile
 
-equantUrl    = "https://github.com/epolestar/equant/archive/master.zip"
-epolestarUrl = "https://epolestar-master-1255628687.cos.ap-beijing.myqcloud.com/epolestar.zip"
+#equantUrl    = "https://github.com/epolestar/equant/archive/master.zip"
+equantUrl    = "https://github.com/fanliangde/equant/archive/master.zip"
+#epolestarUrl = "https://epolestar-master-1255628687.cos.ap-beijing.myqcloud.com/epolestar.zip"
+epolestarUrl = "https://epolestar95-1255628687.cos.ap-beijing.myqcloud.com/epolestar.zip"
 
 urls         = [equantUrl, epolestarUrl]
 tags         = ["equant", "epolestar"]

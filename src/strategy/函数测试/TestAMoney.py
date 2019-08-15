@@ -10,4 +10,4 @@ def handle_data(context):
     margin = A_Margin()
     assets = A_Assets()
 
-    LogInfo(accountid, avail, margin, assets)
+    LogInfo(avail, margin, assets)

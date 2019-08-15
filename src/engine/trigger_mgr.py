@@ -45,9 +45,7 @@ class TriggerMgr(object):
     def isAllDataReady(self, contractNo):
         # if not self._strategy.isRealTimeStatus():
         #     return True
-
-        result = np.array(list(self._isReady[contractNo].values()))
-        return result.all()
+        return all(self._isReady[contractNo])
 
     def resetAllData(self, contractNo):
         self._isReady[contractNo] = {k:False for k, _ in self._isReady[contractNo].items()}

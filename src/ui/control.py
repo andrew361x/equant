@@ -13,6 +13,7 @@ from .view import QuantApplication
 from .language import *
 from capi.com_types import *
 
+from engine.popup_win import createAlarmWin
 
 
 class TkinterController(object):
@@ -49,9 +50,11 @@ class TkinterController(object):
         # 创建策略信息更新线程
         self.monitorThread = ChildThread(self.updateMonitor, 1)
         # 创建接收引擎数据线程
-        self.receiveEgThread = ChildThread(self.model.receiveEgEvent)
+        self.receiveEgThread = ChildThread(self.model.receiveEgEvent, 0.01)
         # 信号记录线程
         self.sigThread = ChildThread(self.updateSig, 0.01)
+        # 用户日志线程
+        self.usrThread = ChildThread(self.updateUsr, 0.01)
 
         # 设置日志更新
         self.update_log()
@@ -72,6 +75,9 @@ class TkinterController(object):
 
     def updateSig(self):
         self.app.updateSigText()
+
+    def updateUsr(self):
+        self.app.updateUsrText()
 
     def updateMonitor(self):
         # 更新监控界面策略信息
@@ -97,6 +103,10 @@ class TkinterController(object):
         self.sigThread.stop()
         self.sigThread.join()
 
+        # 停止更新用户日志
+        self.usrThread.stop()
+        self.usrThread.join()
+
         # 停止接收策略引擎队列数据
         self.receiveEgThread.stop()
         self.model.receiveExit()
@@ -113,6 +123,8 @@ class TkinterController(object):
         self.receiveEgThread.start()
 
         self.sigThread.start()
+
+        self.usrThread.start()
 
         #启动主界面线程
         self.app.mainloop()
@@ -137,24 +149,6 @@ class TkinterController(object):
 
     def parseStrategtParam(self, strategyPath):
         """解析策略中的用户参数"""
-        # moduleDir, moduleName = os.path.split(strategyPath)
-        # moduleName = os.path.splitext(moduleName)[0]
-        # if moduleDir not in sys.path:
-        #     sys.path.insert(0, moduleDir)
-        # try:
-        #     userModule = importlib.import_module(moduleName)
-        #     userModule = importlib.reload(userModule)
-        # except:
-        #     errorText = traceback.format_exc(0)
-        #     self.sendErrorMessage(errorText)
-        #     return {}
-        # finally:
-        #     sys.path.remove(sys.path[0])
-        #
-        # g_params = {}
-        # if "g_params" in vars(userModule):
-        #     g_params = vars(userModule)["g_params"]
-        # return g_params
         g_params = {}
         with open(strategyPath, 'r', encoding="utf-8") as f:
             content = [line.strip() for line in f]
@@ -184,6 +178,8 @@ class TkinterController(object):
         :param param: 策略参数信息
         :return:
         """
+        # createAlarmWin("11111111111", 1, "test")
+        # return
         # 运行策略前将用户修改保存
         self.saveStrategy()
         # 解析策略参数
@@ -367,20 +363,3 @@ class ChildThread(threading.Thread):
     def stop(self):
         # 设置停止标志位
         self.isStopped = True
-
-    # def _async_raise(self, tid, exctype):
-    #     """raises the exception, performs cleanup if needed"""
-    #     import ctypes
-    #     import inspect
-    #     tid = ctypes.c_long(tid)
-    #     if not inspect.isclass(exctype):
-    #         exctype = type(exctype)
-    #     res = ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, ctypes.py_object(exctype))
-    #     if res == 0:
-    #         raise ValueError("invalid thread id")
-    #     elif res != 1:
-    #         ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, None)
-    #         raise SystemError("PyThreadState_SetAsyncExc failed")
-    #
-    # def raiseExc(self, exctype):
-    #     self._async_raise( self.ident, exctype)

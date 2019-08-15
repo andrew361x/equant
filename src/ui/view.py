@@ -9,7 +9,7 @@ from .monitor_view import QuantMonitor
 from .run_view import RunWin
 
 from report.reportview import ReportView
-from .com_view import HistoryToplevel, AlarmToplevel
+from .com_view import HistoryToplevel
 
 from datetime import datetime
 
@@ -112,11 +112,11 @@ class QuantApplication(object):
         
         # 监控窗口
         self.quant_monitor = QuantMonitor(left_down_frame, self.control, self.language)
-        self.quant_monitor.createMonitor()
-        # self.quant_monitor.create_execute()
+        # self.quant_monitor.createSysLog()
         self.quant_monitor.createExecute()
         # self.create_monitor()
-        self.quant_monitor.createSignal()
+        # self.quant_monitor.createSignal()
+        self.quant_monitor.createLog()
         self.quant_monitor.createErr()
         self.quant_monitor.createPos()
 
@@ -125,6 +125,9 @@ class QuantApplication(object):
 
     def updateSigText(self):
         self.quant_monitor.updateSigText()
+
+    def updateUsrText(self):
+        self.quant_monitor.updateUsrText()
 
     def updateErrText(self):
         self.quant_monitor.updateErrText()
@@ -156,10 +159,8 @@ class QuantApplication(object):
 
     def createRunWin(self, param, path, flag):
         """弹出量化设置界面"""
+
         self.setLoadState("disabled")
-        # a = AlarmToplevel("ABCDE", self.root)
-        # a.display()
-        # return
         self.runWin = RunWin(self.control, path, flag, self.root, param)
         self.runWin.display()
         self.setLoadState("normal")
@@ -263,7 +264,6 @@ class QuantApplication(object):
         if src == 'S':
             self.quant_editor_head.stateLabel.config(text="极星9.5退出", fg="red")
             messagebox.showerror("错误", "极星9.5退出", parent=self.root)
-
 
     def clearError(self):
         """清除错误信息"""

@@ -22,13 +22,14 @@ class StrategyMenu(object):
         self._rightClickPath = ""         # 记录右键弹出菜单时选中的策略路径
         self._rightClickItem = None       # 记录右键弹出菜单时选中的策略树的item id
 
+        self.root_path = os.path.abspath("./strategy")
+
         self.menu = Menu(self.widget, tearoff=0)
 
     def add_event(self):
         new_menu = Menu(self.menu, tearoff=0)
-        if len(self._lClickSelectedItem) == 1 and self.widget.parent(self._lClickSelectedItem[0]):  # 保证只选中一个
-            # self.menu.add_command(label="运行", command=self.runStrategy, state=DISABLED)
-            pass
+        # if len(self._lClickSelectedItem) == 1 and self.widget.parent(self._lClickSelectedItem[0]):  # 保证只选中一个
+        #     pass
 
         self.menu.add_cascade(label="新建", menu=new_menu)
         new_menu.add_command(label=self.language.get_text(41), command=self.newStrategy)
@@ -78,6 +79,9 @@ class StrategyMenu(object):
                 self.widget.selection_set(rSelectItem)
                 self.add_event()
                 self.menu.post(event.x_root, event.y_root)
+            else:   # 没有选中
+                self.add_event()
+                self.menu.post(event.x_root, event.y_root)
 
     def get_file_path(self):
         select = self._lClickSelectedItem
@@ -105,7 +109,7 @@ class StrategyMenu(object):
                                     parent=newFileWin)
             else:
                 temp_path = self.get_file_path()
-                path = temp_path[0]
+                path = temp_path[0] if temp_path else self.root_path
                 if os.path.isdir(path):
                     dir_path = path
                 if os.path.isfile(path):
@@ -141,17 +145,12 @@ class StrategyMenu(object):
                 messagebox.showinfo(self.language.get_text(8), self.language.get_text(22), parent=newTop)
             else:
                 tempPath = self.get_file_path()
-                path = tempPath[0]
+                path = tempPath[0] if tempPath else self.root_path
                 if os.path.isdir(path):
-                    # TODO: 新建策略有问题
                     dir_path = path
-                    # dir_path = os.path.dirname(path)
-                    if self.widget.parent(dir_path) == "":
-                        newPath = os.path.abspath(os.path.join(dir_path, "..\\%s" % file_name))
-                    else:
-                        newPath = os.path.abspath(os.path.join(dir_path, file_name))
+                    newPath = os.path.abspath(os.path.join(dir_path, file_name))
 
-                if os.path.isfile(path):
+                elif os.path.isfile(path):
                     dir_path = os.path.dirname(path)
                     newPath = os.path.join(dir_path, file_name)
 

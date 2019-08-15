@@ -625,14 +625,11 @@ class StrategyHisQuote(object):
     # response 数据
     def onHisQuoteRsp(self, event):
         key = (event.getContractNo(), event.getKLineType(), event.getKLineSlice())
-        kindInfo = {"ContractNo":key[0], "KLineType":key[1],"KLineSlice":key[2]}
-        # print("key = ", key, len(event.getData()), event.isChainEnd(), kindInfo)
-        # print(self._config.getKLineKindsInfo())
-
-        assert kindInfo in self._config.getKLineKindsInfo(), " Error "
+        # print("key = ", key, len(event.getData()), event.isChainEnd(), key)
+        # assert kindInfo in self._config.getKLineKindsInfo(), " Error "
         if not self._isReqByDate[key]:                        # req by count
             self._handleKLineRspByCount(event)
-        else:                                               # req by date
+        else:                                                 # req by date
             self._handleKLineRspByDate(event)
 
     def isHisQuoteRspEnd(self, event):
@@ -656,6 +653,10 @@ class StrategyHisQuote(object):
             kLineData["KLineType"] = event.getKLineType()
             kLineData['KLineSlice'] = event.getKLineSlice()
             kLineData["Priority"] = self._config.getPriority(key)
+            if key[1] == EEQU_KLINE_TICK and key[2] == 0:
+                kLineData["HighPrice"] = kLineData["LastPrice"]
+                kLineData["LowPrice"] = kLineData["LastPrice"]
+                kLineData["OpeningPrice"] = kLineData["LastPrice"]
             if self._isReqByDate[key]:
                 if len(localRspKLineData) == 0 or (len(localRspKLineData) >= 1 and kLineData["DateTimeStamp"]<localRspKLineData[0]["DateTimeStamp"] and \
                 kLineData["DateTimeStamp"] >= self._reqBeginDate[key]):
@@ -678,6 +679,10 @@ class StrategyHisQuote(object):
         for data in event.getData():
             isNewKLine = True
             data["IsKLineStable"] = False
+            if key[1] == EEQU_KLINE_TICK and key[2] == 0:
+                data["HighPrice"] = data["LastPrice"]
+                data["LowPrice"] = data["LastPrice"]
+                data["OpeningPrice"] = data["LastPrice"]
             storedLastKLine, lastKLineSource = self.getLastStoredKLine(key)
             # 没有数据，索引取回测数据的最后一条数据的索引，没有数据从1开始
             if storedLastKLine is None:
@@ -704,6 +709,8 @@ class StrategyHisQuote(object):
             isRealTimeStatus = self._strategy.isRealTimeStatus()
             orderWay = str(self._config.getSendOrder())
             kLineTrigger = self._config.hasKLineTrigger()
+
+            # print(isRealTimeStatus, orderWay, orderWay == SendOrderRealTime, orderWay == SendOrderStable)
             if not kLineTrigger:
                 pass
             elif not isRealTimeStatus and len(localDataList) >= 2 and localDataList[-2]["IsKLineStable"] and isNewKLine:
@@ -768,7 +775,7 @@ class StrategyHisQuote(object):
 
 
     def _sendHisKLineTriggerEvent(self, key, data):
-        if not data["IsKLineStable"]:
+        if not data["IsKLineStable"] or not self._config.hasKLineTrigger() or key not in self._config.getKLineTriggerInfoSimple():
             return
 
         assert key[1] is not None, "k line type error"
@@ -786,6 +793,7 @@ class StrategyHisQuote(object):
         self._strategy.sendTriggerQueue(event)
 
     def _sendRealTimeKLineTriggerEvent(self, key, data):
+        self._triggerMgr.updateData(key, data)
         kLineTrigger = self._config.hasKLineTrigger()
         if not kLineTrigger or key not in self._config.getKLineTriggerInfoSimple():
             return
@@ -793,7 +801,6 @@ class StrategyHisQuote(object):
         assert self._strategy.isRealTimeStatus(), " Error "
         orderWay = str(self._config.getSendOrder())
         if orderWay == SendOrderRealTime or (orderWay == SendOrderStable and data["IsKLineStable"]):
-            self._triggerMgr.updateData(key, data)
             if not self._triggerMgr.isAllDataReady(key[0]):
                 return
             self._sendSyncTriggerEvent(key[0])
@@ -812,7 +819,7 @@ class StrategyHisQuote(object):
     def onHisQuoteNotice(self, event):
         key = (event.getContractNo(), event.getKLineType(), event.getKLineSlice())
         kindInfo = {"ContractNo": key[0], "KLineType": key[1], "KLineSlice": key[2]}
-        # print("kind = ", event.getData()[0]["DateTimeStamp"], kindInfo, )
+        # print("kind = ", event.getData()[0]["DateTimeStamp"], kindInfo)
         # 丢掉
         if not self._kLineRspData[key]["KLineReady"]:
             return
@@ -973,7 +980,11 @@ class StrategyHisQuote(object):
             if not self._config.hasKLineTrigger():
                 continue
 
-            if key == self._config.getKLineShowInfoSimple():
+            # 处理历史回测阶段止损止盈
+            self._stopWinOrLose(key[0], row["HighPrice"], row["LowPrice"])
+            self._stopFloatWinLose(key[0], row["HighPrice"], row["LowPrice"])
+
+            if key in self._config.getKLineTriggerInfoSimple():
                 args = {
                     "Status": ST_STATUS_HISTORY,
                     "TriggerType":ST_TRIGGER_HIS_KLINE,
@@ -987,10 +998,6 @@ class StrategyHisQuote(object):
                 self._strategy.setCurTriggerSourceInfo(args)
                 context.setCurTriggerSourceInfo(args)
                 handle_data(context)
-
-            # 处理历史回测阶段止损止盈
-            self._stopWinOrLose(key[0], row["LastPrice"])
-            self._stopFloatWinLose(key[0], row["LastPrice"])
 
             # # 要显示的k线
             if isShow:
@@ -1044,6 +1051,7 @@ class StrategyHisQuote(object):
         if lastBar is None or math.fabs(curBar["LastPrice"] - lastBar["LastPrice"]) > 1e-4:
             self._calcProfitWhenHis()
         # **************************
+        # print(key, self._config.getKLineTriggerInfoSimple(), key in self._config.getKLineTriggerInfoSimple())
         if self._config.hasKLineTrigger() and key in self._config.getKLineTriggerInfoSimple():
             args = {
                 "Status": ST_STATUS_HISTORY,
@@ -1060,8 +1068,9 @@ class StrategyHisQuote(object):
             handle_data(context)
 
         # 处理中间阶段止损止盈,按照历史回测止损止盈
-        self._stopWinOrLose(key[0], kLineData["LastPrice"])
-        self._stopFloatWinLose(key[0], kLineData["LastPrice"])
+        self._stopWinOrLose(key[0], kLineData["HighPrice"], kLineData["LowPrice"])
+        self._stopFloatWinLose(key[0], kLineData["HighPrice"], kLineData["LowPrice"])
+
         # **********************************
         if isShow:
             self._addSingleKLine(kLineData)
@@ -1131,8 +1140,8 @@ class StrategyHisQuote(object):
             # 处理实时阶段止损止盈
             lv1Data = event.getData()["Data"]
             if 4 in lv1Data:
-                self._stopWinOrLose(event.getContractNo(), lv1Data[4])
-                self._stopFloatWinLose(event.getContractNo(), lv1Data[4])
+                self._stopWinOrLose(event.getContractNo(), lv1Data[4], lv1Data[4])
+                self._stopFloatWinLose(event.getContractNo(), lv1Data[4], lv1Data[4])
             else:
                 self.logger.info(f"即时行情中的字段没有最新价")
 
@@ -1158,6 +1167,7 @@ class StrategyHisQuote(object):
             "DateTimeStamp": allData["DateTimeStamp"],
             "TriggerData": allData["Data"]
         }
+        # print(args)
         self._strategy.setCurTriggerSourceInfo(args)
         context.setCurTriggerSourceInfo(args)
         handle_data(context)
@@ -1200,52 +1210,64 @@ class StrategyHisQuote(object):
         self._calc.calcProfit([event.getContractNo()], priceInfos)
 
     #
-    def _stopWinOrLose(self, contractNo, curPrice):
+    def _stopWinOrLose(self, contractNo, highPrice, lowPrice):
         stopWinParams = self._config.getStopWinParams(contractNo)
         stopLoseParams = self._config.getStopLoseParams(contractNo)
         priceTick = self._dataModel.getPriceTick(contractNo)
         # 处理止损止盈
         latestPos = self._calc.getLatestOpenOrder(contractNo)
-
+        
         # 没有设置止损止盈, 或者没有持仓
         if (not stopLoseParams and not stopWinParams) or not latestPos:
             return
 
         # 止损或者止盈是否触发
         isStopWinTrigger = False; isStopLoseTrigger = False
+
+        # 买方向，价格上涨，需要止盈，价格下跌需要止损
+        # 卖方向，价格下跌，需要止盈，价格上涨需要止损
+        # self.logger.debug('AAAA:%s,%s,%f'%(latestPos, stopWinParams, curPrice))
         if stopWinParams:
-            isStopWinTrigger = (curPrice-latestPos["OrderPrice"])>stopWinParams["StopPoint"]*priceTick
+            if latestPos['Direct'] == 'B':
+                isStopWinTrigger = highPrice-latestPos["OrderPrice"]-stopWinParams["StopPoint"]*priceTick>-1e-6
+            else:
+                isStopWinTrigger = latestPos["OrderPrice"]-lowPrice-stopWinParams["StopPoint"]*priceTick>-1e-6
         if stopLoseParams:
-            isStopLoseTrigger = (latestPos["OrderPrice"]-curPrice)>stopLoseParams["StopPoint"]*priceTick
+            if latestPos['Direct'] == 'B':
+                isStopLoseTrigger = latestPos["OrderPrice"]-lowPrice-stopLoseParams["StopPoint"]*priceTick>-1e-6
+            else:
+                isStopLoseTrigger = highPrice-latestPos["OrderPrice"]-stopLoseParams["StopPoint"]*priceTick>-1e-6
 
         # 日志记录
         if isStopWinTrigger:
             if self._strategy.isHisStatus():
-                self.logger.info(f"{contractNo} 的历史k线触发了止盈, 触发价格:{curPrice}")
+                self.logger.info(f"{contractNo} 的历史k线触发了止盈, High: {highPrice}, Low: {lowPrice}")
             else:
-                self.logger.info(f"{contractNo} 的即时行情触发了止盈, 触发价格:{curPrice}")
+                self.logger.info(f"{contractNo} 的即时行情触发了止盈, High: {highPrice}, Low: {lowPrice}")
         if isStopLoseTrigger:
             if self._strategy.isHisStatus():
-                self.logger.info(f"{contractNo} 的历史k线触发了止损, 触发价格:{curPrice}")
+                self.logger.info(f"{contractNo} 的历史k线触发了止损, High: {highPrice}, Low: {lowPrice}")
             else:
-                self.logger.info(f"{contractNo} 的即时行情触发了止损, 触发价格:{curPrice}")
+                self.logger.info(f"{contractNo} 的即时行情触发了止损, High: {highPrice}, Low: {lowPrice}")
 
         allPos = self._calc.getPositionInfo(contractNo)
+
         if isStopWinTrigger:
             if allPos["TotalBuy"] >= 1:
-                coverPosPrice = self.getCoverPosPrice(curPrice, stopWinParams["CoverPosOrderType"],
+                coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], stopWinParams["CoverPosOrderType"],
                                                          stopWinParams["AddPoint"], priceTick, dSell)
                 self._dataModel.setSell('', contractNo, allPos["TotalBuy"], coverPosPrice)
             elif allPos["TotalSell"] >= 1:
-                coverPosPrice = self.getCoverPosPrice(curPrice, stopWinParams["CoverPosOrderType"],
+                coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], stopWinParams["CoverPosOrderType"],
                                                          stopWinParams["AddPoint"], priceTick, dBuy)
                 self._dataModel.setBuyToCover('', contractNo, allPos["TotalSell"], coverPosPrice)
+
         elif isStopLoseTrigger:
             if allPos["TotalBuy"] >= 1:
-                coverPosPrice = self.getCoverPosPrice(curPrice, stopLoseParams["CoverPosOrderType"], stopLoseParams["AddPoint"], priceTick, dSell)
+                coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], stopLoseParams["CoverPosOrderType"], stopLoseParams["AddPoint"], priceTick, dSell)
                 self._dataModel.setSell('', contractNo, allPos["TotalBuy"], coverPosPrice)
             elif allPos["TotalSell"] >= 1:
-                coverPosPrice = self.getCoverPosPrice(curPrice, stopLoseParams["CoverPosOrderType"], stopLoseParams["AddPoint"], priceTick, dBuy)
+                coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], stopLoseParams["CoverPosOrderType"], stopLoseParams["AddPoint"], priceTick, dBuy)
                 self._dataModel.setBuyToCover('', contractNo, allPos["TotalSell"], coverPosPrice)
 
     def getCoverPosPrice(self, curPrice, coverPosOrderType, addPoint, priceTick, direction):
@@ -1261,7 +1283,7 @@ class StrategyHisQuote(object):
 
     # 相对于
     isMonitorTrigger = {}
-    def _stopFloatWinLose(self, contractNo, curPrice):
+    def _stopFloatWinLose(self, contractNo, highPrice, lowPrice):
         floatStopParams = self._config.getFloatStopPoint(contractNo)
         priceTick = self._dataModel.getPriceTick(contractNo)
         latestPos = self._calc.getLatestOpenOrder(contractNo)
@@ -1271,31 +1293,37 @@ class StrategyHisQuote(object):
         isFloatStopTrigger = False
         isContractMonitorTrigger = self.isMonitorTrigger.get(contractNo, False)
         # 监控最高点
-        if not isContractMonitorTrigger:
-            if (curPrice-latestPos["OrderPrice"])>floatStopParams["StartPoint"]*priceTick:
-                self.isMonitorTrigger[contractNo] = True
+        # 买方向，达到最高点，开始监控止损，下跌到止损点时触发
+        # 卖方向，达到最低点，开始监控止损，上涨到止损点时触发
+        if latestPos['Direct'] == 'B':
+            if not isContractMonitorTrigger:
+                if highPrice-latestPos["OrderPrice"]-floatStopParams["StartPoint"]*priceTick>-1e-6:
+                    self.isMonitorTrigger[contractNo] = True
             else:
-                pass
+                if highPrice-latestPos["OrderPrice"]-(floatStopParams["StartPoint"]-floatStopParams["StopPoint"])*priceTick<1e-6:
+                    isFloatStopTrigger = True
         else:
-            if (curPrice-latestPos["OrderPrice"])>(floatStopParams["StartPoint"]-floatStopParams["StopPoint"])*priceTick:
-                isFloatStopTrigger = True
+            if not isContractMonitorTrigger:
+                if latestPos["OrderPrice"]-lowPrice-floatStopParams["StartPoint"]*priceTick>-1e-6:
+                    self.isMonitorTrigger[contractNo] = True
             else:
-                pass
+                if latestPos["OrderPrice"]-lowPrice-(floatStopParams["StartPoint"]-floatStopParams["StopPoint"])*priceTick<1e-6:
+                    isFloatStopTrigger = True
 
         allPos = self._calc.getPositionInfo(contractNo)
         if not isFloatStopTrigger:
             return
 
         if self._strategy.isHisStatus():
-            self.logger.info(f"{contractNo} 的历史k线触发了浮动止损止盈, 触发价格:{curPrice}")
+            self.logger.info(f"{contractNo} 的历史k线触发了浮动止损止盈, High: {highPrice}, Low: {lowPrice}")
         else:
-            self.logger.info(f"{contractNo} 的即时行情触发了浮动止损止盈, 触发价格:{curPrice}")
+            self.logger.info(f"{contractNo} 的即时行情触发了浮动止损止盈, High: {highPrice}, Low: {lowPrice}")
 
         if allPos["TotalBuy"] >= 1:
-            coverPosPrice = self.getCoverPosPrice(curPrice, floatStopParams["CoverPosOrderType"],floatStopParams["AddPoint"], priceTick, dSell)
+            coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], floatStopParams["CoverPosOrderType"],floatStopParams["AddPoint"], priceTick, dSell)
             self._dataModel.setSell('', contractNo, allPos["TotalBuy"], coverPosPrice)
         elif allPos["TotalSell"] >= 1:
-            coverPosPrice = self.getCoverPosPrice(curPrice, floatStopParams["CoverPosOrderType"],floatStopParams["AddPoint"], priceTick, dBuy)
+            coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], floatStopParams["CoverPosOrderType"],floatStopParams["AddPoint"], priceTick, dBuy)
             self._dataModel.setBuyToCover('', contractNo, allPos["TotalSell"], coverPosPrice)
         # 平仓之后取消监控
         self.isMonitorTrigger[contractNo] = False
@@ -1320,7 +1348,7 @@ class StrategyHisQuote(object):
             self._strategy.sendTriggerQueue(event)
 
         for record, kLine in syncTriggerInfo.items():
-            if record == (contractNo, 0, 0):
+            if record == (contractNo, 0, 0) or record not in self._config.getKLineTriggerInfoSimple():
                 pass
             else:
                 event = Event({

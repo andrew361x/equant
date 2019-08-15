@@ -8,7 +8,7 @@ class StatisticsModel(object):
         self._strategy = strategy
         self.logger = strategy.logger
         self._config = config
-            
+
 
     def SMA(self, price:np.array, period, weight):
         sma = 0.0
@@ -160,6 +160,69 @@ class StatisticsModel(object):
             otran_s.append(oTransition)
 
         return np.array(opc_s), np.array(opo_s), np.array(opos_s), np.array(otran_s)
+
+    def Pivot(self, Price, Length, LeftStrength, RightStrength, Instance, HiLo):
+        '''
+        【说明】
+            该函数计算指定周期内的数值型序列值的转折点
+            当序列值的CurrentBar小于Length时，该函数返回无效值。
+        【参数】
+            Price:  用于求转折点的值，必须是np数组或者序列变量
+            Length: 需要计算的周期数
+            LeftStrength：转折点左边需要的Bar数目，必须小于Length
+            RightStrength: 转折点右边需要的Bar数目，必须小于Length
+            Instance：设置返回哪一个波峰点，1 - 最近的波峰点，2 - 倒数第二个，以此类推
+            HiLo 设置求转折的计算类型，1 - 求高点, -1 - 求低点
+        【返回值】
+            isPivot     是否找到转折点
+            PivotPrice  转折点的值
+            PivotBar 转折点出现的Bar到当前Bar的回溯周期索引
+
+        【示例】
+            Pivot (Close,10,1,1,1,1);计算Close最近10个周期的波峰点。
+
+        '''
+        InstanceCntr = 0
+        InstanceTest = False
+        LengthCntr = RightStrength
+
+        if len(Price) < Length:
+            return False, -1.0, -1
+
+        LPrice = Price[::-1]
+
+        while LengthCntr < Length and not InstanceTest:
+            CandidatePrice = LPrice[LengthCntr]
+            PivotTest = True
+            StrengthCntr = LengthCntr + 1
+
+            while PivotTest and (StrengthCntr - LengthCntr <= LeftStrength):
+                if ( HiLo == 1 and CandidatePrice < LPrice[StrengthCntr] ) or ( HiLo == -1 and CandidatePrice > LPrice[StrengthCntr]):
+                    PivotTest = False
+                else:
+                    StrengthCntr = StrengthCntr + 1
+
+            StrengthCntr = LengthCntr - 1
+            while PivotTest and (LengthCntr - StrengthCntr <= RightStrength):
+                if ( HiLo == 1 and CandidatePrice <= LPrice[StrengthCntr] ) or ( HiLo == -1 and CandidatePrice >= LPrice[StrengthCntr]):
+                    PivotTest = False
+                else:
+                    StrengthCntr = StrengthCntr - 1
+
+            if PivotTest:
+                InstanceCntr = InstanceCntr + 1
+
+            if InstanceCntr == Instance:
+                InstanceTest = True
+            else:
+                LengthCntr = LengthCntr + 1
+
+        if InstanceTest:
+            return True, CandidatePrice, LengthCntr
+        else:
+            return False, -1.0, -1
+            
+        
 
 
 

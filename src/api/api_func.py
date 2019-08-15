@@ -153,7 +153,7 @@ _all_func_ = {
                     ['NumEventTimes'       , '保本次数'],
                     ['PercentProfit'       , '盈利成功率'],
                     ['TradeCost'           , '交易产生的手续费'],
-                    # ['TotalTrades'         , '交易总开仓手数'],
+                    ['TotalTrades'         , '交易总开仓手数'],
                 ],
                 
     '账户函数': [
@@ -331,6 +331,8 @@ _all_func_ = {
                     ['CountIf'             ,'获取最近N周期满足条件的计数'],
                     ['CrossOver'           ,'求是否上穿'],
                     ['CrossUnder'          ,'求是否下穿'],
+                    ['SwingHigh'           ,'求波峰点'],
+                    ['SwingLow'            ,'求波谷点'],
                 ],
 
     '日志函数': [
@@ -338,6 +340,7 @@ _all_func_ = {
                     ['LogInfo'             ,'打印普通信息'],
                     ['LogWarn'             ,'打印警告信息'],
                     ['LogError'            ,'打印错误信息'],
+                    ['Alert'               ,'弹出警告提醒'],
                 ],
                 
     

@@ -652,10 +652,10 @@ typedef struct EEquHisQuoteTimeBucket
 ///////////////////////////////////////////////////////////交易///////////////////////////////////////////////////////////
 
 typedef STR20 						EEquLoginNoType;					//登录账号
-typedef STR20 						EEquLoginNameType;					//登录名称
+typedef STR50 						EEquLoginNameType;					//登录名称
 typedef C8							EEquUserType;						//用户类型
 typedef STR20 						EEquUserNoType;						//资金账号
-typedef STR20 						EEquUserNameType;					//资金账户名称
+typedef STR50 						EEquUserNameType;					//资金账户名称
 typedef STR20 						EEquSignType;						//服务器标识
 typedef U32							EEquCountType;						//请求数量
 typedef STR50						EEquLoginApiType;					//API类型

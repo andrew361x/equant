@@ -171,7 +171,7 @@ class StrategyConfig_new(object):
                 'InitFunds': 0, # 初始资金
                 'TradeDirection': 0, # 交易方向
                 'OrderQty': { # 默认下单量
-                    'Type': '',
+                    'Type': '', # 1:按固定合约数; 2:按固定资金; 3:按资金比例
                     'Count': 0
                 },
                 'MinQty': 0,    # 最小下单量
@@ -195,6 +195,7 @@ class StrategyConfig_new(object):
             'Params': {}, # 用户设置参数
             'Pending': False,
             'Alarm': False, # 是否开启警报
+            'PopOn': False, # 是否允许弹窗
         }
 
     # ----------------------- 合约/K线类型/K线周期 ----------------------
@@ -476,6 +477,7 @@ class StrategyConfig_new(object):
         '''获取保证金比例值'''
         if contNo not in self._metaData['Money']['Margin']:
             raise Exception("请确保为合约%s设置了保证金比例/额度！"%contNo)
+
         return self._metaData['Money']['Margin'][contNo]['Value']
 
     # ----------------------- 交易手续费 ----------------------
@@ -655,10 +657,18 @@ class StrategyConfig_new(object):
     def setAlarm(self, alarmOn):
         '''设置警报开关'''
         self._metaData['Alarm'] = alarmOn
+    # ----------------------  允许弹窗 --------------------------
+    def setPop(self, popOn):
+        '''设置允许弹窗开关'''
+        self._metaData["PopOn"] = popOn
 
     def getAlarm(self):
         '''获取警报开启状态'''
         return bool(self._metaData['Alarm'])
+        
+    def getPop(self):
+        return bool(self._metaData['PopOn'])
+        
     # --------------------- 订阅/退订即时行情 --------------------
     def updateSubQuoteContract(self, contNoList):
         pass
@@ -745,13 +755,27 @@ class StrategyConfig_new(object):
 
         return subDict.values()
 
-    def getKLineTriggerInfo(self):
-        kLineTypetupleList, kLineTypeDictList, subDict = self.getSampleInfo()
-        return kLineTypeDictList
-
+    #
+    periodSize = {
+        EEQU_KLINE_DAY: 24*3600,
+        EEQU_KLINE_MINUTE: 60,
+        EEQU_KLINE_TICK: 1,
+    }
     def getKLineTriggerInfoSimple(self):
+        if hasattr(self, "_triggerKLine"):
+            return getattr(self, "_triggerKLine")
         kLineTypetupleList, kLineTypeDictList, subDict = self.getSampleInfo()
-        return kLineTypetupleList
+
+        result = {}
+        for key in kLineTypetupleList:
+            result.setdefault(key[0], key)
+            lastKey = result.get(key[0])
+            if self.periodSize[key[1]]*key[2] < self.periodSize[lastKey[1]]*lastKey[2]:
+                result[key[0]] = key
+
+        setattr(self, "_triggerKLine", set(result.values()))
+        return getattr(self, "_triggerKLine")
+
 
     def getKLineShowInfo(self):
         displayCont = self.getBenchmark()
@@ -768,24 +792,20 @@ class StrategyConfig_new(object):
         showInfo = self.getKLineShowInfo()
         for value in showInfo.values():
             showInfoSimple.append(value)
+
         return tuple(showInfoSimple)
 
     priorityDict = {
-        EEQU_KLINE_YEAR: 90000,
-        EEQU_KLINE_MONTH: 80000,
-        EEQU_KLINE_WEEK: 70000,
-        EEQU_KLINE_DayX: 60000,
         EEQU_KLINE_DAY: 50000,
-        EEQU_KLINE_HOUR: 40000,
         EEQU_KLINE_MINUTE: 30000,
-        EEQU_KLINE_SECOND: 20000,
         EEQU_KLINE_TICK: 10000,
-        EEQU_KLINE_TIMEDIVISION: 0,
+
     }
 
     def getPriority(self, key):
-        kLineTypetupleList = self.getKLineTriggerInfoSimple()
-        return kLineTypetupleList.index(key) + self.priorityDict[key[1]] + int(key[2])
+        kLineKindsInfo = self.getKLineKindsInfo()
+        kLineTypetupleList = [(record["ContractNo"], record["KLineType"], record["KLineSlice"]) for record in kLineKindsInfo]
+        return len(kLineTypetupleList)-kLineTypetupleList.index(key) + self.priorityDict[key[1]] + int(key[2])
 
     def getContract(self):
         '''获取合约列表'''

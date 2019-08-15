@@ -5,7 +5,7 @@ from tkinter import *
 from tkinter import ttk, messagebox, Frame
 from utils.utils import *
 
-from .editor import MonitorText, SignalText, ErrorText
+from .editor import MonitorText, LogText, ErrorText
 from .menu import RunMenu
 from capi.com_types import *
 from report.fieldConfigure import StrategyStatus, FrequencyDict
@@ -26,40 +26,45 @@ class QuantMonitor(object):
         # Monitor不同标签的背景色
         self.rColor = self.bgColorW
         self.lColor = self.bgColor
-        self.sColor = self.bgColor
         self.eColor = self.bgColor
         self.pColor = self.bgColor
+        # 日志不同标签背景色
+        self.yColor = self.bgColor   # 系统日志标签颜色
+        self.sColor = self.bgColor
+        self.uColor = self.bgColorW
 
         self.createButtonFrame()
 
         # 执行列表、监控日志、信号记录、错误
         self.executeList  = Frame(self.parentFrame)
-        self.monitorLog   = Frame(self.parentFrame)
-        self.sigRecord    = Frame(self.parentFrame)
         self.errRecord    = Frame(self.parentFrame)
         self.posMonitor   = Frame(self.parentFrame)
+        self.logRecord    = Frame(self.parentFrame)
+
+        self.sysLog       = Frame(self.logRecord)
+        self.sigRecord    = Frame(self.logRecord)
+        self.usrLog       = Frame(self.logRecord)
 
         self.executeList.pack(side=TOP, fill=BOTH, expand=YES)
 
-        self.monText = None
+        self.sysText = None
         self.sigText = None
+        self.usrText = None
         self.errText = None
+
+        # 日志功能区
+        self.createLogBtnFrame()
+        self.usrLog.pack(side=TOP, fill=BOTH, expand=YES)
 
     def createButtonFrame(self):
         btnFrame = Frame(self.parentFrame, height=30, bg=self.bgColor)
         btnFrame.pack_propagate(0)
         btnFrame.pack(side=TOP, fill=X)
-        # 利用frame做出button的黑色边框
-        # f1 = Frame(btnFrame, highlightbackground="black", highlightthickness=1, bd=0)
-        # f1.pack(side=LEFT)
 
         self.runBtn = Button(btnFrame, text="策略运行", relief=FLAT, padx=14, pady=1.5, bg=self.rColor,
                              bd=0, highlightthickness=1, command=self.toMonFrame)
         self.logBtn = Button(btnFrame, text="运行日志", relief=FLAT, padx=14, pady=1.5, bg=self.lColor,
-                             bd=0, highlightthickness=1,
-                             command=self.toLogFrame)
-        self.sigBtn = Button(btnFrame, text="信号记录", relief=FLAT, padx=14, pady=1.5, bg=self.sColor,
-                             bd=0, highlightthickness=1,  command=self.toSigFrame)
+                             bd=0, highlightthickness=1, command=self.toLogFrame)
         self.errBtn = Button(btnFrame, text="错误信息", relief=FLAT, padx=14, pady=1.5, bg=self.eColor,
                              bd=0, highlightthickness=1, command=self.toErrFrame)
 
@@ -67,26 +72,57 @@ class QuantMonitor(object):
                              bd=0, highlightthickness=1, command=self.toPosFrame)
         self.runBtn.pack(side=LEFT, expand=NO)
         self.logBtn.pack(side=LEFT, expand=NO)
-        self.sigBtn.pack(side=LEFT, expand=NO)
         self.errBtn.pack(side=LEFT, expand=NO)
         self.posBtn.pack(side=LEFT, expand=NO)
 
-        for btn in (self.runBtn, self.logBtn, self.sigBtn, self.errBtn, self.posBtn):
+        for btn in (self.runBtn, self.logBtn, self.errBtn, self.posBtn):
             btn.bind("<Enter>", self.handlerAdaptor(self.onEnter, button=btn))
             btn.bind("<Leave>", self.handlerAdaptor(self.onLeave, button=btn))
 
-    def createMonitor(self):
-        # monitorRightBar = Scrollbar(self.monitorLog)
-        # monitorRightBar.pack(side=RIGHT, fill=Y), yscrollcommand=monitorRightBar.set
+    def createLogBtnFrame(self):
+        """创建日志按钮Frame"""
+        lBtnFrame = Frame(self.logRecord, height=30, bg=self.bgColor)
+        lBtnFrame.pack_propagate(0)
+        lBtnFrame.pack(side=BOTTOM, fill=X)
 
-        self.monText = MonitorText(self.monitorLog, height=20, bd=0)
-        self.monText.createScrollbar()
-        self.monText.pack(fill=BOTH, expand=YES)
+        self.usrBtn = Button(lBtnFrame, text="用户日志", relief=FLAT, padx=14, pady=1.5, bg=self.rColor,
+                             bd=0, highlightthickness=1, command=self.toUsrFrame)
+        self.sigBtn = Button(lBtnFrame, text="信号记录", relief=FLAT, padx=14, pady=1.5, bg=self.lColor,
+                             bd=0, highlightthickness=1, command=self.toSigFrame)
+        self.sysBtn = Button(lBtnFrame, text="系统日志", relief=FLAT, padx=14, pady=1.5, bg=self.sColor,
+                             bd=0, highlightthickness=1, command=self.toSysFrame)
+
+        self.usrBtn.pack(side=LEFT, expand=NO)
+        self.sigBtn.pack(side=LEFT, expand=NO)
+        self.sysBtn.pack(side=LEFT, expand=NO)
+
+        # for btn in (self.usrBtn, self.sigBtn, self.sysBtn):
+            # btn.bind("<Enter>", self.handlerAdaptor(self.onEnter, button=btn))
+            # btn.bind("<Leave>", self.handlerAdaptor(self.onLeave, button=btn))
+            # pass
+
+    def createLog(self):
+        self.createSysLog()
+        self.createSignal()
+        self.createUsrLog()
+
+    def createSysLog(self):
+        """系统日志"""
+        self.sysText = MonitorText(self.sysLog, height=20, bd=0)
+        self.sysText.createScrollbar()
+        self.sysText.pack(fill=BOTH, expand=YES)
 
     def createSignal(self):
-        self.sigText = SignalText(self.sigRecord, height=20, bd=0)
+        """信号记录"""
+        self.sigText = LogText(self.sigRecord, height=20, bd=0)
         self.sigText.createScrollbar()
         self.sigText.pack(fill=BOTH, expand=YES)
+
+    def createUsrLog(self):
+        """用户日志"""
+        self.usrText = LogText(self.usrLog, height=20, bd=0)
+        self.usrText.createScrollbar()
+        self.usrText.pack(fill=BOTH, expand=YES)
 
     def createPos(self):
         headList = ["账号", "合约", "账户仓", "策略仓", "仓差",
@@ -148,8 +184,6 @@ class QuantMonitor(object):
 
         subCheck = Checkbutton(frame, text="仅自动减仓", bg=rgb_to_hex(245, 245, 245), bd=1, anchor=W)
         subCheck.pack(side=LEFT, padx=5)
-
-        pass
 
     def createExecute(self):
         headList  = ["编号", "账号", "策略名称", "基准合约", "频率", "运行状态", "实盘运行",
@@ -254,9 +288,10 @@ class QuantMonitor(object):
         except:
             return
         else:
-            self.monText.setText(data)
+            self.sysText.setText(data)
 
     def updateSigText(self):
+        """更新信号记录"""
         sigQueue = self._controller.get_logger().getSigQ()
         sigData = ''
         flag = True
@@ -272,6 +307,22 @@ class QuantMonitor(object):
         else:
             # self.toSigFrame()
             self.sigText.setText(sigData)
+
+    def updateUsrText(self):
+        """更新用户日志"""
+        usrQueue = self._controller.get_logger().getUsrQ()
+        usrData = ''
+        flag = True
+        try:
+            while flag:
+                usrData += usrQueue.get_nowait()+"\n"
+                if usrQueue.empty():
+                    flag = False
+
+        except Exception as e:
+            return
+        else:
+            self.usrText.setText(usrData)
 
     def updateErrText(self):
         errQueue = self._controller.get_logger().getErrQ()
@@ -290,68 +341,104 @@ class QuantMonitor(object):
         self.runBtn.config(bg="white")
         self.rColor = self.runBtn['bg']
         self.lColor = self.bgColor
-        self.sColor = self.bgColor
         self.eColor = self.bgColor
         self.pColor = self.bgColor
         self.errBtn.config(bg=self.rColor)
-        self.sigBtn.config(bg=self.sColor)
         self.logBtn.config(bg=self.lColor)
         self.posBtn.config(bg=self.pColor)
-        self.monitorLog.pack_forget()
-        self.sigRecord.pack_forget()
+        self.logRecord.pack_forget()
         self.errRecord.pack_forget()
         self.posMonitor.pack_forget()
         self.executeList.pack(side=TOP, fill=BOTH, expand=YES)
+
+    # def toLogFrame(self, event, button):
+    #     buttons = [self.runBtn, self.logBtn, self.errBtn, self.posBtn]
+    #     colors = [self.rColor, self.lColor, self.eColor, self.pColor]
+    #     frames = [self.executeList, self.logRecord, self.errRecord, self.posMonitor]
+    #
+    #     button.config(bg="white")
+    #     index = buttons.index(button)
+    #     colors[index] = button['bg']
+    #     frames[index].pack(side=TOP, fill=BOTH, expand=YES)
+    #     buttons.remove(button)
+    #     colors.remove(colors[index])
+    #     frames.remove(frames[index])
+    #     #TODO:怎么pop呢？
+    #
+    #     for btn in buttons:
+    #         i = buttons.index(btn)
+    #         colors[i] = self.bgColor
+    #         btn.config(bg=self.bgColor)
+    #         frames[i].pack_forget()
 
     def toLogFrame(self):
         self.logBtn.config(bg="white")
         self.lColor = self.logBtn['bg']
         self.rColor = self.bgColor
-        self.sColor = self.bgColor
         self.eColor = self.bgColor
         self.pColor = self.bgColor
         self.runBtn.config(bg=self.rColor)
-        self.sigBtn.config(bg=self.sColor)
         self.errBtn.config(bg=self.eColor)
         self.posBtn.config(bg=self.pColor)
-        self.sigRecord.pack_forget()
         self.executeList.pack_forget()
         self.errRecord.pack_forget()
         self.posMonitor.pack_forget()
-        self.monitorLog.pack(side=TOP, fill=BOTH, expand=YES)
+        self.logRecord.pack(side=TOP, fill=BOTH, expand=YES)
+
+    def toSysFrame(self):
+        self.sysBtn.config(bg="white")
+        self.yColor = self.sysBtn['bg']
+        self.sColor = self.bgColor
+        self.uColor = self.bgColor
+
+        self.sigBtn.config(bg=self.sColor)
+        self.usrBtn.config(bg=self.uColor)
+
+        self.sigRecord.pack_forget()
+        self.usrLog.pack_forget()
+
+        self.sysLog.pack(side=TOP, fill=BOTH, expand=YES)
 
     def toSigFrame(self):
         self.sigBtn.config(bg="white")
         self.sColor = self.sigBtn['bg']
-        self.lColor = self.bgColor
-        self.rColor = self.bgColor
-        self.eColor = self.bgColor
-        self.pColor = self.bgColor
-        self.runBtn.config(bg=self.rColor)
-        self.logBtn.config(bg=self.lColor)
-        self.errBtn.config(bg=self.eColor)
-        self.posBtn.config(bg=self.pColor)
-        self.monitorLog.pack_forget()
-        self.executeList.pack_forget()
-        self.errRecord.pack_forget()
-        self.posMonitor.pack_forget()
+        self.uColor = self.bgColor
+        self.yColor = self.bgColor
+
+        self.sysBtn.config(bg=self.yColor)
+        self.usrBtn.config(bg=self.uColor)
+
+        self.sysLog.pack_forget()
+        self.usrLog.pack_forget()
+
         self.sigRecord.pack(side=TOP, fill=BOTH, expand=YES)
+
+    def toUsrFrame(self):
+        self.usrBtn.config(bg="white")
+        self.uColor = self.sysBtn['bg']
+        self.sColor = self.bgColor
+        self.yColor = self.bgColor
+
+        self.sigBtn.config(bg=self.sColor)
+        self.sysBtn.config(bg=self.yColor)
+
+        self.sigRecord.pack_forget()
+        self.sysLog.pack_forget()
+
+        self.usrLog.pack(side=TOP, fill=BOTH, expand=YES)
 
     def toErrFrame(self):
         self.errBtn.config(bg="white")
         self.eColor = self.errBtn['bg']
         self.lColor = self.bgColor
         self.rColor = self.bgColor
-        self.sColor = self.bgColor
         self.pColor = self.bgColor
         self.runBtn.config(bg=self.rColor)
-        self.sigBtn.config(bg=self.sColor)
         self.logBtn.config(bg=self.lColor)
         self.posBtn.config(bg=self.pColor)
         self.parentFrame.update()
-        self.monitorLog.pack_forget()
+        self.logRecord.pack_forget()
         self.executeList.pack_forget()
-        self.sigRecord.pack_forget()
         self.posMonitor.pack_forget()
         self.errRecord.pack(side=TOP, fill=BOTH, expand=YES)
 
@@ -360,16 +447,13 @@ class QuantMonitor(object):
         self.pColor = self.posBtn['bg']
         self.lColor = self.bgColor
         self.rColor = self.bgColor
-        self.sColor = self.bgColor
         self.eColor = self.bgColor
         self.runBtn.config(bg=self.rColor)
-        self.sigBtn.config(bg=self.sColor)
         self.logBtn.config(bg=self.lColor)
         self.errBtn.config(bg=self.eColor)
         self.parentFrame.update()
-        self.monitorLog.pack_forget()
+        self.logRecord.pack_forget()
         self.executeList.pack_forget()
-        self.sigRecord.pack_forget()
         self.errRecord.pack_forget()
         self.posMonitor.pack(side=TOP, fill=BOTH, expand=YES)
 
@@ -377,69 +461,29 @@ class QuantMonitor(object):
         return lambda event, fun=fun, kwargs=kwargs: fun(event, **kwargs)
 
     def onEnter(self, event, button):
-        if button == self.runBtn:
-            button.config(bg='white')
-            self.logBtn.config(bg=self.bgColor)
-            self.sigBtn.config(bg=self.bgColor)
-            self.errBtn.config(bg=self.bgColor)
-            self.posBtn.config(bg=self.bgColor)
-        elif button == self.logBtn:
-            button.config(bg='white')
-            self.runBtn.config(bg=self.bgColor)
-            self.sigBtn.config(bg=self.bgColor)
-            self.errBtn.config(bg=self.bgColor)
-            self.posBtn.config(bg=self.bgColor)
-        elif button == self.sigBtn:
-            button.config(bg='white')
-            self.runBtn.config(bg=self.bgColor)
-            self.logBtn.config(bg=self.bgColor)
-            self.errBtn.config(bg=self.bgColor)
-            self.posBtn.config(bg=self.bgColor)
-        elif button == self.errBtn:
-            button.config(bg='white')
-            self.runBtn.config(bg=self.bgColor)
-            self.logBtn.config(bg=self.bgColor)
-            self.sigBtn.config(bg=self.bgColor)
-            self.posBtn.config(bg=self.bgColor)
-        else:
-            button.config(bg='white')
-            self.runBtn.config(bg=self.bgColor)
-            self.logBtn.config(bg=self.bgColor)
-            self.sigBtn.config(bg=self.bgColor)
-            self.errBtn.config(bg=self.bgColor)
+        """鼠标进入事件"""
+        buttons = [self.runBtn, self.logBtn, self.errBtn, self.posBtn]
+        button.config(bg='white')
+        buttons.remove(button)
+        for btn in buttons:
+            btn.config(bg=self.bgColor)
 
     def onLeave(self, event, button):
+        """鼠标离开事件"""
+        buttons = [self.runBtn, self.logBtn, self.errBtn, self.posBtn]
+        #TODO: 类实例作为字典键值有问题!
+        btnColorDict = {
+            self.runBtn: self.rColor,
+            self.logBtn: self.lColor,
+            self.errBtn: self.eColor,
+            self.posBtn: self.pColor
+        }
         button.config(bg=rgb_to_hex(227, 230, 233))
-        if button == self.runBtn:
-            button['bg'] = self.rColor
-            self.logBtn['bg'] = self.lColor
-            self.sigBtn['bg'] = self.sColor
-            self.errBtn['bg'] = self.eColor
-            self.posBtn['bg'] = self.pColor
-        elif button == self.logBtn:
-            button['bg'] = self.lColor
-            self.runBtn['bg'] = self.rColor
-            self.sigBtn['bg'] = self.sColor
-            self.errBtn['bg'] = self.eColor
-            self.posBtn['bg'] = self.pColor
-        elif button == self.sigBtn:
-            button['bg'] = self.sColor
-            self.runBtn['bg'] = self.rColor
-            self.logBtn['bg'] = self.lColor
-            self.errBtn['bg'] = self.eColor
-            self.posBtn['bg'] = self.pColor
-        elif button == self.errBtn:
-            button['bg'] = self.eColor
-            self.runBtn['bg'] = self.rColor
-            self.logBtn['bg'] = self.lColor
-            self.sigBtn['bg'] = self.sColor
-            self.posBtn['bg'] = self.pColor
-        else:
-            button['bg'] = self.pColor
-            self.runBtn['bg'] = self.rColor
-            self.logBtn['bg'] = self.lColor
-            self.sigBtn['bg'] = self.sColor
-            self.errBtn['bg'] = self.eColor
+        button['bg'] = btnColorDict[button]
+
+        buttons.remove(button)
+        for btn in buttons:
+            btn['bg'] = btnColorDict[btn]
 
     def deleteStrategy(self, strategyId):
         """删除策略"""
@@ -472,25 +516,42 @@ class QuantMonitor(object):
 
         strategyPos = {}
         accountPos  = {}
+        strategyAccount = set()
         # 重组策略仓
         for sid in positions["Strategy"]:
-            for pCont, pInfo in positions["Strategy"][sid].items():
-                if pCont not in strategyPos:
-                    strategyPos[pCont] = {
-                        "TotalBuy": pInfo["TotalBuy"],
-                        "TotalSell": pInfo["TotalSell"],
-                        "TodayBuy": pInfo["TodayBuy"],
-                        "TodaySell": pInfo["TodaySell"]
-                    }
+            for user in positions["Strategy"][sid]:
+                strategyAccount.add(user)
+
+                if user not in strategyPos:
+                    strategyPos.update(
+                        {
+                            #TODO：结构和下面的不一致
+                            user: positions["Strategy"][sid][user]
+                        }
+                    )
                 else:
-                    strategyPos[pCont]["TotalBuy"]  += pInfo["TotalBuy"]
-                    strategyPos[pCont]["TotalSell"] += pInfo["TotalSell"]
-                    strategyPos[pCont]["TodayBuy"]  += pInfo["TodayBuy"]
-                    strategyPos[pCont]["TodaySell"] += pInfo["TodaySell"]
+                    for pCont, pInfo in positions["Strategy"][sid][user].items():
+                        if pCont not in strategyPos[user]:
+                            strategyPos[user].update(
+                                {
+                                    pCont: pInfo
+                                }
+                            )
+                        else:
+                            strategyPos[user][pCont]["TotalBuy"] += pInfo["TotalBuy"]
+                            strategyPos[user][pCont]["TotalSell"] += pInfo["TotalSell"]
+                            strategyPos[user][pCont]["TodayBuy"] += pInfo["TodayBuy"]
+                            strategyPos[user][pCont]["TodaySell"] += pInfo["TodaySell"]
+        #print("sssssss: ", strategyPos)
 
         # 重组账户仓
         for user in positions["Account"]:
-            accountPos[user] = {}
+            if user not in strategyAccount:
+                continue
+
+            if user not in accountPos:
+                accountPos[user] = {}
+
             for pCont, pInfo in positions["Account"][user].items():
                 if pCont[-1] == "T":    # 只关注账户中的投机单的持仓
                     if pCont[:-2] not in accountPos[user]:
@@ -518,23 +579,27 @@ class QuantMonitor(object):
                             accountPos[user][pCont[:-2]]["TotalBuy"] += pInfo["PositionQty"]
                             accountPos[user][pCont[:-2]]["TodayBuy"] += pInfo["PositionQty"] - pInfo["PrePositionQty"]
 
-        rlt = []
-        for c, p in strategyPos.items():
-            for user in accountPos:
-                if c in accountPos[user]:
-                    aTPos = accountPos[user][c]["TotalBuy"] - (-accountPos[user][c]["TotalSell"]) # 账户仓
-                    sTPos = p["TotalBuy"] - (-p["TotalSell"])   # 策略仓
-                    posDif = sTPos - aTPos                      # 仓差
-                    rlt.append([user, c, aTPos, sTPos, posDif,
-                                p["TotalBuy"], p["TotalSell"], p["TodayBuy"], p["TodaySell"],
-                                accountPos[user][c]["TotalBuy"], accountPos[user][c]["TotalSell"],
-                                accountPos[user][c]["TodayBuy"], accountPos[user][c]["TodaySell"]])
-                else:
-                    rlt.append([user, c, 0, p["TotalBuy"] - (-p["TotalSell"]), p["TotalBuy"] - (-p["TotalSell"]),
-                                p["TotalBuy"], p["TotalSell"], p["TodayBuy"], p["TodaySell"], 0, 0, 0, 0])
+        #print("tttttttttt: ", accountPos)
 
-        # rlt = [{user: {c: p}} for user in accountPos for (c, p) in strategyPos.items()]
-        # rlt = [{user: {c : pos}} for cont in accountPos ]
+        rlt = []
+
+        for user in strategyAccount:
+            for c, p in strategyPos[user].items():
+
+                if user in accountPos:
+                    if c in accountPos[user]:
+                        aTPos = accountPos[user][c]["TotalBuy"] - (-accountPos[user][c]["TotalSell"]) # 账户仓
+                        sTPos = p["TotalBuy"] - (-p["TotalSell"])   # 策略仓
+                        posDif = sTPos - aTPos                      # 仓差
+                        rlt.append([user, c, aTPos, sTPos, posDif,
+                                    p["TotalBuy"], p["TotalSell"], p["TodayBuy"], p["TodaySell"],
+                                    accountPos[user][c]["TotalBuy"], accountPos[user][c]["TotalSell"],
+                                    accountPos[user][c]["TodayBuy"], accountPos[user][c]["TodaySell"]])
+                        continue
+
+                rlt.append([user, c, 0, p["TotalBuy"] - (-p["TotalSell"]), p["TotalBuy"] - (-p["TotalSell"]),
+                            p["TotalBuy"], p["TotalSell"], p["TodayBuy"], p["TodaySell"], 0, 0, 0, 0])
+
         # print("BBBBBBBBBBB: ", rlt)
         for v in rlt:
             self.posTree.insert("", 'end', values=v)

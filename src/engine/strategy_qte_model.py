@@ -105,11 +105,10 @@ class StrategyQuote(QuoteModel):
         dataList = event.getData()
         strategyId = event.getStrategyId()
         for dataDict in dataList:
-            for k, v in dataDict.items():
-                if k not in self._exchangeData:
-                    continue
-                exchangeModel = self._exchangeData[k]
-                exchangeModel.updateStatus(strategyId, v) 
+            if dataDict['ExchangeNo'] not in self._exchangeData:
+                continue
+            exchangeModel = self._exchangeData[dataDict['ExchangeNo']]
+            exchangeModel.updateStatus(strategyId, dataDict) 
         
     def onCommodity(self, event):
         dataDict = event.getData()

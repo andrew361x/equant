@@ -28,6 +28,9 @@ class NumericSeries(list):
 
     #
     def __getitem__(self, item):
+        if isinstance(item, slice):
+            return super().__getitem__(item)
+        
         length = len(self)
         if length == 0:
             return np.nan

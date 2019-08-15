@@ -139,7 +139,7 @@ class StrategyEngine(object):
                     "Params":config.getParams(),
                 }
             })
-            self._eg2uiQueue.put(fakeEvent)
+            self.sendEvent2UI(fakeEvent)
             self._strategyMgr.insertResumedStrategy(strategyId, fakeEvent.getData())
 
     def _resumeStrategyOrder(self, strategyOrder):
@@ -322,15 +322,15 @@ class StrategyEngine(object):
         self._sendEvent2Strategy(id, event)
 
     def _loadStrategyResponse(self, event):
-        self._eg2uiQueue.put(event)
-        
+        self.sendEvent2UI(event)
+
     def _onStrategyStatus(self, event):
         if event.getData()["Status"] == ST_STATUS_QUIT:
             self._onStrategyQuitCom(event)
         elif event.getData()["Status"] == EV_UI2EG_EQUANT_EXIT:
             self._singleStrategyExitComEquantExit(event)
         elif event.getData()["Status"] == ST_STATUS_CONTINUES:
-            self._eg2uiQueue.put(event)
+            self.sendEvent2UI(event)
         elif event.getData()["Status"] == ST_STATUS_REMOVE:
             self._onStrategyRemoveCom(event)
             self.logger.info(f"策略删除完成，策略id:{event.getStrategyId()}")
@@ -479,17 +479,16 @@ class StrategyEngine(object):
             
         
     def _send2uiQueue(self, event):
-        #self.logger.info("[ENGINE] Send event(%d,%d) to UI!"%(event.getEventCode(), event.getStrategyId()))
-        self._eg2uiQueue.put(event)
+        # self.logger.info("[ENGINE] Send event(%d,%d) to UI!"%(event.getEventCode(), event.getStrategyId()))
+        self.sendEvent2UI(event)
+
     #////////////////api回调事件//////////////////////////////
     def _onApiConnect(self, apiEvent):
         self._pyApi.reqSpreadContractMapping()
         self._pyApi.reqExchange(Event({'StrategyId':0, 'Data':''}))
         self._send2uiQueue(apiEvent)
-        #self._eg2uiQueue.put(apiEvent)
-        
+
     def _onApiDisconnect(self, apiEvent):
-        #self._eg2uiQueue.put(apiEvent)
         self._send2uiQueue(apiEvent)
         '''
         断连事件：区分与9.5/交易/即时行情/历史行情
@@ -525,7 +524,6 @@ class StrategyEngine(object):
         self._qteModel.updateExchange(apiEvent)
         self._sendEvent2Strategy(apiEvent.getStrategyId(), apiEvent)
 
-        #self._eg2uiQueue.put(apiEvent)
         self._send2uiQueue(apiEvent)
         if apiEvent.isChainEnd():
             self._pyApi.reqExchangeStatus(Event({'StrategyId':0, 'Data':''}))
@@ -539,12 +537,10 @@ class StrategyEngine(object):
         self._qteModel.updateExchangeStatus(apiEvent)
         #self._sendEvent2Strategy(apiEvent.getStrategyId(), apiEvent)
         self._sendEvent2AllStrategy(apiEvent)
-        #self._eg2uiQueue.put(apiEvent)
         self._send2uiQueue(apiEvent)
         
     def _onApiCommodity(self, apiEvent):
         self._qteModel.updateCommodity(apiEvent)
-        #self._eg2uiQueue.put(apiEvent)
         self._send2uiQueue(apiEvent)
 
         self._sendEvent2AllStrategy(apiEvent)
@@ -570,7 +566,6 @@ class StrategyEngine(object):
         
     def _onApiContract(self, apiEvent):
         self._qteModel.updateContract(apiEvent)
-        #self._eg2uiQueue.put(apiEvent)
         self._send2uiQueue(apiEvent)
         if apiEvent.isChainEnd():
             self._pyApi.reqQryLoginInfo(Event({'StrategyId':0, 'Data':''}))
@@ -627,7 +622,6 @@ class StrategyEngine(object):
     # 账户信息
     def _onApiUserInfo(self, apiEvent):
         self._trdModel.updateUserInfo(apiEvent)
-        #self._eg2uiQueue.put(apiEvent)
         self._send2uiQueue(apiEvent)
         # print("++++++ 账户信息 引擎 ++++++", apiEvent.getData())
         self._sendEvent2AllStrategy(apiEvent)
@@ -679,11 +673,11 @@ class StrategyEngine(object):
         self._reqMatch(allMatchReqEvent)
         
     def _onApiOrderDataNotice(self, apiEvent):
+        # print("in engine ********", repr(apiEvent.getData()[0]["OrderState"]))
         # 订单信息
         self._trdModel.updateOrderData(apiEvent)
         self._engineOrderModel.updateEpoleStarOrder(apiEvent)
         contractNo = apiEvent.getContractNo()
-        # print("contractNo = ", contractNo, apiEvent.getData())
         # 客户端手动开仓平仓
         # self.logger.debug(f"sun --------------- engine notice : ")
         # self.logger.debug(f"sun ------ contNo :  {apiEvent.getContractNo()} , cont : {apiEvent.getData()[0]['Cont']}")
@@ -697,6 +691,7 @@ class StrategyEngine(object):
         self._sendEvent2AllStrategy(apiEvent)
 
     def _onApiMatchDataQry(self, apiEvent):
+
         self._engineOrderModel.updateEpoleStarOrder(apiEvent)
         self._trdModel.updateMatchData(apiEvent)
         self._sendEvent2AllStrategy(apiEvent)
@@ -724,6 +719,7 @@ class StrategyEngine(object):
         self._sendEvent2AllStrategy(apiEvent)
         
     def _onApiPosDataQry(self, apiEvent):
+
         self._enginePosModel.updatePosRsp(apiEvent)
         self._trdModel.updatePosData(apiEvent)
         # print("++++++ 持仓信息 引擎 查询 ++++++", apiEvent.getData())
@@ -889,6 +885,9 @@ class StrategyEngine(object):
     def getContractList(self, contList):
         contractList = []
         for subContNo in contList:
+            if not subContNo or len(subContNo) == 0:
+                continue
+
             if subContNo in self._qteModel._contractData:
                 contractList.append(subContNo)
                 continue
@@ -966,14 +965,15 @@ class StrategyEngine(object):
     def _reportResponse(self, event):
         # print(" engine 进程，收到策略进程的report 结果，并向ui传递")
         # print(event.getData())
-        self._eg2uiQueue.put(event)
+        self.sendEvent2UI(event)
 
     def _checkResponse(self, event):
         #print(" engine 进程，收到策略进程的检查结果，并向ui传递")
-        self._eg2uiQueue.put(event)
+        self.sendEvent2UI(event)
 
     def _monitorResponse(self, event):
-        self._eg2uiQueue.put(event)
+        self.sendEvent2UI(event)
+
     ################################交易请求#########################
     def _reqUserInfo(self, event):
         self._pyApi.reqQryUserInfo(event)
@@ -1154,8 +1154,7 @@ class StrategyEngine(object):
                 "ErrorText": errorText,
             }
         })
-
-        self._eg2uiQueue.put(event)
+        self.sendEvent2UI(event)
 
     def _clearQueue(self, someQueue):
         try:
@@ -1176,10 +1175,16 @@ class StrategyEngine(object):
 
             }
         })
-        self._eg2uiQueue.put(quitEvent)
+        self.sendEvent2UI(quitEvent)
 
     def _syncStrategyConfig(self, event):
         self._strategyMgr.syncStrategyConfig(event)
 
     def sendEvent2UI(self, event):
-        self._eg2uiQueue.put(event)
+        while True:
+            try:
+                self._eg2uiQueue.put_nowait(event)
+                break
+            except queue.Full:
+                time.sleep(0.1)
+                self.logger.error(f"engine向UI传递事件{event.getEventCode()}时阻塞")

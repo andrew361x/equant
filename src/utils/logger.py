@@ -40,10 +40,11 @@ class MyFileHandler(logging.FileHandler):
 
 
 class MyHandlerQueue(logging.StreamHandler):
-    def __init__(self, gui_queue, sig_queue, err_queue, trade_log, user_log, sys_log):
+    def __init__(self, gui_queue, sig_queue, usr_queue, err_queue, trade_log, user_log, sys_log):
         logging.StreamHandler.__init__(self)  # initialize parent
         self.gui_queue = gui_queue
         self.sig_queue = sig_queue
+        self.usr_queue = usr_queue
         self.err_queue = err_queue
         self.trade_log = trade_log
         self.user_log  = user_log
@@ -76,7 +77,7 @@ class MyHandlerQueue(logging.StreamHandler):
                 # 用户日志同时写入文件和界面
                 self.user_log.write(msg+"\n")
                 self.user_log.flush()
-                self.gui_queue.put_nowait(msg)
+                self.usr_queue.put_nowait(msg)
             except queue.Full:
                 time.sleep(0.1)
                 print("界面日志放入队列时阻塞")
@@ -93,10 +94,11 @@ class MyHandlerQueue(logging.StreamHandler):
 class Logger(object):
     def __init__(self):
         #process queue
-        self.log_queue = Queue(200000)
-        self.gui_queue = Queue(200000)
+        self.log_queue = Queue(20000)
+        self.gui_queue = Queue(20000)
         # 信号队列
         self.sig_queue = Queue(20000)
+        self.usr_queue = Queue(20000)
         self.err_queue = Queue(100)
         
     def _initialize(self):
@@ -170,6 +172,9 @@ class Logger(object):
     def getSigQ(self):
         return self.sig_queue
 
+    def getUsrQ(self):
+        return self.usr_queue
+
     def getErrQ(self):
         return self.err_queue
 
@@ -183,7 +188,7 @@ class Logger(object):
         file_handler.setFormatter(self.formatter)
         self.logger.addHandler(file_handler)
         #设置窗口句柄
-        gui_handler = MyHandlerQueue(self.gui_queue, self.sig_queue, self.err_queue,
+        gui_handler = MyHandlerQueue(self.gui_queue, self.sig_queue, self.usr_queue, self.err_queue,
                                      self.trade_log, self.user_log, self.sys_log)
         gui_handler.setLevel(logging.DEBUG)
         gui_handler.setFormatter(self.formatter)

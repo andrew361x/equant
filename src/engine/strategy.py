@@ -16,6 +16,7 @@ import datetime
 from datetime import datetime
 import copy
 from collections import OrderedDict
+from tkinter import Tk
 
 
 
@@ -322,6 +323,7 @@ class Strategy:
 
         self._eg2stQueue = args['eg2st']
         self._st2egQueue = args['st2eg']
+
         self._isSt2EgQueueEffective = True
         self._st2uiQueue = args['st2ui']
         moduleDir, moduleName = os.path.split(self._filePath)
@@ -410,8 +412,8 @@ class Strategy:
 
         # 9. 启动策略心跳线程
         self._startStrategyTimer()
-
-    def run(self):
+        
+    def _actualRun(self):
         try:
             # 1. 内部初始化
             self._initialize()
@@ -435,6 +437,14 @@ class Strategy:
             errorText = traceback.format_exc()
             # traceback.print_exc()
             self._exit(-1, errorText)
+
+    def run(self):
+        self._actualThread = Thread(target=self._actualRun)
+        self._actualThread.start()
+    
+        self.top = Tk()
+        self.top.withdraw()
+        self.top.mainloop()
     
     # ////////////////////////////内部接口////////////////////
     def _isExit(self):
@@ -512,9 +522,10 @@ class Strategy:
         if not self._dataModel.getConfigModel().hasTimerTrigger() or not self.isRealTimeStatus():
             return
 
-        nowStr = datetime.now().strftime("%Y%m%d%H%M%S")
+        nowTime = datetime.now()
         for i,timeSecond in enumerate(self._dataModel.getConfigTimer()):
-            if 0<=(int(nowStr)-int(timeSecond))<1 and not self._isTimeTriggered[i]:
+            specifiedTime = datetime.strptime(timeSecond, "%H%M%S")
+            if 0<=(nowTime-specifiedTime).seconds<1 and not self._isTimeTriggered[i]:
                 self._isTimeTriggered[i] = True
                 key = self._dataModel.getConfigModel().getKLineShowInfoSimple()
                 dateTimeStamp, tradeDate, lv1Data = self.getTriggerTimeAndData(key[0])
@@ -572,14 +583,14 @@ class Strategy:
             })
 
             self.sendEvent2UI(event)
-            
+
     def _noticeVirtualPos(self):
         nowTime = datetime.now()
         if self._virtualPosTime == 0 or (nowTime - self._virtualPosTime).total_seconds() >= 1:
             self._virtualPosTime = nowTime
             calc = self._dataModel.getCalcCenter()
-            #获取该策略所有合约的虚拟持仓
-            posDict = calc.getPositionInfo()
+            # 获取该策略所有合约的虚拟持仓
+            posDict = calc.getUsersPosition()
             if len(posDict) == 0:
                 return
             event = Event({
@@ -590,7 +601,7 @@ class Strategy:
             
             self.sendEvent2Engine(event)
 
-        
+
     def _runTimer(self):
         timeList = self._dataModel.getConfigTimer()
         if timeList is None:
@@ -715,21 +726,6 @@ class Strategy:
         self._dataModel.onQuoteNotice(event)
         self._snapShotTrigger(event)
 
-    # def _calcProfitByQuote(self, event):
-    #     data = event.getData()
-    #     if len(data) == 0 or (4 not in data[0]["FieldData"]):
-    #         # 4:最新价
-    #         return
-    #
-    #     priceInfos = {}
-    #     priceInfos[event.getContractNo()] = {
-    #         "LastPrice": data[0]["FieldData"][4],
-    #         "TradeDate": data[0]["UpdateTime"]//1000000000,
-    #         "DateTimeStamp" : data[0]["UpdateTime"],
-    #         "LastPriceSource": LastPriceFromQuote
-    #     }
-    #     self._dataModel.getHisQuoteModel().calcProfitByQuote(event.getContractNo(), priceInfos)
-
     def _onDepthNotice(self, event):
         self._dataModel.onDepthNotice(event)
 
@@ -816,6 +812,7 @@ class Strategy:
         for data in dataList:
             self.updateLocalOrder(eSessionId, data)
         if self.isRealTimeStatus():
+            # print("in strategy", repr(apiEvent.getData()[0]["OrderState"]))
             self._tradeTriggerOrder(apiEvent)
 
     def _onTradeLoginQry(self, apiEvent):
@@ -847,7 +844,7 @@ class Strategy:
         :return: None
         '''
         self._dataModel._trdModel.updateMatchData(apiEvent)
-        self._tradeTriggerMatch(apiEvent)
+        # self._tradeTriggerMatch(apiEvent) # 去掉成交触发
 
     def _onTradePosition(self, apiEvent):
         '''
@@ -946,10 +943,16 @@ class Strategy:
                 break
             except queue.Full:
                 time.sleep(0.1)
-                self.logger.error(f"策略{self._strategyId}强制向引擎传递事件{event.getEventCode()}时卡住")
+                self.logger.error(f"策略{self._strategyId}强制向引擎传递事件{event.getEventCode()}时阻塞")
 
     def sendEvent2UI(self, event):
-        self._st2uiQueue.put(event)
+        while True:
+            try:
+                self._st2uiQueue.put_nowait(event)
+                break
+            except queue.Full:
+                time.sleep(0.1)
+                self.logger.error(f"策略{self._strategyId}制向UI传递事件{event.getEventCode()}时阻塞")
 
     def sendTriggerQueue(self, event):
         self._triggerQueue.put(event)

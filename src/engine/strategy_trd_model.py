@@ -547,8 +547,8 @@ class StrategyTrade(TradeModel):
         for orderKey in list(tUserInfoModel._order.keys()):
             orderModel = tUserInfoModel._order[orderKey]
             if not contNo1 or contNo1 == orderModel._metaData['Cont']:
-                # 排队中
-                if orderModel._metaData['OrderState'] != osQueued:
+                # 待触发,排队中,部分成交
+                if orderModel._metaData['OrderState'] not in (osTriggering, osQueued, osFillPart):
                     continue
                 if orderId == -1 or orderId > orderModel._metaData['OrderId']:
                     orderId = orderModel._metaData['OrderId']
@@ -567,8 +567,8 @@ class StrategyTrade(TradeModel):
         for orderKey in list(tUserInfoModel._order.keys()):
             orderModel = tUserInfoModel._order[orderKey]
             if not contNo1 or contNo1 == orderModel._metaData['Cont']:
-                # 排队中
-                if orderModel._metaData['OrderState'] != osQueued:
+                # 待触发,排队中,部分成交
+                if orderModel._metaData['OrderState'] not in (osTriggering, osQueued, osFillPart):
                     continue
                 if orderModel._metaData['OrderId'] <= orderId:
                     continue

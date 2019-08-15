@@ -27,7 +27,7 @@ def U_Summation(data,period):
     【备注】
           无
     '''
-    ndex = len(data) - period if len(data) > period else 0
+    index = len(data) - period if len(data) > period else 0
     return sum(data[index:])
 
 
@@ -72,10 +72,7 @@ def U_MA(data, period):
           X = NumericSeries()
           X[-1] = XAverage(X, Close(), 10)
     '''
-    if len(data)<period or period==0:
-        return None
-    ret = U_Summation(data, period) / period
-    return ret
+    return U_Summation(data, period) / period
 
 def U_EMA(X, data, period):
     '''

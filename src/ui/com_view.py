@@ -2,6 +2,7 @@ import os
 import sys
 sys.path.append("..")
 
+from threading import Lock
 import tkinter as tk
 import tkinter.ttk as ttk
 
@@ -61,6 +62,8 @@ class QuantToplevel(tk.Toplevel):
         self.setPos()
         #图标
         self.iconbitmap(bitmap=r"./icon/epolestar ix2.ico")
+        # 点击窗口右侧关闭按钮事件
+        self.protocol("WM_DELETE_WINDOW", self.closeEvent)
 
     def setPos(self):
         # 获取主窗口大小和位置，根据主窗口调整输入框位置
@@ -82,9 +85,14 @@ class QuantToplevel(tk.Toplevel):
         """显示并设置模态窗口"""
         self.update()
         self.deiconify()
-        self.grab_set()
         self.focus_set()
+        self.grab_set()
+        self.transient(self._master)
         self.wait_window()
+
+    def closeEvent(self):
+        self.grab_release()
+        self.destroy()
 
 
 class NewFileToplevel(QuantToplevel):
@@ -318,40 +326,4 @@ class HistoryToplevel(QuantToplevel):
         self.update()
         self.deiconify()
 
-
-class AlarmToplevel(QuantToplevel):
-    def __init__(self, text, master=None):
-        super().__init__(master)
-        self.attributes("-toolwindow", 1)
-        self.dspText = text
-
-        self.title("下单提醒")
-        self.createWidget(self.dspText)
-
-    def createWidget(self, text):
-        f1 = tk.Frame(self, width=30, height=10)
-        f1.pack(side=tk.TOP, fill=tk.X, pady=5)
-
-        textWgt = tk.Text(f1, width=60, height=20)
-
-        textWgt.insert(tk.END, text)
-        textWgt.see(tk.END)
-        textWgt.config(state="disabled")
-        textWgt.pack()
-
-    def setPos(self):
-        # 获取主窗口大小和位置，根据主窗口调整输入框位置
-        ws = self._master.winfo_width()
-        hs = self._master.winfo_height()
-        wx = self._master.winfo_x()
-        wy = self._master.winfo_y()
-
-        #计算窗口位置
-        w, h = 350, 260
-        x = (wx + ws/2) - w/2
-        y = (wy + hs/2) - h/2
-
-        #弹出输入窗口，输入文件名称
-        self.geometry('%dx%d+%d+%d' % (w, h, x, y))
-        self.minsize(200, 120)
 

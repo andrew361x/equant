@@ -2670,7 +2670,7 @@ class BaseApi(object):
         '''
         return self._dataModel.getTradeCost()
 
-    def TotalTrades(self):
+    def TotalTrades(self, contractNo):
         '''
         【说明】
               返回该账户的交易总开仓手数。
@@ -2687,7 +2687,10 @@ class BaseApi(object):
         【示例】
               无
         '''
-        return self._dataModel.getTotalTrades()
+        buyPos  = self._dataModel.getBuyPositionInStrategy(contractNo)
+        sellPos = self._dataModel.getSellPositionInStrategy(contractNo)
+        return buyPos + sellPos
+        #return self._dataModel.getTotalTrades()
 
 
     #////////////////////////////账户函数/////////////////
@@ -5299,7 +5302,7 @@ class BaseApi(object):
 
         【示例】
               SetTriggerType(3, 1000) # 每隔1000毫秒触发一次
-              SetTriggerType(4, ['20190511121314', '20190511121315', '20190511121316']) # 指定时刻触发
+              SetTriggerType(4, ['084000', '084030', '084100']) # 指定时刻触发
         '''
         return self._dataModel.setTriggerMode(type, value)
 
@@ -5518,7 +5521,7 @@ class BaseApi(object):
             在当前Bar输出字符串
 
         【语法】
-            void PlotText(stirng value, text, int color, bool main, int barsback=0)
+            void PlotText(stirng value, string text, int color, bool main, int barsback=0)
 
         【参数】
             value 输出的价格
@@ -5873,9 +5876,9 @@ class BaseApi(object):
             weight  权重
 
         【备注】
-            返回值为两个值，第一个为整型，第二个为浮点型numpy.array；
-            当第一个值为0时，此时第二个值是计算出的sma值序列；
-            当第一个值小于0时，此时计算失败，此时第二个值numpy.array为空
+            返回值为浮点型numpy.array；
+            如果计算成功，此时返回值是计算出的sma值序列；
+            如果计算失败，此时返回值numpy.array为空
 
         【示例】
             SMA(Close(), 12, 2)
@@ -6034,7 +6037,78 @@ class BaseApi(object):
             一般情况下，Close可以改用High和Low分别判断向上突破（函数CrossOver）和向下突破（函数CrossUnder）。
         '''
         return self._dataModel.getCrossUnder(price1, price2)
+     
+    def SwingHigh(self, Price, Length, Instance, Strength):
+        '''
+        【说明】
+            求波峰点
 
+        【语法】
+            float SwingHigh(np.array Price, int Length, int Instance, int Strength)
+
+        【参数】
+            Price 用于求波峰点的值，必须是np数组或者序列变量
+            Length 是需要计算的周期数，为整型
+            Instance 设置返回哪一个波峰点，1 - 最近的波峰点，2 - 倒数第二个，以此类推
+            Strength 设置转折点两边的需要的周期数，必须小于Length；
+
+        【备注】
+            该函数计算指定周期内的数值型序列值的波峰点，返回值为浮点数;
+            当序列值的CurrentBar小于Length时，该函数返回-1.0
+
+        【示例】
+            SwingHigh(Close, 10, 1, 2);计算Close在最近10个周期的波峰点的值，最高点两侧每侧至少需要2个Bar。
+        '''
+        return self._dataModel.getSwingHigh(Price, Length, Instance, Strength)
+
+    def SwingLow(self, Price, Length, Instance, Strength):
+        '''
+        【说明】
+            求波谷点
+
+        【语法】
+           float SwingLow(np.array Price, int Length, int Instance, int Strength)
+
+        【参数】
+            Price 用于求波峰点的值，必须是np数组或者序列变量
+            Length 是需要计算的周期数，为整型
+            Instance 设置返回哪一个波峰点，1 - 最近的波谷点，2 - 倒数第二个，以此类推
+            Strength 设置转折点两边的需要的周期数，必须小于Length；
+
+        【备注】
+            该函数计算指定周期内的数值型序列值的波谷点，返回值为浮点数;
+            当序列值的CurrentBar小于Length时，该函数返回-1.0
+
+        【示例】
+            SwingLow(Close, 10, 1, 2);计算Close在最近10个周期的波谷点的值，最低点两侧需要至少2个Bar。
+        '''
+        return self._dataModel.getSwingLow(Price, Length, Instance, Strength)
+        
+    def Alert(self, Info, bKeep):
+        '''
+        【说明】
+            弹出警告提醒
+
+        【语法】
+            void Alert(string Info, bool bKeep=True)
+
+        【参数】
+            Info  提醒的内容
+            bBeep 是否播放警告声音，默认为True 
+
+        【备注】
+            多行提示信息需要自行换行，例如：
+            AlertStr = '合约: ' + contNo + '\n'\
+                       '方向: ' + self._bsMap[direct] + self._ocMap[offset] + '\n' +\
+                       '数量: ' + str(share) + '\n' +\
+                       '价格: ' + str(price) + '\n' +\
+                       '时间: ' + str(curBar['DateTimeStamp']) + '\n'
+
+        【示例】
+            Alert("Hello"); 弹出提示
+        '''
+        return self._dataModel.setAlert(Info, bKeep)
+        
     def strategyStatus(self):
         '''
         【说明】
@@ -6487,8 +6561,8 @@ def PercentProfit():
 def TradeCost():
     return baseApi.TradeCost()
 
-def TotalTrades():
-    return baseApi.TotalTrades()
+def TotalTrades(contractNo=''):
+    return baseApi.TotalTrades(contractNo)
 
 # 账户函数
 def A_AccountID():
@@ -7091,5 +7165,15 @@ def CrossOver(price1, price2):
     return baseApi.CrossOver(price1, price2) 
 
 def CrossUnder(price1, price2):
-    return baseApi.CrossUnder(price1, price2)     
+    return baseApi.CrossUnder(price1, price2) 
+
+def SwingHigh(Price, Length, Instance, Strength):
+    return baseApi.SwingHigh(Price, Length, Instance, Strength)
+    
+def SwingLow(Price, Length, Instance, Strength):
+    return baseApi.SwingLow(Price, Length, Instance, Strength)
+
+def Alert(Info, bKeep=True):
+    return baseApi.Alert(Info, bKeep)
+
     

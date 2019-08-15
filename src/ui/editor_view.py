@@ -353,6 +353,8 @@ class QuantEditor(StrategyTree):
         self.editor_text_scroll = None
 
         # 策略树双击事件标志位
+        self._dDoubleClkFlag = False
+        # 策略修改标记
         self._dModifyFlag = False
 
         # 焦点移出标志位
@@ -372,9 +374,17 @@ class QuantEditor(StrategyTree):
         
     def treeDoubleClick(self, event):
         """设置策略编辑框中的内容"""
-        self.saveEditor()        # 切换策略时将原来的策略保存
-        self._dModifyFlag = True
+        # 当前策略编辑框中的策略路径
         select = event.widget.selection()
+        path = self.control.getEditorText()["path"]
+
+        if path and self._dModifyFlag:
+            if messagebox.askokcancel("保存", "是否保存当前策略？"):
+                self.saveEditor()        # 切换策略时将原来的策略保存
+        self.setModifyFlag(False)
+        self._dDoubleClkFlag = True
+        # TODO: 报错
+        # select = event.widget.selection()
         for idx in select:
             path = self.root_tree.item(idx)["values"][0]
             if os.path.isfile(path):
@@ -388,17 +398,21 @@ class QuantEditor(StrategyTree):
                     data = f.read()
                 self.updateEditorText(data)
                 self.updateEditorHead(header)
-                self._dModifyFlag = False
+                self._dDoubleClkFlag = False
                 # 清空editor的恢复和撤消栈内容
                 self.editor_text.edit_reset()
 
     def doubleClickFlag(self):
         """是否双击策略目录标志位"""
-        return self._dModifyFlag
+        return self._dDoubleClkFlag
 
     def updateEditorHead(self, text):
         """设置策略编辑框上方的策略名"""
         self.titleLabel.config(text=text)
+
+    def setModifyFlag(self, flag):
+        """设置策略修改标志位"""
+        self._dModifyFlag = bool(flag)
 
     def updateEditorText(self, text):
         """更新策略编辑界面内容"""
@@ -445,8 +459,6 @@ class QuantEditor(StrategyTree):
         if os.path.exists(path):
             with open(path, "w", encoding="utf-8") as f:
                 f.write(code)
-        # if not os.path.exists(path):
-        #     messagebox.showinfo(self.language.get_text(8), self.language.get_text(9))
         
     def insertEditorHead(self, frame):
         # self.titleLabel = Label(frame, text=os.path.basename(self.root_path), bg=rgb_to_hex(255, 255, 255))
@@ -501,7 +513,7 @@ class QuantEditor(StrategyTree):
     def _fileMonitor(self, event):
         """监控策略文件修改"""
         # 过滤双击事件
-        if self._dModifyFlag:
+        if self._dDoubleClkFlag:
             return
 
         if not self._outFlag:
@@ -527,7 +539,7 @@ class QuantEditor(StrategyTree):
                 editorCode = self.control.getEditorText()["code"]
                 self.editor_text.delete(0.0, END + "-1c")
                 self.updateEditorText(editorCode)
-                # self.editor_text.edit_reset()
+                self.editor_text.edit_reset()
 
     def _treeMonitor(self, event):
         editorPath = self.control.getEditorText()["path"]
