@@ -42,7 +42,8 @@ class EngineOrderModel:
         if strategyId not in self._localOrder:
             self._localOrder[strategyId] = SingleStrategyLocalOrder(strategyId)
         record = event.getData()
-        record['StrategyId'] = strategyId; record['ESessionId'] = event.getESessionId()
+        record['StrategyId'] = strategyId; 
+        record['ESessionId'] = event.getESessionId()
         self._localOrder[strategyId].updateLocalOrder(record)
 
         #

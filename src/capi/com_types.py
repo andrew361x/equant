@@ -55,24 +55,26 @@ msg =
 # 事件类型定义
 
 #////////////////////界面->引擎事件定义////////////////////////
-EV_UI2EG_LOADSTRATEGY             = 0x001           # 加载策略
-EV_UI2EG_REPORT                   = 0x002           # 出报告，可分发事件
-EV_UI2EG_STRATEGY_PAUSE           = 0x003           # 策略暂停
-EV_UI2EG_STRATEGY_RESUME          = 0x004           # 策略恢复
-EV_UI2EG_EQUANT_EXIT              = 0x005           # 量化退出
-EV_UI2EG_STRATEGY_QUIT            = 0x006           # 策略停止
-EV_UI2EG_STRATEGY_FIGURE          = 0x007           # 策略信号和指标图
-EV_UI2EG_STRATEGY_REMOVE          = 0x008           # 删除策略
-EV_UI2EG_STRATEGY_RESTART         = 0x009           # 更改参数启动策略
+EV_UI2EG_LOADSTRATEGY             = 0x101           # 加载策略
+EV_UI2EG_REPORT                   = 0x102           # 出报告，可分发事件
+EV_UI2EG_STRATEGY_PAUSE           = 0x103           # 策略暂停
+EV_UI2EG_STRATEGY_RESUME          = 0x104           # 策略恢复
+EV_UI2EG_EQUANT_EXIT              = 0x105           # 量化退出
+EV_UI2EG_STRATEGY_QUIT            = 0x106           # 策略停止
+EV_UI2EG_STRATEGY_FIGURE          = 0x107           # 策略信号和指标图
+EV_UI2EG_STRATEGY_REMOVE          = 0x108           # 删除策略
+EV_UI2EG_STRATEGY_RESTART         = 0x109           # 更改参数启动策略
 
 
 #////////////////////引擎->界面事件定义////////////////////////
-EV_EG2UI_LOADSTRATEGY_RESPONSE    = 0x101           # 策略加载应答
-EV_EG2UI_REPORT_RESPONSE          = 0x102           # 回测报告应答
-EV_EG2UI_CHECK_RESULT             = 0x103           # 检测结果
-EV_EG2ST_MONITOR_INFO             = 0x104           # 监控信息
-EV_EG2UI_STRATEGY_STATUS          = 0x105           # 策略变化事件 
-EV_EG2UI_POSITION_NOTICE          = 0x106           # 持仓同步信息
+EV_EG2UI_LOADSTRATEGY_RESPONSE    = 0x181           # 策略加载应答
+EV_EG2UI_REPORT_RESPONSE          = 0x182           # 回测报告应答
+EV_EG2UI_CHECK_RESULT             = 0x183           # 检测结果
+EV_EG2ST_MONITOR_INFO             = 0x184           # 监控信息
+EV_EG2UI_STRATEGY_STATUS          = 0x185           # 策略变化事件 
+EV_EG2UI_POSITION_NOTICE          = 0x186           # 持仓同步信息
+EV_EG2UI_USER_LOGOUT_NOTICE       = 0x187           # 资金账号登出消息
+EV_EG2UI_RUNMODE_SWITCH           = 0x188           # 策略运行模式切换，实盘/虚拟
 
 #////////////////////策略->引擎事件定义////////////////////////
 EV_ST2EG_EXCHANGE_REQ             = 0x201           #查询交易所信息
@@ -80,9 +82,6 @@ EV_ST2EG_CURRENCY_REQ             = 0x202           #查询币种
 EV_ST2EG_COMMODITY_REQ            = 0x203           #查询品种信息
 EV_ST2EG_CONTRACT_REQ             = 0x204           #查询合约信息
 EV_ST2EG_TIMEBUCKET_REQ           = 0x205           #查询品种时间模板
-EV_ST2EG_ACTUAL_ORDER             = 0x206           # 实盘订单
-EV_ST2EG_ACTUAL_CANCEL_ORDER      = 0x207           # 实盘撤单
-EV_ST2EG_ACTUAL_MODIFY_ORDER      = 0x208           # 实盘改单
 EV_ST2EG_UNDERLAYMAPPING_REQ      = 0x209           #查询主力/近月的合约
 
 EV_ST2EG_SUB_QUOTE                = 0x220           #订阅即时行情
@@ -90,23 +89,31 @@ EV_ST2EG_UNSUB_QUOTE              = 0x221           #退订即时行
 EV_ST2EG_SUB_HISQUOTE             = 0x223           #订阅历史行情
 EV_ST2EG_UNSUB_HISQUOTE           = 0x224           #退订历史行情
 
-EV_ST2EG_LOGINNO_REQ              = 0x230           #请求登录账号
-EV_ST2EG_USERNO_REQ               = 0x231           #请求资金账号
-EV_ST2EG_POSITION_NOTICE          = 0x232           #同步持仓信息
+EV_ST2EG_LOGINNO_REQ              = 0x240           #请求登录账号
+EV_ST2EG_USERNO_REQ               = 0x241           #请求资金账号
+EV_ST2EG_MONEY_REQ                = 0x242           #请求资金信息
+EV_ST2EG_ORDER_REQ                = 0x243           #请求委托信息
+EV_ST2EG_MATCH_REQ                = 0x244           #请求成交信息
+EV_ST2EG_POSITION_REQ             = 0x245           #请求持仓信息
+EV_ST2EG_POSITION_NOTICE          = 0x246           #同步持仓信息
 
-EV_ST2EG_SWITCH_STRATEGY          = 0x250           #切换策略图
-EV_ST2EG_NOTICE_KLINEDATA         = 0x251           #推送K线数据
-EV_ST2EG_UPDATE_KLINEDATA         = 0x252           #更新K线数据
-EV_ST2EG_ADD_KLINESERIES          = 0x253           #增加指标数据
-EV_ST2EG_NOTICE_KLINESERIES       = 0x254           #推送指标数据
-EV_ST2EG_UPDATE_KLINESERIES       = 0x255           #更新指标数据
-EV_ST2EG_ADD_KLINESIGNAL          = 0x256           #增加信号数据
-EV_ST2EG_NOTICE_KLINESIGNAL       = 0x257           #推送信号数据
-EV_ST2EG_UPDATE_KLINESIGNAL       = 0x258           #更新信号数据
-EV_ST2EG_UPDATE_STRATEGYDATA      = 0x259           #刷新信号、指标数
-EV_ST2EG_STRATEGY_EXCEPTION       = 0x25A           #策略出现异常事件
-EV_ST2EG_STRATEGYTRADEINFO        = 0x25B           #获取交易信息
-ST_ST2EG_SYNC_CONFIG              = 0x25C           # 策略向引擎同步自己的配置
+EV_ST2EG_ACTUAL_ORDER             = 0x260           # 实盘订单
+EV_ST2EG_ACTUAL_CANCEL_ORDER      = 0x261           # 实盘撤单
+EV_ST2EG_ACTUAL_MODIFY_ORDER      = 0x262           # 实盘改单
+
+
+EV_ST2EG_SWITCH_STRATEGY          = 0x280           #切换策略图
+EV_ST2EG_NOTICE_KLINEDATA         = 0x281           #推送K线数据
+EV_ST2EG_UPDATE_KLINEDATA         = 0x282           #更新K线数据
+EV_ST2EG_ADD_KLINESERIES          = 0x283           #增加指标数据
+EV_ST2EG_NOTICE_KLINESERIES       = 0x284           #推送指标数据
+EV_ST2EG_UPDATE_KLINESERIES       = 0x285           #更新指标数据
+EV_ST2EG_ADD_KLINESIGNAL          = 0x286           #增加信号数据
+EV_ST2EG_NOTICE_KLINESIGNAL       = 0x287           #推送信号数据
+EV_ST2EG_UPDATE_KLINESIGNAL       = 0x288           #更新信号数据
+EV_ST2EG_UPDATE_STRATEGYDATA      = 0x289           #刷新信号、指标数
+EV_ST2EG_STRATEGY_EXCEPTION       = 0x28A           #策略出现异常事件
+ST_ST2EG_SYNC_CONFIG              = 0x28B           #策略向引擎同步自己的配置
 
 #///////////////////引擎->策略事件定义////////////////////////
 EV_EG2ST_EXCHANGE_RSP             = 0X301           #查询交易所信息
@@ -114,19 +121,22 @@ EV_EG2ST_CURRENCY_RSP             = 0x302           #查询币种
 EV_EG2ST_COMMODITY_RSP            = 0x303           #查询品种信息
 EV_EG2ST_CONTRACT_RSP             = 0x304           #查询合约信息
 EV_EG2ST_TIMEBUCKET_RSP           = 0x305           #查询品种时间模板
-EV_ST2EG_UNDERLAYMAPPING_RSP      = 0x306           #查询主力/近月对应的合约
+EV_EG2ST_UNDERLAYMAPPING_RSP      = 0x306           #查询主力/近月对应的合约
 
-EV_EG2ST_SUBQUOTE_RSP             = 0x320            #行情订阅应答
-EV_EG2ST_SNAPSHOT_NOTICE          = 0X321            #普通行情推送
-EV_EG2ST_DEPTH_NOTICE             = 0x322            #深度行情推送
-EV_EG2ST_HISQUOTE_RSP             = 0x323            #历史K线查询应答
-EV_EG2ST_HISQUOTE_NOTICE          = 0x324            #历史行情推送
+EV_EG2ST_SUBQUOTE_RSP             = 0x320           #行情订阅应答
+EV_EG2ST_SNAPSHOT_NOTICE          = 0X321           #普通行情推送
+EV_EG2ST_DEPTH_NOTICE             = 0x322           #深度行情推送
+EV_EG2ST_HISQUOTE_RSP             = 0x323           #历史K线查询应答
+EV_EG2ST_HISQUOTE_NOTICE          = 0x324           #历史行情推送
 
-EV_EG2ST_LOGINNO_RSP              = 0x330           #请求登录账号
-EV_EG2ST_USERNO_RSP               = 0x331           #请求资金账号
+EV_EG2ST_LOGINNO_RSP              = 0x340           #登录账号应答，适用登录后启动的策略
+EV_EG2ST_USERNO_RSP               = 0x341           #资金账号应答，适用登录后启动的策略
+EV_EG2ST_MONEY_RSP                = 0x342           #资金信息应答  
+EV_EG2ST_ORDER_RSP                = 0x343           #委托信息应答，适用登录后启动的策略
+EV_EG2ST_MATCH_RSP                = 0x344           #成交信息应答，适用登录后启动的策略     
+EV_EG2ST_POSITION_RSP             = 0x345           #持仓信息应答，适用登录后启动的策略
 
-EV_EG2ST_TRADEINFO_RSP            = 0x340           #交易信息应答
-EV_EG2ST_STRATEGY_SYNC            = 0x350           # 引擎向策略同步信息
+EV_EG2ST_STRATEGY_SYNC            = 0x360           #引擎向策略同步信息
 
 
 # /////////////CAPI->PyAPI、PyAPi->引擎事件定义////////////////
@@ -346,6 +356,9 @@ EEQU_LOG_TYPE_SIGNAL             = '0'          # 下单信号
 EEQU_LOG_TYPE_ERROR              = '1'          # 策略调试错误
 EEQU_LOG_TYPE_USER               = '2'          # 用户自定义
 
+# 登录状态
+EEQU_READY			             = '1';			#完成
+EEQU_NOTREADY		             = '0';			#未完成
 
 # 买卖
 dNone                            = 'N'
@@ -357,8 +370,9 @@ dBoth                            = 'A'          # 双边
 # 开平
 oNone                            = 'N'          # 无
 oOpen                            = 'O'          # 开仓
-oCover                           = 'C'          # 平仓
+oCover                           = 'C'          # 平仓,平昨
 oCoverT                          = 'T'          # 平今
+oCoverA                          = 'A'          # 自适应，拆分成平今平昨，优先平昨
 oOpenCover                       = '1'          # 开平，应价时有效, 本地套利也可以
 oCoverOpen                       = '2'          # 平开，应价时有效, 本地套利也可以
 
@@ -482,6 +496,11 @@ EEQU_TRADESTATE_SWITCHTRADE     = '0'   # 交易日切换时间
 EEQU_TRADESTATE_UNKNOWN         = 'N'   # 未知状态
 EEQU_TRADESTATE_INITIALIZE      = 'I'   # 正初始化
 EEQU_TRADESTATE_READY           = 'R'   # 准备就绪
+
+# 日期标记
+EEQU_DATEFLAG_PRE               = '0'   #前一日
+EEQU_DATEFLAG_CUR               = '1'   #当日
+EEQU_DATEFLAG_NEXT              = '2'   #下一日
 
 # 品种类型
 EEQU_COMMODITYTYPE_NONE         = 'N'   # 无

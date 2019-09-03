@@ -13,7 +13,7 @@ from .statistics_model import StatisticsModel
 import copy
 
 from engine.calc import CalcCenter
-from datetime import datetime
+from datetime import datetime, timedelta
 from .popup_win import *
 import winsound
 
@@ -103,8 +103,8 @@ class StrategyModel(object):
             "CloseFixed": self._cfgModel.getCloseFixed(),
             "CloseTodayRatio": self._cfgModel.getCloseTodayRatio(),
             "CloseTodayFixed": self._cfgModel.getCloseTodayFixed(),
-            "KLineType": "M",  # todo
-            "KLineSlice": 1,   # todo
+            "KLineType": self._hisModel._getKLineType(),
+            "KLineSlice": self._hisModel._getKLineSlice(),
             "TradeDot": self.getContractUnit(contNo),  # 每手乘数
             "PriceTick": self.getPriceScale(contNo),  # 最小变动价位
             "Limit": self._config.getLimit(),
@@ -124,57 +124,6 @@ class StrategyModel(object):
             self._hisModel.runVirtualReport(context, handle_data, event)
         else:
             self._hisModel.runRealTime(context, handle_data, event)
-
-    # ///////////////////////即时行情接口//////////////////////////
-    def reqExchange(self):
-        self._qteModel.reqExchange()
-
-    def reqCommodity(self):
-        self._qteModel.reqCommodity()
-
-    def reqContract(self):
-        self._qteModel.reqContract()
-
-    def reqUnderlayMap(self):
-        self._qteModel.reqUnderlayMap()
-
-    def subQuote(self):
-        self._qteModel.subQuote()
-
-    def subQuoteList(self, contNoList):
-        self._qteModel.subQuoteList(contNoList)
-
-    def unsubQuoteList(self, contNoList):
-        # TODO: 退订即使行情时，是否需要删除已经得到的即时行情信息
-        self._qteModel.unsubQuoteList(contNoList)
-
-    def onExchange(self, event):
-        self._qteModel.onExchange(event)
-
-    def onCommodity(self, event):
-        self._qteModel.onCommodity(event)
-
-    def onContract(self, event):
-        self._qteModel.onContract(event)
-
-    def onUnderlayMap(self, event):
-        self._qteModel.onUnderlayMap(event)
-
-    def onExchangeStatus(self, event):
-        self._qteModel.onExchangeStatus(event)
-
-    def onQuoteRsp(self, event):
-        self._qteModel.onQuoteRsp(event)
-
-    def onQuoteNotice(self, event):
-        self._qteModel.onQuoteNotice(event)
-
-    def onDepthNotice(self, event):
-        self._qteModel.onDepthNotice(event)
-
-    # ///////////////////////交易数据接口/////////////////////////
-    def reqTradeData(self):
-        self._trdModel.reqTradeData()
 
     # ////////////////////////配置接口////////////////////////////
     def continueTrigger(self):
@@ -300,6 +249,13 @@ class StrategyModel(object):
         return count
 
     # ////////////////////////即时行情////////////////////////////
+    def subQuoteList(self, contNoList):
+        self._qteModel.subQuoteList(contNoList)
+
+    def unsubQuoteList(self, contNoList):
+        # TODO: 退订即使行情时，是否需要删除已经得到的即时行情信息
+        self._qteModel.unsubQuoteList(contNoList)
+    
     def getQUpdateTime(self, symbol):
         return self._qteModel.getQUpdateTime(symbol)
 
@@ -449,13 +405,12 @@ class StrategyModel(object):
         # 对于开仓，需要平掉反向持仓
         qty = self._calcCenter.needCover(userNo, contNo, dBuy, share, price)
         if qty > 0 and needCover:
-            eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oCover, hSpeculate, price, qty, curBar, (defaultPrice > 0))
-            if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
+            self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oCoverA, hSpeculate, price, qty, curBar, (defaultPrice > 0))
 
-        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oOpen, hSpeculate, price, share, curBar, (defaultPrice > 0))
-        if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
+        # 交易计算、生成回测报告
+        self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oOpen, hSpeculate, price, share, curBar, (defaultPrice > 0))
 
-    def setBuyToCover(self, userNo, contractNo, share, price):
+    def setBuyToCover(self, userNo, contractNo, share, price, coverFlag='A'):
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
 
         if contNo not in self._cfgModel.getContract():
@@ -479,11 +434,12 @@ class StrategyModel(object):
         userNo = self._cfgModel.getUserNo() if not userNo else userNo
         if not userNo:
             userNo = "Default"
-        # 交易计算、生成回测报告
-        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, oCover, hSpeculate, price, share, curBar, (defaultPrice > 0))
-        if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
-    def setSell(self, userNo, contractNo, share, price):
+        # 交易计算、生成回测报告
+        self.buySellOrder(userNo, contNo, otLimit, vtGFD, dBuy, coverFlag, hSpeculate,price, share, curBar, (defaultPrice > 0))
+
+
+    def setSell(self, userNo, contractNo, share, price, coverFlag='A'):
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
 
         if contNo not in self._cfgModel.getContract():
@@ -507,9 +463,9 @@ class StrategyModel(object):
         userNo = self._cfgModel.getUserNo() if not userNo else userNo
         if not userNo:
             userNo = "Default"
+            
         # 交易计算、生成回测报告
-        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oCover, hSpeculate, price, share, curBar, (defaultPrice > 0))
-        if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
+        self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, coverFlag, hSpeculate, price, share, curBar, (defaultPrice > 0))
 
     def setSellShort(self, userNo, contractNo, share, price, needCover=True):
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
@@ -537,12 +493,10 @@ class StrategyModel(object):
             userNo = "Default"
         qty = self._calcCenter.needCover(userNo, contNo, dSell, share, price)
         if qty > 0 and needCover:
-            eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oCover, hSpeculate, price, qty, curBar, (defaultPrice > 0))
-            if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
+            self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oCoverA, hSpeculate, price, qty, curBar, (defaultPrice > 0))
 
         # 交易计算、生成回测报告
-        eSessionId = self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oOpen, hSpeculate, price, share, curBar, (defaultPrice > 0))
-        if eSessionId != "": self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
+        self.buySellOrder(userNo, contNo, otLimit, vtGFD, dSell, oOpen, hSpeculate,price, share, curBar, (defaultPrice > 0))
 
     def getDefaultShare(self, contNo, price):
         defaultPrice = self._qteModel.getQLast(contNo)
@@ -562,7 +516,7 @@ class StrategyModel(object):
             else:
                 if fixCapital < price * defaultShare:
                     raise Exception(f"您当前的可用资金 {fixCapital} 小于您设置的价格 {price} 与您设置的默认下单量 {defaultShare} 的乘积！")
-            return defaultPrice
+            return defaultShare
         elif defaultOrderType == '2':
             # 按固定资金
             fixCapital = self._cfgModel.getOrderQtyCount()
@@ -646,9 +600,28 @@ class StrategyModel(object):
 
     def setStartTrade(self):
         self._cfgModel.setPending(False)
-
+        # TODO: 通知界面策略状态发生变化
+        event = Event({
+            'StrategyId' : self._strategy.getStrategyId(),
+            'EventCode'  : EV_EG2UI_RUNMODE_SWITCH,
+            'Data'       : {
+                'Status' : 1     #表示实盘运行
+            }
+        })
+        self._strategy.sendEvent2UI(event)
+        
     def setStopTrade(self):
         self._cfgModel.setPending(True)
+        # TODO：通知界面策略状态发生变化
+        event = Event({
+            'StrategyId' : self._strategy.getStrategyId(),
+            'EventCode'  : EV_EG2UI_RUNMODE_SWITCH,
+            'Data'       : {
+                'Status' : 0     #表示虚拟运行
+            }
+        })
+        self._strategy.sendEvent2UI(event)
+        
 
     def isTradeAllowed(self):
         if self._cfgModel.isActualRun() and self._strategy.isRealTimeStatus() and not self._cfgModel.getPending():
@@ -772,108 +745,111 @@ class StrategyModel(object):
     # ///////////////////////账户函数///////////////////////////
     def getAccountId(self):
         return self._trdModel.getAccountId()
+        
+    def getAllAccountId(self):
+        return self._trdModel.getAllAccountId()
 
-    def getAllPositionSymbol(self):
-        return self._trdModel.getAllPositionSymbol()
+    def getAllPositionSymbol(self, userNo):
+        return self._trdModel.getAllPositionSymbol(userNo)
 
-    def getCost(self):
-        return self._trdModel.getCost()
+    def getCost(self, userNo):
+        return self._trdModel.getCost(userNo)
 
-    def getCurrentEquity(self):
-        return self._trdModel.getCurrentEquity()
+    def getCurrentEquity(self, userNo):
+        return self._trdModel.getCurrentEquity(userNo)
 
-    def getFreeMargin(self):
-        return self._trdModel.getFreeMargin()
+    def getFreeMargin(self, userNo):
+        return self._trdModel.getFreeMargin(userNo)
 
-    def getAMargin(self):
-        return self._trdModel.getAMargin()
+    def getAMargin(self, userNo):
+        return self._trdModel.getAMargin(userNo)
 
-    def getProfitLoss(self):
-        return self._trdModel.getProfitLoss()
+    def getProfitLoss(self, userNo):
+        return self._trdModel.getProfitLoss(userNo)
 
-    def getCoverProfit(self):
-        return self._trdModel.getCoverProfit()
+    def getCoverProfit(self, userNo):
+        return self._trdModel.getCoverProfit(userNo)
 
-    def getTotalFreeze(self):
-        return self._trdModel.getTotalFreeze()
+    def getTotalFreeze(self, userNo):
+        return self._trdModel.getTotalFreeze(userNo)
 
-    def getBuyAvgPrice(self, contNo):
+    def getBuyAvgPrice(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getBuyAvgPrice(contNo)
+        return self._trdModel.getBuyAvgPrice(userNo, contNo)
 
-    def getBuyPosition(self, contNo):
+    def getBuyPosition(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getBuyPosition(contNo)
+        return self._trdModel.getBuyPosition(userNo, contNo)
 
-    def getBuyPositionCanCover(self, contNo):
+    def getBuyPositionCanCover(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getBuyPositionCanCover(contNo)
+        return self._trdModel.getBuyPositionCanCover(userNo, contNo)
 
-    def getBuyProfitLoss(self, contNo):
+    def getBuyProfitLoss(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getBuyProfitLoss(contNo)
+        return self._trdModel.getBuyProfitLoss(userNo, contNo)
 
-    def getSellAvgPrice(self, contNo):
+    def getSellAvgPrice(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getSellAvgPrice(contNo)
+        return self._trdModel.getSellAvgPrice(userNo, contNo)
 
-    def getSellPosition(self, contNo):
+    def getSellPosition(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getSellPosition(contNo)
+        return self._trdModel.getSellPosition(userNo, contNo)
 
-    def getSellPositionCanCover(self, contNo):
+    def getSellPositionCanCover(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getSellPositionCanCover(contNo)
+        return self._trdModel.getSellPositionCanCover(userNo, contNo)
 
-    def getSellProfitLoss(self, contNo):
+    def getSellProfitLoss(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getSellProfitLoss(contNo)
+        return self._trdModel.getSellProfitLoss(userNo, contNo)
 
-    def getTotalAvgPrice(self, contNo):
+    def getTotalAvgPrice(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getTotalAvgPrice(contNo)
+        return self._trdModel.getTotalAvgPrice(userNo, contNo)
 
-    def getTotalPosition(self, contNo):
+    def getTotalPosition(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getTotalPosition(contNo)
+        return self._trdModel.getTotalPosition(userNo, contNo)
 
-    def getTotalProfitLoss(self, contNo):
+    def getTotalProfitLoss(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getTotalProfitLoss(contNo)
+        return self._trdModel.getTotalProfitLoss(userNo, contNo)
 
-    def getTodayBuyPosition(self, contNo):
+    def getTodayBuyPosition(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getTodayBuyPosition(contNo)
+        return self._trdModel.getTodayBuyPosition(userNo, contNo)
 
-    def getTodaySellPosition(self, contNo):
+    def getTodaySellPosition(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getTodaySellPosition(contNo)
+        return self._trdModel.getTodaySellPosition(userNo, contNo)
 
-    def getOrderBuyOrSell(self, eSession):
-        return self._trdModel.getOrderBuyOrSell(eSession)
+    def getOrderBuyOrSell(self, userNo, eSession):
+        return self._trdModel.getOrderBuyOrSell(userNo, eSession)
 
-    def getOrderEntryOrExit(self, eSession):
-        return self._trdModel.getOrderEntryOrExit(eSession)
+    def getOrderEntryOrExit(self, userNo, eSession):
+        return self._trdModel.getOrderEntryOrExit(userNo, eSession)
 
-    def getOrderFilledLot(self, eSession):
-        return self._trdModel.getOrderFilledLot(eSession)
+    def getOrderFilledLot(self, userNo, eSession):
+        return self._trdModel.getOrderFilledLot(userNo, eSession)
 
-    def getOrderFilledPrice(self, eSession):
-        return self._trdModel.getOrderFilledPrice(eSession)
+    def getOrderFilledPrice(self, userNo, eSession):
+        return self._trdModel.getOrderFilledPrice(userNo, eSession)
 
-    def getOrderLot(self, eSession):
-        return self._trdModel.getOrderLot(eSession)
+    def getOrderLot(self, userNo, eSession):
+        return self._trdModel.getOrderLot(userNo, eSession)
 
-    def getOrderPrice(self, eSession):
-        return self._trdModel.getOrderPrice(eSession)
+    def getOrderPrice(self, userNo, eSession):
+        return self._trdModel.getOrderPrice(userNo, eSession)
 
-    def getOrderStatus(self, eSession):
-        return self._trdModel.getOrderStatus(eSession)
+    def getOrderStatus(self, userNo, eSession):
+        return self._trdModel.getOrderStatus(userNo, eSession)
 
-    def getOrderTime(self, eSession):
-        return self._trdModel.getOrderTime(eSession)
+    def getOrderTime(self, userNo, eSession):
+        return self._trdModel.getOrderTime(userNo, eSession)
 
-    def getFirstOrderNo(self, contNo1, contNo2):
+    def getFirstOrderNo(self, userNo, contNo1, contNo2):
         underlayCont1 = self._qteModel.getUnderlayContractNo(contNo1)
         if len(underlayCont1) > 0:
             contNo1 = underlayCont1
@@ -881,9 +857,9 @@ class StrategyModel(object):
         if len(underlayCont2) > 0:
             contNo2 = underlayCont2
 
-        return self._trdModel.getFirstOrderNo(contNo1, contNo2)
+        return self._trdModel.getFirstOrderNo(userNo, contNo1, contNo2)
 
-    def getNextOrderNo(self, orderId, contNo1, contNo2):
+    def getNextOrderNo(self, userNo, orderId, contNo1, contNo2):
         underlayCont1 = self._qteModel.getUnderlayContractNo(contNo1)
         if len(underlayCont1) > 0:
             contNo1 = underlayCont1
@@ -891,9 +867,9 @@ class StrategyModel(object):
         if len(underlayCont2) > 0:
             contNo2 = underlayCont2
 
-        return self._trdModel.getNextOrderNo(orderId, contNo1, contNo2)
+        return self._trdModel.getNextOrderNo(userNo, orderId, contNo1, contNo2)
 
-    def getLastOrderNo(self, contNo1, contNo2):
+    def getLastOrderNo(self, userNo, contNo1, contNo2):
         underlayCont1 = self._qteModel.getUnderlayContractNo(contNo1)
         if len(underlayCont1) > 0:
             contNo1 = underlayCont1
@@ -901,9 +877,9 @@ class StrategyModel(object):
         if len(underlayCont2) > 0:
             contNo2 = underlayCont2
 
-        return self._trdModel.getLastOrderNo(contNo1, contNo2)
+        return self._trdModel.getLastOrderNo(userNo, contNo1, contNo2)
 
-    def getFirstQueueOrderNo(self, contNo1, contNo2=''):
+    def getFirstQueueOrderNo(self, userNo, contNo1, contNo2=''):
         underlayCont1 = self._qteModel.getUnderlayContractNo(contNo1)
         if len(underlayCont1) > 0:
             contNo1 = underlayCont1
@@ -911,9 +887,9 @@ class StrategyModel(object):
         if len(underlayCont2) > 0:
             contNo2 = underlayCont2
 
-        return self._trdModel.getFirstQueueOrderNo(contNo1, contNo2)
+        return self._trdModel.getFirstQueueOrderNo(userNo, contNo1, contNo2)
 
-    def getNextQueueOrderNo(self, orderId, contNo1, contNo2=''):
+    def getNextQueueOrderNo(self, userNo, orderId, contNo1, contNo2=''):
         underlayCont1 = self._qteModel.getUnderlayContractNo(contNo1)
         if len(underlayCont1) > 0:
             contNo1 = underlayCont1
@@ -921,34 +897,34 @@ class StrategyModel(object):
         if len(underlayCont2) > 0:
             contNo2 = underlayCont2
 
-        return self._trdModel.getNextQueueOrderNo(orderId, contNo1, contNo2)
+        return self._trdModel.getNextQueueOrderNo(userNo, orderId, contNo1, contNo2)
 
-    def getAllQueueOrderNo(self, contNo):
+    def getAllQueueOrderNo(self, userNo, contNo):
         underlayCont = self._qteModel.getUnderlayContractNo(contNo)
         if len(underlayCont) > 0:
             contNo = underlayCont
 
         orderIdList = []
-        orderId = self.getFirstQueueOrderNo(contNo)
+        orderId = self.getFirstQueueOrderNo(userNo, contNo)
         if orderId != -1:
             orderIdList.append(orderId)
         while (orderId != -1):
-            orderId = self.getNextQueueOrderNo(orderId, contNo)
+            orderId = self.getNextQueueOrderNo(userNo, orderId, contNo)
             if orderId != -1:
                 orderIdList.append(orderId)
         return orderIdList
 
-    def getALatestFilledTime(self, contNo):
+    def getALatestFilledTime(self, userNo, contNo):
         underlayCont = self._qteModel.getUnderlayContractNo(contNo)
         if len(underlayCont) > 0:
             contNo = underlayCont
-        return self._trdModel.getALatestFilledTime(contNo)
+        return self._trdModel.getALatestFilledTime(userNo, contNo)
 
-    def getOrderContractNo(self, orderId):
-        return self._trdModel.getOrderContractNo(orderId)
+    def getOrderContractNo(self, userNo, orderId):
+        return self._trdModel.getOrderContractNo(userNo, orderId)
 
-    def deleteOrder(self, eSession):
-        return self._trdModel.deleteOrder(eSession)
+    def deleteOrder(self, userNo, eSession):
+        return self._trdModel.deleteOrder(userNo, eSession)
 
     def buySellOrder(self, userNo, contNo, orderType, validType, orderDirct, \
                      entryOrExit, hedge, orderPrice, orderQty, curBar, isPriceZero = False, signal=True):
@@ -992,28 +968,76 @@ class StrategyModel(object):
             "StrategyStage": self._strategy.getStatus()
         }
 
-        # if entryOrExit in (oCover, oCoverT):
-        if entryOrExit in (oCover, oCoverT):
-            isVaildOrder = self._calcCenter.coverJudge(orderParam)
-            if isVaildOrder < 0:
-                return ""
+        coverMap = [(orderQty, entryOrExit)]
 
-        canAdded = self._calcCenter.addOrder(orderParam)
-        if canAdded < 1:
-            return ""
+        tflag = self._strategy.isRealTimeStatus()
+        exchg = contNo.split('|')[0]
+        # 针对SHFE, INE平仓单做自适应拆分，默认先平昨再平今
+        if tflag and entryOrExit == oCoverA and (exchg in ['SHFE', 'INE']):
+            if orderDirct == dBuy:
+                holdTd = self.getTodaySellPosition(userNo, contNo)
+                holdYs = self.getSellPosition(userNo, contNo) - holdTd
+                #holdCC = self.getSellPositionCanCover(userNo, contNo)
+            else:
+                holdTd = self.getTodayBuyPosition(userNo, contNo)
+                holdYs = self.getBuyPosition(userNo, contNo) - holdTd
+                #holdCC = self.getBuyPositionCanCover(userNo, contNo)
+                
+            # prior cover yestoday
+            #if orderQty <= min(holdYs, holdCC):
+            if orderQty <= holdYs:
+                # cover yestoday quantity
+                coverYs = orderQty
+                # cover today quantity
+                coverTd = 0
+            else:
+                # cover yestoday quantity
+                coverYs = holdYs
+                # cover today quantity
+                #coverTd = min(holdTd, holdCC - coverYs)
+                coverTd = min(holdTd, orderQty - coverYs)
+                
+            # cover remaining quantity
+            coverOt = orderQty - coverYs - coverTd
+            coverMap = [(coverTd, oCoverT), (coverYs, oCover), (coverOt, oCover)]
+        # 其他交易所平仓时设置为平昨
+        elif entryOrExit in (oCoverA, oCoverT):
+            coverMap = [(orderQty, oCover)]
+            
+        for qtyCoverPair in coverMap:
+            kOrderQty = qtyCoverPair[0]
+            vCoverFlag = qtyCoverPair[1]
+            
+            # self.logger.debug("[aaaa]direct:%c, qty:%d, cover:%c" %(orderDirct, kOrderQty, vCoverFlag))
+            
+            if kOrderQty <= 0:
+                continue
+            
+            if vCoverFlag in (oCover, oCoverT):
+                orderParam['OrderQty'] = kOrderQty
+                orderParam['Offset'] = vCoverFlag
 
-        '''buy/sell 信号，
-        历史阶段：一定没有委托
-        实时数据：不一定有委托发
-        '''
-        curBar = self.getHisQuoteModel().getCurBar(self._config.getKLineShowInfoSimple())
-        if self._config.hasKLineTrigger() and curBar:
-            self.sendSignalEvent(self._signalName, userNo, contNo, orderDirct, entryOrExit, orderPrice, orderQty, curBar)
+                isVaildOrder = self._calcCenter.coverJudge(orderParam)
+                if isVaildOrder < 0:
+                    continue   
 
-        realPrice = 0 if isPriceZero else orderPrice
-        retCode, eSessionId = self.sendOrder(userNo, contNo, orderType, validType, orderDirct, entryOrExit, hedge,
-                                             realPrice, orderQty)
-        return eSessionId if retCode == 0 else ""
+            canAdded = self._calcCenter.addOrder(orderParam)
+            if canAdded < 1:
+                continue 
+
+            '''buy/sell 信号，
+            历史阶段：一定没有委托
+            实时数据：不一定有委托发
+            '''
+            curBar = self.getHisQuoteModel().getCurBar(self._config.getKLineShowInfoSimple())
+            if self._config.hasKLineTrigger() and curBar:
+                self.sendSignalEvent(self._signalName, userNo, contNo, orderDirct, vCoverFlag, orderPrice, kOrderQty, curBar)
+
+            realPrice = 0 if isPriceZero else orderPrice
+            retCode, eSessionId = self.sendOrder(userNo, contNo, orderType, validType, orderDirct, vCoverFlag, hedge, realPrice, kOrderQty)
+            
+            if retCode == 0:
+                self._strategy.updateBarInfoInLocalOrder(eSessionId, curBar)
 
     def sendOrder(self, userNo, contNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty, \
                   triggerType=stNone, triggerMode=tmNone, triggerCondition=tcNone, triggerPrice=0, aFunc=False):
@@ -1055,46 +1079,7 @@ class StrategyModel(object):
 
         eId = str(self._strategy.getStrategyId()) + '-' + str(self._strategy.getESessionId())
         # 上期所特殊处理, 只对buy/sell函数生效
-        if "SHFE|" in contNo and entryOrExit == oCover and not aFunc:
-            if orderDirct == dBuy:
-                positionInfo = self._trdModel.getUserModel(userNo).getPositionInfo(contNo, dSell)
-            elif orderDirct == dSell:
-                positionInfo = self._trdModel.getUserModel(userNo).getPositionInfo(contNo, dBuy)
-
-            if positionInfo is None:
-                self.logger.warn(f"持仓查询没有查询到对应方向的持仓, 无法平仓")
-                return -6, "持仓查询没有查询到对应方向的持仓, 无法平仓"
-            entryOrExitToday = oCoverT
-            orderQtyToday = positionInfo["TodayPos"]
-            aOrder = {
-                'UserNo': userNo,
-                'Sign': self._trdModel.getSign(userNo),
-                'Cont': contNo,
-                'OrderType': orderType,
-                'ValidType': validType,
-                'ValidTime': '0',
-                'Direct': orderDirct,
-                'Offset': entryOrExitToday,
-                'Hedge': hedge,
-                'OrderPrice': orderPrice,
-                'TriggerPrice': 0,
-                'TriggerMode': tmNone,
-                'TriggerCondition': tcNone,
-                'OrderQty': orderQtyToday,
-                'StrategyType': stNone,
-                'Remark': '',
-                'AddOneIsValid': tsDay,
-            }
-            self.sendActualOrder2Engine(userNo, aOrder, eId, self._strategy.getStrategyId(), aFunc)
-            if orderQty > positionInfo["TodayPos"]:
-                orderQty = orderQty - positionInfo["TodayPos"]
-                entryOrExit = oCover
-            else:
-                self._strategy.setESessionId(self._strategy.getESessionId() + 1)
-                self._strategy.updateLocalOrder(eId, aOrder)
-                # 新的eId
-                eId = str(self._strategy.getStrategyId()) + '-' + str(self._strategy.getESessionId())
-                return 0, eId
+        # 暂时屏蔽buysell函数上期平今和平昨自适应逻辑
 
         # 发送定单到实盘
         aOrder = {
@@ -1156,17 +1141,17 @@ class StrategyModel(object):
             orderNo = ''
         return orderId, orderNo
 
-    def deleteAllOrders(self, contNo):
+    def deleteAllOrders(self, userNo, contNo):
         underlayCont = self._qteModel.getUnderlayContractNo(contNo)
         if len(underlayCont) > 0:
             contNo = underlayCont
 
-        orderList = self.getAllQueueOrderNo(contNo)
+        orderList = self.getAllQueueOrderNo(userNo, contNo)
         if len(orderList) == 0:
             return True
 
         for orderId in orderList:
-            self._trdModel.deleteOrderByOrderId(orderId)
+            self._trdModel.deleteOrderByOrderId(userNo, orderId)
 
         return True
 
@@ -1850,6 +1835,67 @@ class StrategyModel(object):
             delta = -(mtime1 - mtime2).seconds
 
         return delta
+    
+    def _addDay(self, dt, n):
+        x = datetime.strptime(str(dt), "%Y%m%d")
+        while True:
+            x = x + timedelta(days=n)
+            if x.isoweekday() != 6 and x.isoweekday() != 7:
+                break
+
+        return int(x.strftime("%Y%m%d"))
+    
+    def _testAndAddDay(self, dt):
+        x = datetime.strptime(str(dt), "%Y%m%d")
+        while x.isoweekday() == 6 or x.isoweekday() == 7:
+            x = x + timedelta(days=1)
+
+        return int(x.strftime("%Y%m%d"))
+    
+    def _calTradeDate(self, dt, tf):
+        #self.logger.debug('dt:%d, tbflag:%c' %(dt, tf))
+        if tf == EEQU_DATEFLAG_PRE:
+            return self._addDay(dt, 1)
+        elif tf == EEQU_DATEFLAG_NEXT:
+            return self._addDay(dt, -1)
+        else:
+            return self._testAndAddDay(dt)
+    
+    def getTradeDate(self, contNo, dateTimeStamp):
+        contNo = self._config.getBenchmark() if not contNo else contNo
+        commodity = self.getCommodityInfoFromContNo(contNo)['CommodityCode']
+        if commodity not in self._qteModel._commodityData:
+            # commodity not found
+            return -1
+        
+        dt = dateTimeStamp % 1000000000
+        currentTime = dt*1.0/1000000000
+        
+        idx = -1
+        
+        sessionCount = self.getGetSessionCount(contNo)
+        for index in range(0, sessionCount):
+            startTime = self.getGetSessionStartTime(contNo, index)
+            endTime = self.getSessionEndTime(contNo, index)
+            
+            delta = 0.0
+            if startTime >= endTime:
+                endTime += 0.24
+                if currentTime <= startTime:
+                     delta = 0.24
+            if currentTime + delta >= startTime and currentTime + delta < endTime:
+                idx = index
+        
+        if idx == -1:
+            # not in trade period
+            return -2
+        
+        timeBucket = self._qteModel._commodityData[commodity]._metaData['TimeBucket']
+        
+        tbflag = timeBucket[2 * idx]["DateFlag"]
+        
+        return self._calTradeDate(int(dateTimeStamp/1000000000), tbflag)
+        
 
     def isInSession(self, contNo):
         if not contNo:
@@ -1860,18 +1906,28 @@ class StrategyModel(object):
         if len(contNoInfo) >= 4 and (contNoInfo[1] == 'S' or contNoInfo[1] == 's'):
             contNo = contNoInfo[0] + '|F|' + contNoInfo[2] + '|' + contNoInfo[3]
 
-        currentTime = float(datetime.now().strftime('0.%H%M%S'))
+        # TODO：使用交易时间
+        #currentTime = float(datetime.now().strftime('0.%H%M%S'))
+        exgTime = datetime.strptime(self.getExchangeTime(contNoInfo[0]), "%Y-%m-%d %H:%M:%S")
+        currentTime = float(exgTime.strftime('0.%H%M%S'))
+        
         sessionCount = self.getGetSessionCount(contNo)
         for index in range(0, sessionCount):
             startTime = self.getGetSessionStartTime(contNo, index)
             endTime = self.getSessionEndTime(contNo, index)
-
+            
+            #eg1. 0.21, 0.023, 0.142854
+            #eg1. 0.1330, 0.1500, 0.142854
+            #eg2. 0.06, 0.05, 0.03
+            #eg3. 0.06, 0.05, 0.052
+            delta = 0.0
             if startTime >= endTime:
                 endTime += 0.24
                 if currentTime <= startTime:
-                    currentTime += 0.24
-            if currentTime >= startTime and currentTime < endTime:
+                     delta = 0.24
+            if currentTime + delta >= startTime and currentTime + delta < endTime:
                 return True
+
         return False
 
     def getMarginRatio(self, contNo):

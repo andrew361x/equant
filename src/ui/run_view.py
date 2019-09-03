@@ -32,6 +32,7 @@ class RunWin(QuantToplevel, QuantFrame):
     def __init__(self, control, path, flag=False, master=None, param={}):
         # flag: 是否是从策略右键弹出的标志位
         super().__init__(master)
+
         self._control = control
         self._exchange = self._control.model.getExchange()
         self._commodity = self._control.model.getCommodity()
@@ -90,12 +91,12 @@ class RunWin(QuantToplevel, QuantFrame):
         self.createFund(self.fundFrame)
         self.createSample(self.sampleFrame)
         self.createParma(self.paramFrame)
-        self.addButton(self.topFrame)
 
-        # TODO： 如果将配置文件内容删除会报错
         self.setDefaultConfigure()
         # 根据用户设置内容初始化控件
         self.initWidget()
+        # 确定、取消按钮
+        self.addButton(self.topFrame)
 
     def initVariable(self):
         # 变量
@@ -569,11 +570,10 @@ class RunWin(QuantToplevel, QuantFrame):
 
     def insertParams(self):
         """恢复用户选择的参数信息"""
+        # print("22222222: ", self._userParam)
         for key in self._userParam:
             self.paramTree.insert("", tk.END, values=tuple(
-                [key, self._userParam[key][0], type(self._userParam[key][0]).__name__, self._userParam[key][1]]), tags=key)
-            # self.paramTree.insert("", tk.END, values=tuple(
-            #     [key, self._userParam[key][0], type(self._userParam[key]), self._userParam[key][1]]), tags=key)
+                [key, str(self._userParam[key][0]), type(self._userParam[key][0]).__name__, self._userParam[key][1]]), tags=key)
 
     def insertContInfo(self):
         """恢复配置文件中用户选择的多合约信息"""
@@ -963,6 +963,7 @@ class RunWin(QuantToplevel, QuantFrame):
 
     def setCycleEntryState(self):
         if self.isCycle.get() == 0:
+            # print("AAAAAAAAAAAAA: ", self.cycleEntry)
             self.cycleEntry.config(state="disabled", bg=rgb_to_hex(245, 245, 245))
         else:
             self.cycleEntry.config(state="normal", bg=rgb_to_hex(255, 255, 255))
@@ -1437,13 +1438,28 @@ class RunWin(QuantToplevel, QuantFrame):
         params = {}
         for item in self.paramTree.get_children():
             paramValues = self.paramTree.item(item)['values']
-            params[paramValues[0]] = (paramValues[1], paramValues[3])
+            # Treeview会将字面值为int型的变量(eg: '1')转换为int型
+            # bool类型的判断
+            temp = paramValues[1]
+            if paramValues[2] == "bool":
+                if paramValues[1] == "True":
+                    temp = True
+                elif paramValues[1] == "False":
+                    temp = False
+
+            # TODO: 字符串转换时很麻烦
+            if paramValues[2] == "str" or paramValues[2] == "bool" or paramValues[2] == "int":
+                params[paramValues[0]] = (eval(paramValues[2])(temp), paramValues[3])
+                continue
+            else:
+                params[paramValues[0]] = (eval(paramValues[2])(eval(temp)), paramValues[3])
+
+
 
         self._strConfig.setParams(params)
 
         self.config = self._strConfig.getConfig()
         # print("-----------: ", self.config)
-
 
         # -------------保存用户配置--------------------------
         # strategyPath = self._control.getEditorText()["path"]
@@ -1535,13 +1551,21 @@ class RunWin(QuantToplevel, QuantFrame):
 class SelectContractWin(QuantToplevel, QuantFrame):
 
     # exchangeList = ["CFFEX", "CME", "DCE", "SGE", "SHFE", "ZCE", "SPD", "INE", "NYMEX", "SSE", "SZSE"]
-    exchangeList = ["SPD", "ZCE", "DCE", "SHFE", "INE", "CFFEX", "SSE", "SZSE", "SGE", "CME", "COMEX", "NYMEX", "HKEX"]
+    exchangeList = ["SPD", "ZCE", "DCE", "SHFE", "INE", "CFFEX",
+                    "CME", "COMEX", "LEM", "NYMEX", "HKEX", "CBOT", "ICUS", "ICEU", "SGX"]
     commodityType = {"P": "现货", "Y": "现货", "F": "期货", "O": "期权",
                      "S": "跨期套利", "M": "品种套利", "s": "", "m": "",
                      "y": "", "T": "股票", "X": "外汇",
                      "I": "外汇", "C": "外汇"}
     # 外盘保留品种
-    FCommodity = {"NYMEX": ["美原油"], "COMEX": ["美黄金"], "HKEX": ["恒指", "小恒指", "H股指"], "CME": ["小标普"]}
+    FCommodity = {"NYMEX": ["美原油"],
+                  "COMEX": ["美铜", "美黄金"],
+                  "HKEX": ["恒指", "小恒指", "H股指", "美元兑人民币", "小H股指"],
+                  "CME": ["小标普", "小纳指"],
+                  "CBOT": ["小道指", "美黄豆", "美豆粕", "美玉米"],
+                  "ICUS": ["糖11号", "美棉花"],
+                  "ICEU": ["布伦特原油", "富时指数"],
+                  "SGX":  ["A50指数"]}
 
     def __init__(self, master, exchange, commodity, contract):
         super().__init__(master)
@@ -1598,28 +1622,6 @@ class SelectContractWin(QuantToplevel, QuantFrame):
 
         self.exchangeTree = ttk.Treeview(exchangeFrame, show="tree")
         self.contractScroll = self.addScroll(exchangeFrame, self.exchangeTree, xscroll=False)
-        # for exch in self._exchange:
-        #     if exch["ExchangeNo"] in self.exchangeList:
-        #         exchangeId = self.exchangeTree.insert("", tk.END,
-        #                                               text=exch["ExchangeNo"] + "【" + exch["ExchangeName"] + "】",
-        #                                               values=exch["ExchangeNo"])
-
-        # for exchangeNo in self.exchangeList:
-        #     for exch in self._exchange:
-        #         if exch["ExchangeNo"] == exchangeNo:
-        #             exchangeId = self.exchangeTree.insert("", tk.END,
-        #                                                  text=exch["ExchangeNo"] + "【" + exch["ExchangeName"] + "】",
-        #                                                  values=exch["ExchangeNo"])
-        #
-        #             for commodity in self._commodity:
-        #                 if commodity["ExchangeNo"] == exch["ExchangeNo"] and commodity["CommodityType"] in self.commodityType.keys():
-        #                     if commodity["ExchangeNo"] == "SPD":
-        #                         text = commodity["CommodityName"]
-        #                     else:
-        #                         text = commodity["CommodityName"] + " [" + self.commodityType[commodity["CommodityType"]] + "]"
-        #                     commId = self.exchangeTree.insert(exchangeId, tk.END,
-        #                                                       text=text,
-        #                                                       values=commodity["CommodityNo"])
 
         for exchangeNo in self.exchangeList:
             exchange = self._exchange.loc[self._exchange.ExchangeNo == exchangeNo]
@@ -1628,18 +1630,20 @@ class SelectContractWin(QuantToplevel, QuantFrame):
                                                       text=exch.ExchangeNo + "【" + exch.ExchangeName + "】",
                                                       values=exch.ExchangeNo)
 
-            commodity = self._commodity.loc[self._commodity.ExchangeNo == exchangeNo]
+            ePattern = r"\A" + exchangeNo
+            commodity = self._commodity.loc[self._commodity.CommodityNo.str.contains(ePattern)]
             for _, comm in commodity.iterrows():
                 # 仅保留外盘支持的品种
                 if exchangeNo in self.FCommodity:
                     if comm.CommodityName not in self.FCommodity[exchangeNo]:
                         continue
 
-                if comm.CommodityType in self.commodityType.keys():
-                    if comm.ExchangeNo == "SPD":
+                tempComm = comm.CommodityNo.split("|")
+                if tempComm[1] in self.commodityType.keys():
+                    if tempComm[0] == "SPD":
                         text = comm.CommodityName
                     else:
-                        text = comm.CommodityName + " [" + self.commodityType[comm.CommodityType] + "]"
+                        text = comm.CommodityName + " [" + self.commodityType[tempComm[1]] + "]"
                     commId = self.exchangeTree.insert(exchangeId, tk.END,
                                                       text=text,
                                                       values=comm.CommodityNo)
@@ -1722,16 +1726,21 @@ class SelectContractWin(QuantToplevel, QuantFrame):
                     temp[1] = "Z"
                     commodityNoZ = "|".join(temp)
 
+                ePattern = r"\A" + exchangeNo[0] + "\|"
+                cPattern = r"\A" + "\|".join(commodityNo[0].split("|")) + "\|"
+                cZPattern = r"\A" + "\|".join(commodityNoZ.split("|")) + "\|"
                 contract = self._contract.loc[
-                    (self._contract.ExchangeNo == exchangeNo[0])
+                    (self._contract.ContractNo.str.contains(ePattern))
                     & (
-                        (self._contract.CommodityNo == commodityNo[0])
+                        (self._contract.ContractNo.str.contains(cPattern))
                         |
-                        (self._contract.CommodityNo == commodityNoZ)
+                        (self._contract.ContractNo.str.contains(cZPattern))
                     )
-                        ]
+                ]
+
                 for index, row in contract.iterrows():
-                    self.contractTree.insert("", tk.END, text=row["ContractNo"], values=row["CommodityNo"])
+                    # self.contractTree.insert("", tk.END, text=row["ContractNo"], values=row["CommodityNo"])
+                    self.contractTree.insert("", tk.END, text=row["ContractNo"])
 
     def addSelectedContract(self, event):
         select = event.widget.selection()
@@ -1775,8 +1784,8 @@ class AddContWin(QuantToplevel, QuantFrame):
         self.attributes("-toolwindow", 1)
 
         self._exchange = pd.DataFrame(exchange).drop_duplicates()
-        self._commodity = pd.DataFrame(commodity).drop_duplicates()
-        self._contract = pd.DataFrame(contract).drop_duplicates()
+        self._commodity = pd.DataFrame(commodity, columns = ["CommodityNo", "CommodityName"]).drop_duplicates()
+        self._contract = pd.DataFrame(contract, columns=["ContractNo"]).drop_duplicates()
 
         # 用于保存用户所选的用户合约
         self.userContList = []

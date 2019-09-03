@@ -40,23 +40,37 @@ class MyFileHandler(logging.FileHandler):
 
 
 class MyHandlerQueue(logging.StreamHandler):
-    def __init__(self, gui_queue, sig_queue, usr_queue, err_queue, trade_log, user_log, sys_log):
+    def __init__(self, gui_queue, trade_log, user_log):
         logging.StreamHandler.__init__(self)  # initialize parent
         self.gui_queue = gui_queue
-        self.sig_queue = sig_queue
-        self.usr_queue = usr_queue
-        self.err_queue = err_queue
         self.trade_log = trade_log
         self.user_log  = user_log
-        self.sys_log   = sys_log
 
     def emit(self, record):
         #最多等待1秒
-        # TODO: 先判断msg的消息体（json?)
         target = record.msg[1]
         record.msg = record.msg[0]
         msg = self.format(record)
-        
+
+        if target == "T":
+            self.trade_log.write(msg+"\n")
+            self.trade_log.flush()
+        elif target == "U":  # 用户日志标志
+            self.user_log.write(msg+"\n")
+            self.user_log.flush()
+            try:
+                self.gui_queue.put_nowait([target, msg])
+            except queue.Full:
+                time.sleep(0.1)
+                print("用户日志放入队列时阻塞")
+        else:
+            try:
+                self.gui_queue.put_nowait([target, msg])
+            except queue.Full:
+                time.sleep(0.1)
+                print("界面日志放入队列时阻塞")
+
+        """
         if target == 'S':
             try:
                 self.sig_queue.put_nowait(msg)
@@ -89,6 +103,7 @@ class MyHandlerQueue(logging.StreamHandler):
                 time.sleep(0.1)
                 print("界面日志放入队列时阻塞")
             # self.gui_queue.put_nowait(msg, block=False, timeout=1)
+        """
 
 
 class Logger(object):
@@ -96,10 +111,6 @@ class Logger(object):
         #process queue
         self.log_queue = Queue(20000)
         self.gui_queue = Queue(20000)
-        # 信号队列
-        self.sig_queue = Queue(20000)
-        self.usr_queue = Queue(20000)
-        self.err_queue = Queue(100)
         
     def _initialize(self):
 
@@ -121,7 +132,7 @@ class Logger(object):
         #用户日志
         self.user_log  = open(user_path, mode='a', encoding='utf-8')
         #系统日志
-        self.sys_log   = open(sys_path, mode='a', encoding='utf-8')
+        # self.sys_log   = open(sys_path, mode='a', encoding='utf-8')
 
         #logger config
         self.logger = logging.getLogger("equant")
@@ -169,15 +180,6 @@ class Logger(object):
     def getGuiQ(self):
         return self.gui_queue
 
-    def getSigQ(self):
-        return self.sig_queue
-
-    def getUsrQ(self):
-        return self.usr_queue
-
-    def getErrQ(self):
-        return self.err_queue
-
     def add_handler(self):
         #设置文件句柄
         log_path = self.logpath + "equant.log"
@@ -188,8 +190,7 @@ class Logger(object):
         file_handler.setFormatter(self.formatter)
         self.logger.addHandler(file_handler)
         #设置窗口句柄
-        gui_handler = MyHandlerQueue(self.gui_queue, self.sig_queue, self.usr_queue, self.err_queue,
-                                     self.trade_log, self.user_log, self.sys_log)
+        gui_handler = MyHandlerQueue(self.gui_queue, self.trade_log, self.user_log)
         gui_handler.setLevel(logging.DEBUG)
         gui_handler.setFormatter(self.formatter)
         self.logger.addHandler(gui_handler)
@@ -211,6 +212,7 @@ class Logger(object):
     def error(self, s, target="s"):
         self._log("ERROR", s, target)
 
+    # TODO: sig_info不需要了？
     def sig_info(self, s, target='S'):
         self.info(s, target)
 

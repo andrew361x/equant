@@ -8,6 +8,7 @@ class TLogoinModel:
     def __init__(self, logger, loginNo, data):
         self.logger = logger
         self._loginNo = loginNo
+        self._isReady = False
         
         # print("TLogoinModel", data)
         self._metaData = {
@@ -18,25 +19,60 @@ class TLogoinModel:
             'TradeDate' : data['TradeDate']  ,  #交易日期
             'IsReady'   : data['IsReady']       #是否准备就绪
         }
+        
         self._userInfo = {}
+        
+        if data['IsReady'] == EEQU_READY:
+            self._isReady = True
         
         self.logger.info("[LOGIN]%s,%s,%s,%s,%s,%s"%(
             data['LoginNo'], data['Sign'], data['LoginName'],
             data['LoginApi'], data['TradeDate'], data['IsReady']
         ))
         
+    def getMetaData(self):
+        return self._metaData
+        
+    def isReady(self):
+        return self._isReady
+        
+    def getLoginNo(self):
+        return self._loginNo
+        
+    def getLoginApi(self):
+        return self._metaData['LoginApi']
+    
+    def getLoginUser(self):
+        return self._userInfo
+        
+    def updateLoginInfo(self, loginNo, data):
+        self.logger.info("[LOGIN] update login info: %s"%data)
+
+        for k, v in data.items():
+            if k == 'IsReady':
+                if v == EEQU_NOTREADY:
+                    self._isReady = False
+                else:
+                    self._isReady = True
+            self._metaData[k] = v
+            
     def updateUserInfo(self, userNo, userInfo):
-        self._userInfo[userNo] = userInfo
+        #先不存数据
+        self._userInfo[userNo] = None
 
     def copyLoginInfoMetaData(self):
         return deepcopy(self._metaData) if len(self._metaData) > 0 else {}
 
 class TUserInfoModel:
     '''资金账号信息'''
-    def __init__(self, logger, login, data):
+    def __init__(self, logger, loginInfo, data):
         self.logger = logger
-        self._loginInfo = login
+        self._loginInfo = loginInfo
+        self._loginNo = loginInfo.getLoginNo()
+        self._loginApi = loginInfo.getLoginApi()
         self._userNo = data['UserNo']
+        self._isReady = True
+        self._isDataReady = False
         
         #print("TUserInfoModel", data)
         
@@ -55,9 +91,49 @@ class TUserInfoModel:
         self.logger.info("[USER]%s,%s,%s,%s"%(
             data['UserNo'], data['Sign'], data['LoginNo'], data['UserName']
         ))
+        
+    def chkLoginNo(self, loginNo):
+        return self._loginNo == loginNo
+        
+    def setDataReady(self):
+        self._isDataReady = True
+        
+    def isDataReady(self):
+        return self._isDataReady
+    
+    def setUserStatus(self, data):
+        '''根据登录信息更新用户信息'''
+        if 'LoginNo' not in data:
+            return
+            
+        if data['LoginNo'] != self._loginNo:
+            return
+            
+        if 'IsReady' not in data:
+            return
+        
+        if data['IsReady'] == EEQU_NOTREADY:
+            self._isReady = False
+        else:
+            self._isReady = True
+        
+    def isReady(self):
+        return self._isReady
 
     def getMetaData(self):
         return self._metaData
+        
+    def getMoneyDict(self):
+        return self._money
+        
+    def getOrderDict(self):
+        return self._order
+        
+    def getMatchDict(self):
+        return self._match
+        
+    def getPositionDict(self):
+        return self._position
         
     def getSign(self):
         return self._metaData['Sign']
@@ -66,13 +142,29 @@ class TUserInfoModel:
         '''获取该账户各合约持仓情况'''
         contPosDict = {}  #cont, bs, h, data
         
+        if not self._isReady:
+            return  contPosDict
+        
         for v in self._position.values():
-            data = v.getdeepdata()
+            data = v.getMetaData()
             if not data: continue
             key = data['Cont'] + data['Direct'] + data['Hedge'] 
             contPosDict[key] = data
             
         return contPosDict
+        
+    # 内盘有买卖两个方向， 外盘会对冲只有一个方向
+    def getPositionInfo(self, contractNo, direct=None):
+        isChinese = contractNo.split("|")[0].upper() in ["SHFE", "ZCE", "DCE", "CFFEX", "INE"]
+        if not self._isReady or self._position is None:
+            return None
+        for positionNo, positionObj in self._position.items():
+            if isChinese:
+                if positionObj.getContractNo() == contractNo and direct==positionObj.getPositionInfo()["Direct"]:
+                    return positionObj.getPositionInfo()
+            else:
+                if positionObj.getContractNo() == contractNo:
+                    return positionObj.getPositionInfo()
 
     def updateMoney(self, data):
         currencyNo = data['CurrencyNo']
@@ -105,107 +197,7 @@ class TUserInfoModel:
             pos = TPositionModel(self.logger, data)
             self._position[posNo] = pos
         else:
-            self._position[posNo].updatePosition(data)    
-
-    def updateMoneyFromDict(self, moneyInfoDict):
-        if len(moneyInfoDict) == 0:
-            self._money = {}
-            return
-
-        for currencyNo, moneyDict in moneyInfoDict.items():
-            if currencyNo not in self._money:
-                self._money[currencyNo] = TMoneyModel(self.logger, moneyDict)
-            else:
-                self._money[currencyNo].updateMoney(moneyDict)
-
-    def updateOrderFromDict(self, orderInfoDict):
-        if len(orderInfoDict) == 0:
-            self._order = {}
-            return
-
-        for orderNo, orderDict in orderInfoDict.items():
-            if orderNo not in self._order:
-                self._order[orderNo] = TOrderModel(self.logger, orderDict)
-            else:
-                self._order[orderNo].updateOrder(orderDict)
-
-    def updateMatchFromDict(self, matchInfoDict):
-        if len(matchInfoDict) == 0:
-            self._match = {}
-            return
-
-        for orderNo, matchDict in matchInfoDict.items():
-            if orderNo not in self._match:
-                self._match[orderNo] = TMatchModel(self.logger, matchDict)
-            else:
-                self._match[orderNo].updateMatch(matchDict)
-
-    def updatePositionFromDict(self, positionInfoDict):
-        if len(positionInfoDict) == 0:
-            self._position = {}
-            return
-
-        for positionNo, positionDict in positionInfoDict.items():
-            if positionNo not in self._position:
-                self._position[positionNo] = TPositionModel(self.logger, positionDict)
-            else:
-                self._position[positionNo].updatePosition(positionDict)
-
-    # 内盘有买卖两个方向， 外盘会对冲只有一个方向
-    def getPositionInfo(self, contractNo, direct=None):
-        isChinese = contractNo.split("|")[0].upper() in ["SHFE", "ZCE", "DCE", "CFFEX", "INE"]
-        if self._position is None:
-            return None
-        for positionNo, positionObj in self._position.items():
-            if isChinese:
-                if positionObj.getContractNo() == contractNo and direct==positionObj.getPositionInfo()["Direct"]:
-                    return positionObj.getPositionInfo()
-            else:
-                if positionObj.getContractNo() == contractNo:
-                    return positionObj.getPositionInfo()
-
-
-    def formatUserInfo(self):
-        data = {
-            'metaData' : {},
-            'money'    : {},
-            'order'    : {},
-            'match'    : {},
-            'position' : {},
-        }
-
-        if len(self._metaData) > 0:
-            data['metaData'] = deepcopy(self._metaData)
-
-        # 资金信息
-        if len(self._money) > 0 :
-            moneyDict = {}
-            for currencyNo, tMoneyModel in self._money.items():
-                moneyDict[currencyNo] = deepcopy(tMoneyModel._metaData)
-            data['money'] = moneyDict
-
-        # 订单信息
-        if len(self._order) > 0:
-            orderDict = {}
-            for orderNo, tOrderModel in self._order.items():
-                orderDict[orderNo] = deepcopy(tOrderModel._metaData)
-            data['order'] = orderDict
-
-        # 成交信息
-        if len(self._match) > 0:
-            matchDict = {}
-            for orderNo, tMatchModel in self._match.items():
-                matchDict[orderNo] = deepcopy(tMatchModel._metaData)
-            data['match'] = matchDict
-
-        # 委托信息
-        if len(self._position) > 0:
-            positionDict = {}
-            for positionNo, tPositionModel in self._position.items():
-                positionDict[positionNo] = deepcopy(tPositionModel._metaData)
-            data['position'] = positionDict
-
-        return data
+            self._position[posNo].updatePosition(data)
 
 
 class TMoneyModel:
@@ -241,7 +233,7 @@ class TMoneyModel:
             data['Balance'], data['Equity'],data['Available'],data['UpdateTime']
         ))'''
         
-    def getdeepdata(self):
+    def getMetaData(self):
         data = None
         with self._lock:
             data = deepcopy(self._metaData)
@@ -285,6 +277,9 @@ class TOrderModel:
         #self.logger.info("ORDER:%s,%f,%d"%(self._metaData['OrderNo'], self._metaData['OrderPrice'], self._metaData['OrderQty']))
         #print('updateOrder', self._metaData['OrderNo'], self._metaData['OrderPrice'], self._metaData['OrderQty'])
         
+    def getMetaData(self):
+        return self._metaData
+        
 class TMatchModel:
     '''成交信息'''
     def __init__(self, logger, data):
@@ -307,6 +302,11 @@ class TMatchModel:
         self._metaData['MatchDateTime']     =  data['MatchDateTime']     # 成交时间
         self._metaData['AddOne']            =  data['AddOne']            # T+1成交
         self._metaData['Deleted']           =  data['Deleted']           # 是否删除
+        
+        #self.logger.info("MATCH:%s"%self._metaData)
+        
+    def getMetaData(self):
+        return self._metaData
         
 class TPositionModel:
     '''持仓信息'''
@@ -333,7 +333,9 @@ class TPositionModel:
             self._metaData['FloatProfit']       =  data['FloatProfit']     # 浮盈
             self._metaData['FloatProfitTBT']    =  data['FloatProfitTBT']            # 逐笔浮盈
             
-    def getdeepdata(self):
+            #self.logger.info("Position:%s"%self._metaData)
+            
+    def getMetaData(self):
         data = None
         with self._lock:
             data = deepcopy(self._metaData)    
@@ -361,146 +363,110 @@ class TradeModel:
         
         self._loginInfo = {} #登录账号{'LoginNo': {:}}
         self._userInfo = {}  #资金账号{'UserNo' : {:}}
-        
-        #先简单写，不使用状态机
-        self._dataStatus = TM_STATUS_NONE
+        self._orderUserMap = {}
         
     ###################################################################
-    def getStatus(self):
-        return self._dataStatus
+    def getLoginInfo(self):
+        return self._loginInfo
 
     def getUserInfo(self):
         return self._userInfo
         
-    def isUserLogin(self):
-        if len(self._userInfo) > 0:
-            return True
-        return False
+    def getLoginUser(self, loginNo):
+        if loginNo not in self._loginInfo:
+            return {}
+        return self._loginInfo[loginNo].getLoginUser()
         
-    def getUserModel(self, userNo):
-        if userNo not in self._userInfo:
-            return None
-        
-        return self._userInfo[userNo]
-
-    def isUserFill(self):
-        return self._dataStatus >= TM_STATUS_USER
-        
-    def isOrderFill(self):
-        return self._dataStatus >= TM_STATUS_ORDER    
-        
-    def setStatus(self, status):
-        self._dataStatus = status
-    
-    def getMoneyEvent(self):
-        #查询所有账号下的资金信息
-        eventList = []
+    def setDataReady(self, userNo):
+        if userNo in self._userInfo:
+            self._userInfo[userNo].setDataReady()
+            
+    def isAllDataReady(self):
+        if not self._userInfo:
+            return False
+            
         for v in self._userInfo.values():
-            #外盘只查基币，内盘全查
-            loginApi = v._loginInfo._metaData['LoginApi']
-            currencyNo = ''
-            if loginApi == 'DipperTradeApi':
-                currencyNo = 'Base'
+            if not v.isDataReady():
+                return False
                 
-            event = Event({
-                'StrategyId' : 0,
-                'Data' : 
-                    {
-                        'UserNo'     : v._metaData['UserNo'],
-                        'Sign'       : v._metaData['Sign'],
-                        'CurrencyNo' : currencyNo
-                    }
-            })
-            eventList.append(event)
-            
-        return eventList
+        return True
         
-    def getOrderEvent(self):
-        #查询所有账号下的委托信息
-        eventList = []
-        for v in self._userInfo.values():
-            event = Event({
-                'StrategyId' : 0,
-                'Data' : 
-                    {
-                        'UserNo'     : v._metaData['UserNo'],
-                        'Sign'       : v._metaData['Sign'],
-                    }
-            })
-            eventList.append(event)
-            
-        return eventList
+    def getUserNoByOrderId(self, orderId):
+        if orderId not in self._orderUserMap:
+            return ''
+        return self._orderUserMap[orderId]
         
-    def getMatchEvent(self):
-        return self.getOrderEvent()
-        
-    def getPositionEvent(self):
-        return self.getOrderEvent()
-
-    def getTradeInfoEvent(self, stragetyId):
-        pass
-
-
     ###################################################################
-    def TLogoinModel(self, apiEvent):
-        dataList = apiEvent.getData()
-
-        for data in dataList:
-            self._loginInfo[data['LoginNo']] = TLogoinModel(self.logger, data['LoginNo'], data)
+    def setUserStatus(self, loginDict):
+        for v in self._userInfo.values():
+            v.setUserStatus(loginDict)
+            
+    def addLoginInfo(self, data):
+        '''增加登录信息，有则更新'''
+        loginNo = data['LoginNo']
+        if loginNo not in self._loginInfo:
+            self._loginInfo[loginNo] = TLogoinModel(self.logger, loginNo, data)
+        else:
+            self._loginInfo[loginNo].updateLoginInfo(loginNo, data)
+            
+    def delLoginInfo(self, login):
+        '''删除登录信息'''
+        loginNo = login['LoginNo']
+        if loginNo not in self._loginInfo:
+            return
+        self._loginInfo.pop(loginNo)
+        
+    def delUserInfo(self, loginNo):
+        '''删除该登录账户下的所有用户信息'''
+        popUserList = []
+        
+        for k, v in self._userInfo.items():
+            if v.chkLoginNo(loginNo):
+                popUserList.append(k)
+                
+        for user in popUserList:
+            self._userInfo.pop(user)
+            
+    def getLoginApi(self, userNo):
+        if userNo not in self._userInfo:
+            return ''
+            
+        return self._userInfo[userNo]._loginApi
+        
+    def chkTradeDate(self, data):
+        if data['LoginNo'] not in self._loginInfo:
+            return False
+            
+        login = self._loginInfo[data['LoginNo']]
+        meta  = login.getMetaData()
+        #当前的交易日和上一交易日不一样
+        return (data['TradeDate'] != meta['TradeDate'])
+              
 
     # 更新登录信息
     def updateLoginInfo(self, apiEvent):
+        ''''''
         dataList = apiEvent.getData()
+        #self.logger.debug("updateLoginInfo:%s"%dataList)
         for data in dataList:
             loginNo = data['LoginNo']
             if loginNo not in self._loginInfo:
                 self._loginInfo[loginNo] = TLogoinModel(self.logger, loginNo, data)
-
-    def updateLoginInfoFromDict(self, loginInfoDict):
-        if len(loginInfoDict) == 0:
-            return
-
-        for loginNo, loginInfo in loginInfoDict.items():
-            self._loginInfo[loginNo] = TLogoinModel(self.logger, loginNo, loginInfo)
-
-    def updateUserInfoFromDict(self, userInfoDict):
-        if len(userInfoDict) == 0:
-            return
-
-        for userNo, userInfo in userInfoDict.items():
-            # 资金账号信息
-            metaData = userInfo['metaData']
-            tUserInfoModel = TUserInfoModel(self.logger, self._loginInfo, metaData)
-
-            # 更新资金信息
-            moneyInfoDict = userInfo['money']
-            tUserInfoModel.updateMoneyFromDict(moneyInfoDict)
-
-            # 更新订单信息
-            orderInfoDict = userInfo['order']
-            tUserInfoModel.updateOrderFromDict(orderInfoDict)
-
-            # 更新成交信息
-            matchInfoDict = userInfo['match']
-            tUserInfoModel.updateMatchFromDict(matchInfoDict)
-
-            # 更新持仓信息
-            positionInfoDict = userInfo['position']
-            tUserInfoModel.updatePositionFromDict(positionInfoDict)
-
-            self._userInfo[userNo] = tUserInfoModel
+            else:
+                self._loginInfo[loginNo].updateLoginInfo(loginNo, data)
+                self.setUserStatus(data)
 
     def updateUserInfo(self, apiEvent):
         dataList = apiEvent.getData()
+        #self.logger.debug("updateUserInfo:%s"%dataList)
         for data in dataList:
             loginNo = data['LoginNo']
             if loginNo not in self._loginInfo:
                 self.logger.error("The login account(%s) doesn't login!"%loginNo)
                 continue
                 
-            loginInfo = self._loginInfo[loginNo]
             userNo = data['UserNo']
-            userInfo = TUserInfoModel(self.logger, loginInfo, data)
+            userInfo = TUserInfoModel(self.logger, self._loginInfo[loginNo], data)
 
             self._loginInfo[loginNo].updateUserInfo(userNo, userInfo)
             self._userInfo[userNo] = userInfo
@@ -509,7 +475,7 @@ class TradeModel:
 
     def updateMoney(self, apiEvent):
         dataList = apiEvent.getData()
-
+        #self.logger.debug("updateMoney:%s"%dataList)
         for data in dataList:
             userNo = data['UserNo']
             if userNo not in self._userInfo:
@@ -521,35 +487,31 @@ class TradeModel:
         
     def updateOrderData(self, apiEvent):
         dataList = apiEvent.getData()
-
-        unLoginAccount = []
+        #self.logger.debug("updateOrderData:%s"%dataList)
         for data in dataList:
             userNo = data['UserNo']
-            if userNo in self._userInfo:
-                self._userInfo[userNo].updateOrder(data)
-            elif userNo not in unLoginAccount:
-                unLoginAccount.append(userNo)
-
-        if len(unLoginAccount) > 0:
-            self.logger.error("[updateOrderData]The user account%s doesn't login!"%unLoginAccount)
+            if userNo not in self._userInfo:
+                self.logger.error("[updateOrderData]The user account(%s) doesn't login!"%userNo)
+                continue
+            self._orderUserMap[data['OrderId']] = userNo
+            #self.logger.debug('[ORDER]%s'%data)
+            self._userInfo[userNo].updateOrder(data)
 
             
     def updateMatchData(self, apiEvent):
         dataList = apiEvent.getData()
-        
+        #self.logger.debug("updateMatchData:%s"%dataList)
         for data in dataList:
             userNo = data['UserNo']
             if userNo not in self._userInfo:
                 self.logger.error("[updateMatchData]The user account(%s) doesn't login!"%userNo)
                 continue
-            
             #self.logger.debug('[MATCH]%s'%data)
-        
             self._userInfo[userNo].updateMatch(data)
             
     def updatePosData(self, apiEvent):
         dataList = apiEvent.getData()
-        
+        #self.logger.debug("updatePosData:%s"%dataList)
         for data in dataList:
             userNo = data['UserNo']
             if userNo not in self._userInfo:

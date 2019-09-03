@@ -5,10 +5,10 @@ from tkinter import *
 from tkinter import ttk, messagebox, Frame
 from utils.utils import *
 
-from .editor import MonitorText, LogText, ErrorText
+from .editor import MonitorText, UsrLogText, ErrorText, SigText
 from .menu import RunMenu
 from capi.com_types import *
-from report.fieldConfigure import StrategyStatus, FrequencyDict
+from report.fieldConfigure import StrategyStatus, FrequencyDict, RunMode
 
 
 class QuantMonitor(object):
@@ -51,6 +51,8 @@ class QuantMonitor(object):
         self.sigText = None
         self.usrText = None
         self.errText = None
+
+        self._regUpdateCallback()
 
         # 日志功能区
         self.createLogBtnFrame()
@@ -108,19 +110,19 @@ class QuantMonitor(object):
 
     def createSysLog(self):
         """系统日志"""
-        self.sysText = MonitorText(self.sysLog, height=20, bd=0)
+        self.sysText = MonitorText(self.sysLog, self, height=20, bd=0)
         self.sysText.createScrollbar()
         self.sysText.pack(fill=BOTH, expand=YES)
 
     def createSignal(self):
         """信号记录"""
-        self.sigText = LogText(self.sigRecord, height=20, bd=0)
+        self.sigText = SigText(self.sigRecord, self, height=20, bd=0)
         self.sigText.createScrollbar()
         self.sigText.pack(fill=BOTH, expand=YES)
 
     def createUsrLog(self):
         """用户日志"""
-        self.usrText = LogText(self.usrLog, height=20, bd=0)
+        self.usrText = UsrLogText(self.usrLog, height=20, bd=0)
         self.usrText.createScrollbar()
         self.usrText.pack(fill=BOTH, expand=YES)
 
@@ -186,7 +188,7 @@ class QuantMonitor(object):
         subCheck.pack(side=LEFT, padx=5)
 
     def createExecute(self):
-        headList  = ["编号", "账号", "策略名称", "基准合约", "频率", "运行状态", "实盘运行",
+        headList  = ["编号", "账号", "策略名称", "基准合约", "频率", "运行阶段", "运行模式",
                     "初始资金", "可用资金", "最大回撤", "累计收益", "胜率"]
         widthList = [5, 50, 50, 50, 5, 10, 5, 20, 10, 20, 20, 5]
 
@@ -225,7 +227,8 @@ class QuantMonitor(object):
 
             Frequency   = str(kLineSlice) + kLineType
 
-            RunType     = "是" if dataDict['IsActualRun'] else "否"
+            # RunType     = "是" if dataDict['IsActualRun'] else "否"
+            RunType     = RunMode[dataDict["IsActualRun"]]
             Status      = StrategyStatus[dataDict["StrategyState"]]
             InitFund    = dataDict['InitialFund']
 
@@ -262,7 +265,7 @@ class QuantMonitor(object):
         strategyId = dataDict["StrategyId"]
         try:
             if self.executeListTree.exists(strategyId):
-                self.updateStatus(strategyId, dataDict[5])
+                self.updateRunStage(strategyId, dataDict[5])
                 return
         except Exception as e:
             self._logger.warn("addExecute exception")
@@ -275,64 +278,70 @@ class QuantMonitor(object):
         self.errText.createScrollbar()
         self.errText.pack(fill=BOTH, expand=YES)
 
+    def _regUpdateCallback(self):
+        self._logUpdateDict = {
+            "U": self._updateUsrText,
+            "E": self._updateErrText,
+            "s": self._updateSysText,
+        }
+
+    def _updateSigText(self, text):
+        """更新下单信号日志"""
+        # 先清空信号记录
+        self.sigText.delText()
+        self.sigText.setText(text)
+
+    def _updateErrText(self, text):
+        """更新调试信息日志"""
+        self.errText.setText(text)
+        self.toErrFrame()
+
+    def _updateUsrText(self, text):
+        """更新用户日志"""
+        self.usrText.setText(text)
+
+    def _updateSysText(self, text):
+        """更新系统日志"""
+        self.sysText.delText()
+        self.sysText.setText(text)
+
+    def loadSysLogFile(self):
+        """读取本地系统日志"""
+        sysLogPath = r"./log/equant.log"
+        # with open(sysLogPath, "r", encoding="utf-8") as f:
+        with open(sysLogPath, "r") as f:
+            data = f.read()
+            self._updateSysText(data)
+
+    def loadSigLogFile(self):
+        """读取本地信号日志并写入界面"""
+        sigLogPath = r"./log/trade.dat"
+        with open(sigLogPath, "r", encoding="utf-8") as f:
+            data = f.read()
+            self._updateSigText(data)
+
+    # TODO: 函数名改为updateLogText
     def updateLogText(self):
         guiQueue = self._controller.get_logger().getGuiQ()
-        data = ""
+        errData, usrData = "", ""
         flag = True
         try:
-            # data = guiQueue.get_nowait()
             while flag:
-                data += guiQueue.get_nowait()+"\n"
+                logData = guiQueue.get_nowait()
+                if logData[0] == "U":
+                    usrData += logData[1] + "\n"
+                elif logData[0] == "E":
+                    errData += logData[1] + "\n"
+
                 if guiQueue.empty():
                     flag = False
         except:
             return
         else:
-            self.sysText.setText(data)
-
-    def updateSigText(self):
-        """更新信号记录"""
-        sigQueue = self._controller.get_logger().getSigQ()
-        sigData = ''
-        flag = True
-        try:
-            # sigData = sigQueue.get_nowait()
-            while flag:
-                sigData += sigQueue.get_nowait()+"\n"
-                if sigQueue.empty():
-                    flag = False
-
-        except Exception as e:
-            return
-        else:
-            # self.toSigFrame()
-            self.sigText.setText(sigData)
-
-    def updateUsrText(self):
-        """更新用户日志"""
-        usrQueue = self._controller.get_logger().getUsrQ()
-        usrData = ''
-        flag = True
-        try:
-            while flag:
-                usrData += usrQueue.get_nowait()+"\n"
-                if usrQueue.empty():
-                    flag = False
-
-        except Exception as e:
-            return
-        else:
-            self.usrText.setText(usrData)
-
-    def updateErrText(self):
-        errQueue = self._controller.get_logger().getErrQ()
-        try:
-            errData = errQueue.get_nowait()
-        except:
-            return
-        else:
-            self.toErrFrame()
-            self.errText.setText(errData)
+            if usrData:
+                self._updateUsrText(usrData)
+            if errData:
+                self._updateErrText(errData)
 
     def clearErrorText(self):
         self.errText.setText("")
@@ -399,6 +408,9 @@ class QuantMonitor(object):
 
         self.sysLog.pack(side=TOP, fill=BOTH, expand=YES)
 
+        # 写入系统日志
+        self.loadSysLogFile()
+
     def toSigFrame(self):
         self.sigBtn.config(bg="white")
         self.sColor = self.sigBtn['bg']
@@ -412,6 +424,9 @@ class QuantMonitor(object):
         self.usrLog.pack_forget()
 
         self.sigRecord.pack(side=TOP, fill=BOTH, expand=YES)
+
+        # 写入信号记录
+        self.loadSigLogFile()
 
     def toUsrFrame(self):
         self.usrBtn.config(bg="white")
@@ -503,12 +518,20 @@ class QuantMonitor(object):
 
         if str(strategyId) in self.executeListTree.get_children():
             for k, v in colValues.items():
-                self.executeListTree.set(strategyId, column=k, value=v)
+                try:
+                    self.executeListTree.set(strategyId, column=k, value=v)
+                except TclError as e:
+                    self._logger.error(f"[UI][{strategyId}]: 更新策略执行数据时出错，执行列表中该策略已删除！")
 
-    def updateStatus(self, strategyId, status):
-        """更新策略状态"""
+    def updateRunStage(self, strategyId, status):
+        """更新策略运行阶段"""
         if str(strategyId) in self.executeListTree.get_children():
             self.executeListTree.set(strategyId, column="#6", value=StrategyStatus[status])
+
+    def updateRunMode(self, strategyId, status):
+        """更新策略运行模式"""
+        if str(strategyId) in self.executeListTree.get_children():
+            self.executeListTree.set(strategyId, column="#7", value=RunMode[status])
 
     def updatePos(self, positions):
         for itemId in self.posTree.get_children():

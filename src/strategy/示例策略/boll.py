@@ -4,10 +4,7 @@ p = 8    # 计算周期
 qty = 1  # 下单量
 
 def initialize(context): 
-    # K线稳定后发单
-    SetBarInterval("NYMEX|F|CL|1909", 'M', 1, 2000)
     SetOrderWay(2)
-    SetActual()
 
 def handle_data(context):  
     # 等待数据就绪，否则计算果结为异常值
@@ -28,5 +25,5 @@ def handle_data(context):
     PlotNumeric('mid', mid[-1], RGB_Blue())
     PlotNumeric('low', low[-1], RGB_Green())
     # 绘制盈亏曲线
-    PlotNumeric("profit", NetProfit() + FloatProfit(), 0xFF00FF, False) 
+    PlotNumeric("profit", NetProfit() + FloatProfit() - TradeCost(), 0xFF00FF, False) 
 

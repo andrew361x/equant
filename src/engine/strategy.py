@@ -2,7 +2,6 @@
 
 from multiprocessing import Process, Queue
 from threading import Thread
-from .thread import QuantThread
 import time, os, sys
 from capi.com_types import *
 from api import base_api
@@ -263,6 +262,9 @@ class TradeRecord(object):
         self._barInfo = None # 触发的Bar信息
         # SessionId
         self._sessionId = orderData['SessionId'] if 'SessionId' in orderData else None
+        
+        #用户编号
+        self._userNo = orderData['UserNo'] if 'UserNo' in orderData else None
         # 合约编号
         self._contNo = orderData['Cont'] if 'Cont' in orderData else None
         # 定单号
@@ -279,10 +281,22 @@ class TradeRecord(object):
         self._matchPrice = orderData['MatchPrice'] if 'MatchPrice' in orderData else None
         # 委托成交量
         self._matchQty = orderData['MatchQty'] if 'MatchQty' in orderData else None
+        # 委托价
+        self._orderPrice = orderData['OrderPrice'] if 'OrderPrice' in orderData else None
+        # 委托订单量
+        self._orderQty = orderData['OrderQty'] if 'OrderQty' in orderData else None
+        # 下单时间
+        self._insertTime = orderData['InsertTime'] if 'InsertTime' in orderData else None
+        # 订单更新时间
+        self._updateTime = orderData['UpdateTime'] if 'UpdateTime' in orderData else None
+
 
     def updateOrderInfo(self, eSessionId, orderData):
         if eSessionId != self._eSessionId:
             return
+            
+        if 'UserNo' in orderData:
+            self._userNo = orderData['UserNo']
 
         if 'SessionId' in orderData:
             self._sessionId = orderData['SessionId']
@@ -302,6 +316,14 @@ class TradeRecord(object):
             self._matchPrice = orderData['MatchPrice']
         if 'MatchQty' in orderData:
             self._matchQty = orderData['MatchQty']
+        if 'OrderPrice' in orderData:
+            self._orderPrice = orderData['OrderPrice']
+        if 'OrderQty' in orderData:
+            self._orderQty = orderData['OrderQty']
+        if 'InsertTime' in orderData:
+            self._insertTime = orderData['InsertTime']
+        if 'UpdateTime' in orderData:
+            self._updateTime = orderData['UpdateTime']    
 
     def getBarInfo(self):
         return self._barInfo
@@ -363,6 +385,10 @@ class Strategy:
             
         # 3. 创建数据模块
         self._dataModel = StrategyModel(self)
+        self._cfgModel  = self._dataModel.getConfigModel()
+        self._hisModel  = self._dataModel.getHisQuoteModel()
+        self._qteModel  = self._dataModel.getQuoteModel()
+        self._trdModel  = self._dataModel.getTradeModel()
         
         self._userModelDict = {}
 
@@ -389,7 +415,7 @@ class Strategy:
         if not self._noInitialize:
             userModule.initialize(self._context)
 
-        self._dataModel.getConfigModel().setParams(self._argsDict["Params"])
+        self._cfgModel.setParams(self._argsDict["Params"])
 
         builtins.g_params = {k:v[0] for k,v in self._argsDict["Params"].items()}
         #     self._argsDict["Params"] = self._context.params
@@ -413,6 +439,49 @@ class Strategy:
         # 9. 启动策略心跳线程
         self._startStrategyTimer()
         
+    def _regEgCallback(self):
+        self._egCallbackDict = {
+            #//////////////////////引擎发送的数据/////////////////////////
+            EV_EG2ST_EXCHANGE_RSP           : self._onExchange               ,
+            EV_EG2ST_COMMODITY_RSP          : self._onCommodity              ,
+            EV_EG2ST_CONTRACT_RSP           : self._onContract               ,
+            EV_EG2ST_UNDERLAYMAPPING_RSP    : self._onUnderlayMap            ,
+            EV_EG2ST_SUBQUOTE_RSP           : self._onQuoteRsp               ,
+            EV_EG2ST_SNAPSHOT_NOTICE        : self._onQuoteNotice            ,
+            EV_EG2ST_DEPTH_NOTICE           : self._onDepthNotice            ,
+            EV_EG2ST_HISQUOTE_RSP           : self._onHisQuoteRsp            ,
+            EV_EG2ST_HISQUOTE_NOTICE        : self._onHisQuoteNotice         ,
+            
+            EV_EG2ST_LOGINNO_RSP            : self._onLoginInfo              ,
+            EV_EG2ST_USERNO_RSP             : self._onUserInfo               ,
+            EV_EG2ST_MONEY_RSP              : self._onMoneyInfo              ,
+            EV_EG2ST_ORDER_RSP              : self._onOrderInfo              ,
+            EV_EG2ST_MATCH_RSP              : self._onMatchInfo              ,
+            EV_EG2ST_POSITION_RSP           : self._onPositionInfo           ,
+
+            #//////////////////////API直接推送的数据/////////////////////
+            EEQU_SRVEVENT_TRADE_LOGINQRY    : self._onTradeLoginQry    ,
+            EEQU_SRVEVENT_TRADE_LOGINNOTICE : self._onTradeLoginNotice       ,
+            EEQU_SRVEVENT_TRADE_USERQRY     : self._onTradeUserQry           ,
+            EEQU_SRVEVENT_TRADE_MATCHQRY    : self._onTradeMatchQry          ,
+            EEQU_SRVEVENT_TRADE_MATCH       : self._onTradeMatch             ,
+            EEQU_SRVEVENT_TRADE_POSITQRY    : self._onTradePositionQry       ,
+            EEQU_SRVEVENT_TRADE_POSITION    : self._onTradePosition          ,
+            EEQU_SRVEVENT_TRADE_FUNDQRY     : self._onTradeMoney           ,
+            EEQU_SRVEVENT_TRADE_ORDERQRY    : self._onTradeOrderQry          ,
+            EEQU_SRVEVENT_TRADE_ORDER       : self._onTradeOrder             ,
+            EEQU_SRVEVENT_TRADE_EXCSTATEQRY : self._onExchangeStateNotice    ,
+            EEQU_SRVEVENT_TRADE_EXCSTATE    : self._onExchangeStateNotice    ,
+            
+            #//////////////////////UI推送的数据/////////////////////////
+            EV_UI2EG_REPORT                 : self._onReport                 ,
+            EV_UI2EG_LOADSTRATEGY           : self._onLoadStrategyResponse   ,
+            EV_UI2EG_STRATEGY_QUIT          : self._onStrategyQuit           ,
+            EV_UI2EG_EQUANT_EXIT            : self._onEquantExit             ,
+            EV_UI2EG_STRATEGY_FIGURE        : self._switchStrategy           ,
+            EV_UI2EG_STRATEGY_REMOVE        : self._onStrategyRemove         ,
+        }
+        
     def _actualRun(self):
         try:
             # 1. 内部初始化
@@ -428,7 +497,7 @@ class Strategy:
             # 3. 请求历史行情
             self._reqHisQuote()
             # 4. 查询交易数据
-            self._reqTradeData()
+            self._reqLoginInfo()
             # 5. 数据处理
             self._mainLoop()
         except Exception as e:
@@ -482,13 +551,6 @@ class Strategy:
             # runReport中会有等待
 
             self._dataModel.runReport(self._context, self._userModule.handle_data)
-
-            # 持续运行阶段
-            # 1. 中间阶段, 实际上还是作为历史回测
-            # 2. 真正的实时阶段
-            # self._runStatus = ST_STATUS_HISTORY
-            # self._send2UIStatus(self._runStatus)
-            #
             
             if not self._dataModel.getConfigModel().isActualRun():
                 self.logger.warn(f"未选择实盘运行，如果需要请在设置界面勾选'实盘运行'，或者在策略代码中调用SetActual()")
@@ -584,7 +646,7 @@ class Strategy:
 
             self.sendEvent2UI(event)
 
-    def _noticeVirtualPos(self):
+    def _reportStrategyPosition(self):
         nowTime = datetime.now()
         if self._virtualPosTime == 0 or (nowTime - self._virtualPosTime).total_seconds() >= 1:
             self._virtualPosTime = nowTime
@@ -617,7 +679,7 @@ class Strategy:
             # 通知资金变化
             self._triggerMoney()
             # 发送持仓变化
-            self._noticeVirtualPos()
+            self._reportStrategyPosition()
             # 休眠100ms
             time.sleep(0.1)
 
@@ -636,105 +698,102 @@ class Strategy:
         })
         self.sendEvent2UI(event)
     
-    def _regEgCallback(self):
-        self._egCallbackDict = {
-            EV_EG2ST_EXCHANGE_RSP           : self._onExchange         ,
-            EV_EG2ST_COMMODITY_RSP          : self._onCommodity        ,
-            EV_EG2ST_CONTRACT_RSP           : self._onContract         ,
-            EV_ST2EG_UNDERLAYMAPPING_RSP    : self._onUnderlayMap      ,
-            EV_EG2ST_SUBQUOTE_RSP           : self._onQuoteRsp         ,
-            EV_EG2ST_SNAPSHOT_NOTICE        : self._onQuoteNotice      ,
-            EV_EG2ST_DEPTH_NOTICE           : self._onDepthNotice      ,
-            EV_EG2ST_HISQUOTE_RSP           : self._onHisQuoteRsp      ,
-            EV_EG2ST_HISQUOTE_NOTICE        : self._onHisQuoteNotice   ,
-            EV_UI2EG_REPORT                 : self._onReport           ,
-            EV_UI2EG_LOADSTRATEGY           : self._onLoadStrategyResponse,
-            EV_EG2ST_TRADEINFO_RSP          : self._onTradeInfo         ,
-
-            EEQU_SRVEVENT_TRADE_LOGINQRY    : self._onTradeLoginQry,
-            EEQU_SRVEVENT_TRADE_LOGINNOTICE : self._onTradeLoginNotice,
-            EEQU_SRVEVENT_TRADE_USERQRY     : self._onTradeUserQry,
-            EEQU_SRVEVENT_TRADE_MATCHQRY    : self._onTradeMatchQry,
-            EEQU_SRVEVENT_TRADE_MATCH       : self._onTradeMatch,
-            EEQU_SRVEVENT_TRADE_POSITQRY    : self._onTradePositionQry,
-            EEQU_SRVEVENT_TRADE_POSITION    : self._onTradePosition,
-            EEQU_SRVEVENT_TRADE_FUNDQRY     : self._onTradeFundRsp,
-            EEQU_SRVEVENT_TRADE_ORDERQRY    : self._onTradeOrderQry,
-            EEQU_SRVEVENT_TRADE_ORDER       : self._onTradeOrder,
-            EEQU_SRVEVENT_TRADE_EXCSTATEQRY : self._onExchangeStateNotice      ,
-            EEQU_SRVEVENT_TRADE_EXCSTATE    : self._onExchangeStateNotice      ,
-            
-
-            EV_UI2EG_STRATEGY_QUIT          : self._onStrategyQuit,
-            EV_UI2EG_EQUANT_EXIT            : self._onEquantExit,
-            EV_UI2EG_STRATEGY_FIGURE        : self._switchStrategy,
-            EV_UI2EG_STRATEGY_REMOVE        : self._onStrategyRemove,
-
-            EV_EG2ST_STRATEGY_SYNC          : self._onSyncEngineInfo,
-        }
-    
     # ////////////////////////////内部数据请求接口////////////////////
+    def _reqData(self, code, data=''):
+        event = Event({
+            'EventCode': code,
+            'StrategyId': self._strategyId,
+            'Data': data,
+        })
+        self.sendEvent2Engine(event)
+    
     def _reqExchange(self):
-        self._dataModel.reqExchange()
+        self._reqData(EV_ST2EG_EXCHANGE_REQ)
 
     def _reqCommodity(self):
-        self._dataModel.reqCommodity()
+        self._reqData(EV_ST2EG_COMMODITY_REQ)
 
     def _reqContract(self):
-        self._dataModel.reqContract()
+        self._reqData(EV_ST2EG_CONTRACT_REQ)
 
     def _reqUnderlayMap(self):
-        self._dataModel.reqUnderlayMap()
+        self._reqData(EV_ST2EG_UNDERLAYMAPPING_REQ)
 
     # 订阅即时tick、 k线
     def _subQuote(self):
-        self._dataModel.subQuote()
+        '''需要根据配置列表'''
+        contList = []
+        self._contractTuple = self._cfgModel.getContract()
+        for cno in self._contractTuple:
+            contList.append(cno)
+            
+        self._reqData(EV_ST2EG_SUB_QUOTE, contList)
 
     # 请求历史tick、k线数据
     def _reqHisQuote(self):
-        self._dataModel.getHisQuoteModel().reqAndSubKLine()
-
-    # 查询交易数据
-    def _reqTradeData(self):
-        self._dataModel.reqTradeData()
+        #暂时先不修改
+        self._hisModel.reqAndSubKLine()
+        
+    # 查询登录账号
+    def _reqLoginInfo(self):
+        self._reqData(EV_ST2EG_LOGINNO_REQ)
+        
+    # 查询资金账号
+    def _reqUserInfo(self):
+        self._reqData(EV_ST2EG_USERNO_REQ)
+        
+    def _reqMoney(self):
+        self._reqData(EV_ST2EG_MONEY_REQ)
+        
+    # 查询委托数据
+    def _reqOrder(self):
+        self._reqData(EV_ST2EG_ORDER_REQ)
+        
+    # 查询成交数据
+    def _reqMatch(self):
+        self._reqData(EV_ST2EG_MATCH_REQ)
+        
+    # 查询持仓数据
+    def _reqPosition(self):
+        self._reqData(EV_ST2EG_POSITION_REQ)
         
     # ////////////////////////////内部数据应答接口////////////////////
     def _onExchange(self, event):
         '''交易所信息应答'''
-        self._dataModel.onExchange(event)
+        self._qteModel.onExchange(event)
 
     def _onCommodity(self, event):
         '''品种查询应答'''
-        self._dataModel.onCommodity(event)
+        self._qteModel.onCommodity(event)
         self._dataModel.initializeCalc()
 
     def _onContract(self, event):
-        self._dataModel.onContract(event)
+        self._qteModel.onContract(event)
 
     def _onUnderlayMap(self, event):
-        self._dataModel.onUnderlayMap(event)
+        self._qteModel.onUnderlayMap(event)
        
     def _onExchangeStateNotice(self, event):
         '''交易所状态'''
-        self._dataModel.onExchangeStatus(event)
+        self._qteModel.onExchangeStatus(event)
             
     def _onQuoteRsp(self, event):
         '''行情应答，来着策略引擎'''
-        self._dataModel.onQuoteRsp(event)
+        self._qteModel.onQuoteRsp(event)
         
     def _onQuoteNotice(self, event):
-        self._dataModel.onQuoteNotice(event)
+        self._qteModel.onQuoteNotice(event)
         self._snapShotTrigger(event)
 
     def _onDepthNotice(self, event):
-        self._dataModel.onDepthNotice(event)
+        self._qteModel.onDepthNotice(event)
 
     def _onHisQuoteRsp(self, event):
         '''历史数据请求应答'''
-        self._dataModel.getHisQuoteModel().onHisQuoteRsp(event)
+        self._hisModel.onHisQuoteRsp(event)
         
     def _onHisQuoteNotice(self, event):
-        self._dataModel.getHisQuoteModel().onHisQuoteNotice(event)
+        self._hisModel.onHisQuoteNotice(event)
 
     # 报告事件, 发到engine进程中，engine进程 再发到ui进程。
     def _onReport(self, event):
@@ -747,9 +806,6 @@ class Strategy:
             }
         })
         self.sendEvent2UI(responseEvent)
-
-    def getQueues(self):
-        return self._eg2stQueue, self._st2egQueue
 
     def _onLoadStrategyResponse(self, event):
         '''向界面返回策略加载应答'''
@@ -774,68 +830,98 @@ class Strategy:
             }
         })
         self.sendEvent2UI(revent)
+        
+    def _onLoginInfo(self, event):
+        self._onTradeLoginQry(event)
+        #查询资金账户
+        self._reqUserInfo()
+     
+    def _onUserInfo(self, event):
+        self._onTradeUserQry(event)
+        #查询所有用户资金信息
+        self._reqMoney()
+        
+    def _onMoneyInfo(self, event):
+        self._onTradeMoney(event)
+        #查询所有委托信息
+        self._reqOrder()
+        
+    def _onOrderInfo(self, event):
+        #self.logger.debug("_onOrderInfo:%s"%event.getData())
+        self._onTradeOrderQry(event)
+        #委托信息可能会有很多笔，最后一笔查询下一个数据
+        if event.isChainEnd():
+            self._reqMatch()
+        
+    def _onMatchInfo(self, event):
+        #self.logger.debug("_onMatchInfo:%s"%event.getData())
+        self._onTradeMatch(event)
+        #委托信息可能会有很多笔，最后一笔查询下一个数据
+        if event.isChainEnd():
+            self._reqPosition()
+        
+    def _onPositionInfo(self, event):
+        #self.logger.debug("_onPositionInfo:%s"%event.getData())
+        self._onTradePosition(event)
+        #委托信息可能会有很多笔，最后一笔查询下一个数据
+        if event.isChainEnd():
+            #TODO：设置为数据完成
+            pass
 
-    def _onTradeInfo(self, event):
-        '''
-        请求用户登录/账户信息
-        :param event: 引擎返回事件
-        :return: None
-        '''
-        data = event.getData()
-        if len(data) == 0:
-            # 用户未登录
-            return
+    def _onTradeLoginQry(self, apiEvent):
+        self._trdModel.updateLoginInfo(apiEvent)
 
-        # 更新登录账号信息
-        loginInfo = data['loginInfo']
-        self._dataModel._trdModel.updateLoginInfoFromDict(loginInfo)
+    def _onTradeLoginNotice(self, apiEvent):
+        #ret = self._trdModel.updateLoginInfoEg(apiEvent)
+        dataList  = apiEvent.getData()
+        loginInfo = self._trdModel.getLoginInfo() 
+        
+        #不用重新查询交易数据，引擎会推送
+        for data in dataList:
+            #新登录账号
+            loginNo = data['LoginNo']
+            if loginNo not in loginInfo:
+                self._trdModel.addLoginInfo(data)
+            #登出，清理登录账号和资金账号
+            elif data['IsReady'] == EEQU_NOTREADY:
+                self._trdModel.delLoginInfo(data)
+                self._trdModel.delUserInfo(loginNo)
+            #交易日切换，清理所有资金账号及本地委托数据
+            elif self._trdModel.chkTradeDate(data):
+                userDict = self._trdModel.getLoginUser(loginNo)
+                self.delLocalOrder(userDict)
+                self._trdModel.delUserInfo(loginNo)
+            else:
+                self.logger.warn("Unknown login status: %s"%data)
+    
+        #self._trdModel.updateLoginInfo(apiEvent)
 
-        # 更新资金账号信息
-        userInfo = data['userInfo']
-        self._dataModel._trdModel.updateUserInfoFromDict(userInfo)
+    def _onTradeUserQry(self, apiEvent):
+        self._trdModel.updateUserInfo(apiEvent)
+        self._trdModel.updateLoginInfo(apiEvent)
 
+    def _onTradeMatchQry(self, apiEvent):
+        self._trdModel.updateMatchData(apiEvent)
+
+    def _onTradePositionQry(self, apiEvent):
+        self._trdModel.updatePosData(apiEvent)
+
+    def _onTradeOrderQry(self, apiEvent):
+        self._trdModel.updateOrderData(apiEvent)
+        
     def _onTradeOrder(self, apiEvent):
-        '''
-        交易委托信息发生变化时，更新交易模型信息
-        :param apiEvent: 引擎返回事件
-        :return: None
-        '''
-        self._dataModel._trdModel.updateOrderData(apiEvent)
+        
+        self._trdModel.updateOrderData(apiEvent)
 
         # 更新本地订单信息
         dataList = apiEvent.getData()
         eSessionId = apiEvent.getESessionId()
-        # self.logger.debug(f"sun --------------- strategy : ")
-        # self.logger.debug(f"sun ------ eSessionId : {eSessionId}")
-        # for dataDict in dataList:
-        #     self.logger.debug(f"sun ------ OrderId :  {dataDict['OrderId']} , OrderState : {dataDict['OrderState']}")
         for data in dataList:
             self.updateLocalOrder(eSessionId, data)
+            
         if self.isRealTimeStatus():
-            # print("in strategy", repr(apiEvent.getData()[0]["OrderState"]))
             self._tradeTriggerOrder(apiEvent)
-
-    def _onTradeLoginQry(self, apiEvent):
-        self._dataModel._trdModel.updateLoginInfo(apiEvent)
-
-    def _onTradeLoginNotice(self, apiEvent):
-        self._dataModel._trdModel.updateLoginInfo(apiEvent)
-
-    def _onTradeUserQry(self, apiEvent):
-        self._dataModel._trdModel.updateUserInfo(apiEvent)
-        self._dataModel._trdModel.updateLoginInfo(apiEvent)
-
-    def _onTradeMatchQry(self, apiEvent):
-        self._dataModel._trdModel.updateMatchData(apiEvent)
-
-    def _onTradePositionQry(self, apiEvent):
-        self._dataModel._trdModel.updatePosData(apiEvent)
-
-    def _onTradeOrderQry(self, apiEvent):
-        # self.logger.debug(f"sun --------------- strategy qry : ")
-        # for dataDict in apiEvent.getData():
-        #     self.logger.debug(f"sun ------ OrderId :  {dataDict['OrderId']} , OrderState : {dataDict['OrderState']}")
-        self._dataModel._trdModel.updateOrderData(apiEvent)
+        
 
     def _onTradeMatch(self, apiEvent):
         '''
@@ -843,7 +929,7 @@ class Strategy:
         :param apiEvent: 引擎返回事件
         :return: None
         '''
-        self._dataModel._trdModel.updateMatchData(apiEvent)
+        self._trdModel.updateMatchData(apiEvent)
         # self._tradeTriggerMatch(apiEvent) # 去掉成交触发
 
     def _onTradePosition(self, apiEvent):
@@ -852,15 +938,15 @@ class Strategy:
         :param apiEvent: 引擎返回事件
         :return: None
         '''
-        self._dataModel._trdModel.updatePosData(apiEvent)
+        self._trdModel.updatePosData(apiEvent)
 
-    def _onTradeFundRsp(self, apiEvent):
+    def _onTradeMoney(self, apiEvent):
         '''
         交易资金信息发生变化时，更新交易模型信息
         :param apiEvent: 引擎返回事件
         :return: None
         '''
-        self._dataModel._trdModel.updateMoney(apiEvent)
+        self._trdModel.updateMoney(apiEvent)
 
     def getStrategyId(self):
         return self._strategyId
@@ -881,12 +967,24 @@ class Strategy:
 
     def updateLocalOrder(self, eSesnId, data):
         # 更新本地订单信息
+        #self.logger.debug("AAAAA:%s,%s"%(eSesnId, data))
         if eSesnId in self._localOrder:
             tradeRecode = self._localOrder[eSesnId]
             tradeRecode.updateOrderInfo(eSesnId, data)
         else:
             self._localOrder[eSesnId] = TradeRecord(eSesnId, data)
             self._eSessionIdList.append(eSesnId)
+            
+    def delLocalOrder(self, userDict):
+        popSessionList  = []
+        
+        for k, v in self._localOrder.items():
+            if v_userNo in userDict:
+                popSessionList.append(k)
+                    
+        for eid in popSessionList:
+            self._localOrder.pop(eid)
+            
 
     def updateBarInfoInLocalOrder(self, eSessionId, barInfo):
         if not barInfo:
@@ -896,11 +994,110 @@ class Strategy:
         tradeRecode = self._localOrder[eSessionId]
         tradeRecode._barInfo = barInfo
 
+    def getOrderBuyOrSell(self, eSessionId):
+        if eSessionId not in self._localOrder:
+            return 'N'
+        tradeRecord = self._localOrder[eSessionId]
+        return tradeRecord._direct
+
+    def getOrderEntryOrExit(self, eSessionId):
+        if eSessionId not in self._localOrder:
+            return 'N'
+        tradeRecord = self._localOrder[eSessionId]
+        return tradeRecord._offset
+        
+    def getOrderFilledLot(self, eSessionId):
+        if eSessionId not in self._localOrder:
+            return 0
+        tradeRecord = self._localOrder[eSessionId]
+        return tradeRecord._matchQty
+        
+    def getOrderFilledPrice(self, eSessionId):
+        if eSessionId not in self._localOrder:
+            return 0
+        tradeRecord = self._localOrder[eSessionId]
+        return tradeRecord._matchPrice
+
+    def getOrderLot(self, eSessionId):
+        if eSessionId not in self._localOrder:
+            return 0
+        tradeRecord = self._localOrder[eSessionId]
+        return tradeRecord._orderQty
+        
+    def getOrderPrice(self, eSessionId):
+        if eSessionId not in self._localOrder:
+            return 0
+        tradeRecord = self._localOrder[eSessionId]
+        return tradeRecord._orderPrice    
+    
+    def getOrderStatus(self, eSessionId):
+        if eSessionId not in self._localOrder:
+            return 'N'
+        tradeRecord = self._localOrder[eSessionId]
+        return tradeRecord._orderState
+
+    def getOrderTime(self, eSessionId):
+        if eSessionId not in self._localOrder:
+            return 0
+        tradeRecord = self._localOrder[eSessionId]
+
+        insertTime =  tradeRecord._insertTime
+        if not insertTime:
+            return 0
+
+        struct_time = time.strptime(insertTime, "%Y-%m-%d %H:%M:%S")
+        timeStamp = time.strftime("%Y%m%d.%H%M%S", struct_time)
+        return float(timeStamp)        
+
+    def getOrderUpdateTime(self, eSessionId):
+        if eSessionId not in self._localOrder:
+            return 0
+        tradeRecord = self._localOrder[eSessionId]
+
+        updateTime =  tradeRecord._updateTime
+        if not updateTime:
+            return 0
+
+        struct_time = time.strptime(updateTime, "%Y-%m-%d %H:%M:%S")
+        timeStamp = time.strftime("%Y%m%d.%H%M%S", struct_time)
+        return float(timeStamp)
+        
+    def deleteOrder(self, eSessionId):
+        orderId = ''
+        if isinstance(eSessionId, str) and '-' in eSessionId:
+            orderId = self.getOrderId(eSessionId)
+            if not orderId:
+                return False
+        else:
+            orderId = eSessionId
+            
+        return self.deleteOrderByOrderId(orderId)        
+        
+    def deleteOrderByOrderId(self, orderId):
+        aOrder = {
+            "OrderId": orderId,
+        }
+        aOrderEvent = Event({
+            "EventCode": EV_ST2EG_ACTUAL_CANCEL_ORDER,
+            "StrategyId": self.getStrategyId(),
+            "Data": aOrder
+        })
+        self.sendEvent2Engine(aOrderEvent)
+        
+        return True
+        
     def getContNo(self, eSessionId):
         if eSessionId not in self._localOrder:
             return ''
         tradeRecord = self._localOrder[eSessionId]
         return tradeRecord._contNo
+        
+    def getContNoByOrderId(self, orderId):
+        for k, v in self._localOrder.items():
+            if v._orderId == orderId:
+                return v._contNo
+        
+        return ''
 
     def getOrderNo(self, eSessionId):
         if eSessionId not in self._localOrder:
@@ -934,7 +1131,7 @@ class Strategy:
                     break
                 except queue.Full:
                     time.sleep(0.1)
-                    self.logger.error(f"策略{self._strategyId}向引擎传递事件{event.getEventCode()}时卡住")
+                    #self.logger.error(f"策略{self._strategyId}向引擎传递事件{event.getEventCode()}时卡住")
 
     def sendEvent2EngineForce(self, event):
         while True:
@@ -943,7 +1140,7 @@ class Strategy:
                 break
             except queue.Full:
                 time.sleep(0.1)
-                self.logger.error(f"策略{self._strategyId}强制向引擎传递事件{event.getEventCode()}时阻塞")
+                #self.logger.error(f"策略{self._strategyId}强制向引擎传递事件{event.getEventCode()}时阻塞")
 
     def sendEvent2UI(self, event):
         while True:
@@ -952,7 +1149,7 @@ class Strategy:
                 break
             except queue.Full:
                 time.sleep(0.1)
-                self.logger.error(f"策略{self._strategyId}制向UI传递事件{event.getEventCode()}时阻塞")
+                #self.logger.error(f"策略{self._strategyId}制向UI传递事件{event.getEventCode()}时阻塞")
 
     def sendTriggerQueue(self, event):
         self._triggerQueue.put(event)
@@ -971,6 +1168,11 @@ class Strategy:
 
     # 停止策略
     def _onStrategyQuit(self, event=None, status=ST_STATUS_QUIT):
+    
+        #回调退出函数
+        if hasattr(self._userModule, 'exit_callback'):
+            self._userModule.exit_callback(self._context)
+    
         self._isSt2EgQueueEffective = False
         self._strategyState = StrategyStatusExit
         config = None if self._dataModel is None else self._dataModel.getConfigData()
@@ -997,6 +1199,10 @@ class Strategy:
             time.sleep(2)
 
     def _onEquantExit(self, event):
+        #回调退出函数
+        if hasattr(self._userModule, 'exit_callback'):
+            self._userModule.exit_callback(self._context)
+            
         self._isSt2EgQueueEffective = False
         self._strategyState = StrategyStatusExit
         config = None if self._dataModel is None else self._dataModel.getConfigData()
@@ -1153,7 +1359,3 @@ class Strategy:
             }
         })
         self.sendEvent2Engine(event)
-
-    def _onSyncEngineInfo(self, event):
-        orderId = event.getData()["MaxOrderId"]
-        self._eSessionId = orderId

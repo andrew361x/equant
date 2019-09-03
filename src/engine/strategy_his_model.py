@@ -184,6 +184,7 @@ class StrategyHisQuote(object):
         #
         self._firstRealTimeKLine = {}
         self._triggerMgr = None
+        # self.isMonitorTrigger = {}
 
     def initialize(self):
         self._contractTuple = self._config.getContract()
@@ -915,6 +916,22 @@ class StrategyHisQuote(object):
             key = (record["ContractNo"], record["KLineType"], record["KLineSlice"])
             print(record["ContractNo"], self._kLineRspData[key]["KLineReady"])
 
+    # 30天月线和255天年线日期无效处理
+    def replaceDateStr(self, datestr):
+        if len(datestr) != 17:
+            return datestr
+            
+        sl = list(datestr)
+        
+        # 处理无效月
+        if sl[4] == '0' and sl[5] == '0':
+            sl[5] = '1'
+        # 处理无效日
+        if sl[6] == '0' and sl[7] == '0':
+            sl[7] = '1'
+            
+        return ''.join(sl)
+
     def runReport(self, context, handle_data):
         # 不使用历史K线，也需要切换
         # 切换K线
@@ -944,7 +961,7 @@ class StrategyHisQuote(object):
         test = newDF[["DateTimeStamp", "KLineType", "KLineSlice"]].values
         effectiveDTS = []
         for i, record in enumerate(test):
-            curBarDTS = datetime.strptime(str(record[0]), "%Y%m%d%H%M%S%f")
+            curBarDTS = datetime.strptime(self.replaceDateStr(str(record[0])), "%Y%m%d%H%M%S%f")
             if record[1] == EEQU_KLINE_MINUTE:
                 curEffectiveDTS = curBarDTS-relativedelta(minutes=record[2])
             elif record[1] == EEQU_KLINE_DAY:
@@ -1143,7 +1160,10 @@ class StrategyHisQuote(object):
                 self._stopWinOrLose(event.getContractNo(), lv1Data[4], lv1Data[4])
                 self._stopFloatWinLose(event.getContractNo(), lv1Data[4], lv1Data[4])
             else:
-                self.logger.info(f"即时行情中的字段没有最新价")
+                # 交易所套利无最新价
+                comtype = event.getContractNo().split('|')[1]
+                if comtype != 'S' and comtype != 'M':
+                    self.logger.info(f"即时行情中的字段没有最新价")
 
             # 延迟判断是否即时行情触发
             if not self._config.hasSnapShotTrigger() or not self._strategy.isRealTimeStatus():
@@ -1191,22 +1211,26 @@ class StrategyHisQuote(object):
 
     def _calcProfitByQuote(self, event):
         #
+        contNo = event.getContractNo()
         data = event.getData()
         lv1Data = data["Data"]
         dateTimeStamp = data["DateTimeStamp"]
-        tradeDate = data["TradeDate"]
+        #tradeDate = data["TradeDate"]
+        tradeDate = self._dataModel.getTradeDate(contNo, dateTimeStamp)
         isLastPriceChanged = data["IsLastPriceChanged"]
 
         if not isLastPriceChanged:
             return
 
         priceInfos = {}
-        priceInfos[event.getContractNo()] = {
+        priceInfos[contNo] = {
             "LastPrice": lv1Data[4],
             "TradeDate": tradeDate,
             "DateTimeStamp" : dateTimeStamp,
             "LastPriceSource": LastPriceFromQuote
         }
+        
+        #self.logger.debug("_calcProfitByQuote:%s"%priceInfos)
         self._calc.calcProfit([event.getContractNo()], priceInfos)
 
     #
@@ -1254,12 +1278,10 @@ class StrategyHisQuote(object):
 
         if isStopWinTrigger:
             if allPos["TotalBuy"] >= 1:
-                coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], stopWinParams["CoverPosOrderType"],
-                                                         stopWinParams["AddPoint"], priceTick, dSell)
+                coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], stopWinParams["CoverPosOrderType"], stopWinParams["AddPoint"], priceTick, dSell)
                 self._dataModel.setSell('', contractNo, allPos["TotalBuy"], coverPosPrice)
             elif allPos["TotalSell"] >= 1:
-                coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], stopWinParams["CoverPosOrderType"],
-                                                         stopWinParams["AddPoint"], priceTick, dBuy)
+                coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], stopWinParams["CoverPosOrderType"], stopWinParams["AddPoint"], priceTick, dBuy)
                 self._dataModel.setBuyToCover('', contractNo, allPos["TotalSell"], coverPosPrice)
 
         elif isStopLoseTrigger:

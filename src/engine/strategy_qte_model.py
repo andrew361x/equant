@@ -1,6 +1,6 @@
 import numpy as np
 from capi.com_types import *
-from .engine_model import *
+from .quote_model import *
 import time, sys
 import math
 
@@ -19,19 +19,6 @@ class StrategyQuote(QuoteModel):
         self._config = config
         self._contractTuple = self._config.getContract()
         
-    def subQuote(self):
-        contList = []
-        self._contractTuple = self._config.getContract()
-        for cno in self._contractTuple:
-            contList.append(cno)
-
-        event = Event({
-            'EventCode'   : EV_ST2EG_SUB_QUOTE,
-            'StrategyId'  : self._strategy.getStrategyId(),
-            'Data'        : contList,
-        })
-
-        self._strategy.sendEvent2Engine(event)
 
     def subQuoteList(self, contNoList):
         if not contNoList:
@@ -53,42 +40,6 @@ class StrategyQuote(QuoteModel):
             'EventCode': EV_ST2EG_UNSUB_QUOTE,
             'StrategyId': self._strategy.getStrategyId(),
             'Data': contNoList,
-        })
-
-        self._strategy.sendEvent2Engine(event)
-
-    def reqExchange(self):
-        event = Event({
-            'EventCode': EV_ST2EG_EXCHANGE_REQ,
-            'StrategyId': self._strategy.getStrategyId(),
-            'Data': '',
-        })
-
-        self._strategy.sendEvent2Engine(event)
-
-    def reqCommodity(self):
-        event = Event({
-            'EventCode'   : EV_ST2EG_COMMODITY_REQ, 
-            'StrategyId'  : self._strategy.getStrategyId(),
-            'Data'        : '',
-        })
-        
-        self._strategy.sendEvent2Engine(event)
-
-    def reqContract(self):
-        event = Event({
-            'EventCode': EV_ST2EG_CONTRACT_REQ,
-            'StrategyId': self._strategy.getStrategyId(),
-            'Data': '',
-        })
-
-        self._strategy.sendEvent2Engine(event)
-
-    def reqUnderlayMap(self):
-        event = Event({
-            'EventCode': EV_ST2EG_UNDERLAYMAPPING_REQ,
-            'StrategyId': self._strategy.getStrategyId(),
-            'Data': '',
         })
 
         self._strategy.sendEvent2Engine(event)
@@ -128,6 +79,7 @@ class StrategyQuote(QuoteModel):
         event.Data = {
             'ExchangeNo' : dataDict['ExchangeNo'],
             'CommodityNo': dataDict['CommodityNo'],
+            'ContractNo' : dataDict['ContractNo']
             'UpdateTime' : 20190401090130888, # 时间戳
             'Lv1Data'    : {                  # 普通行情
                 '0'      : 5074,              # 昨收盘
@@ -159,16 +111,11 @@ class StrategyQuote(QuoteModel):
         if not isinstance(data, dict):
             return
 
-        contractNo = event.getContractNo()
+        contractNo = data['ContractNo']
         if contractNo not in self._contractData:
-            contMsg = {
-                'ExchangeNo': data['ExchangeNo'],
-                'CommodityNo': data['CommodityNo'],
-                'ContractNo': contractNo,
-            }
-            self._contractData[contractNo] = QuoteDataModel(self.logger, contMsg)
+            self._contractData[contractNo] = QuoteDataModel(self.logger, data)
 
-        self._contractData[contractNo]._metaData = data
+        self._contractData[contractNo].deepSetContract(data)
 
     def onQuoteNotice(self, event):
         QuoteModel.updateLv1(self, event)
@@ -195,6 +142,11 @@ class StrategyQuote(QuoteModel):
                        'Lv1Data' : deepcopy(metaData['Lv1Data'])
             }
             return resDict
+            
+    def getUnderlayContractNo(self, contNo):
+        if contNo not in self._underlayData:
+            return ''
+        return self._underlayData[contNo]
 
     # ////////////////////////即时行情////////////////////////////
     # 参数验装饰器

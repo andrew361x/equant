@@ -58,6 +58,8 @@ class QuantToplevel(tk.Toplevel):
     def __init__(self, master=None):
         tk.Toplevel.__init__(self, master)
         self._master = master
+        # TODO:在窗口显示之前设置transient，否则窗口会抖动
+        self.transient(self._master)
         self.language = Language("EquantMainFrame")
         self.setPos()
         #图标
@@ -83,11 +85,11 @@ class QuantToplevel(tk.Toplevel):
 
     def display(self):
         """显示并设置模态窗口"""
-        self.update()
-        self.deiconify()
-        self.focus_set()
+        # self.update()
+        # self.deiconify()
+        # self.focus_set()
+        # self.transient(self._master)
         self.grab_set()
-        self.transient(self._master)
         self.wait_window()
 
     def closeEvent(self):

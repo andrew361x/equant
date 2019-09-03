@@ -13,8 +13,6 @@ from .view import QuantApplication
 from .language import *
 from capi.com_types import *
 
-from engine.popup_win import createAlarmWin
-
 
 class TkinterController(object):
     '''程序化入口类'''
@@ -45,67 +43,80 @@ class TkinterController(object):
         # 策略管理器
         self.strategyManager = self.getStManager()
 
-        # 创建日志更新线程
-        # self.logThread = ChildThread(self.updateLog, 0.001)
-        # 创建策略信息更新线程
-        self.monitorThread = ChildThread(self.updateMonitor, 1)
         # 创建接收引擎数据线程
-        self.receiveEgThread = ChildThread(self.model.receiveEgEvent, 0.01)
-        # 信号记录线程
-        self.sigThread = ChildThread(self.updateSig, 0.01)
-        # 用户日志线程
-        self.usrThread = ChildThread(self.updateUsr, 0.01)
+        self.receiveEgThread = ChildThread(self.model.receiveEgEvent)
 
         # 设置日志更新
         self.update_log()
+        self.update_mon()
 
     def get_logger(self):
         return self.logger
 
     def update_log(self):
         try:
+            # createAlarmWin("ABCDE")
+            # self.top.after(10, self.update_log)
+            # return
+
             self.app.updateLogText()
             # self.app.updateSigText()
-            self.app.updateErrText()
+            # self.app.updateErrText()
+            # self.updateSig()
+            # self.updateUsr()
 
             self.top.after(10, self.update_log)
         except Exception as e:
             # self.logger.warn("异常", "程序退出异常")
             pass
 
-    def updateSig(self):
-        self.app.updateSigText()
+    def update_mon(self):
+        try:
+            self.updateMonitor()
+            self.top.after(1000, self.update_mon)
+        except Exception as e:
+            pass
 
-    def updateUsr(self):
-        self.app.updateUsrText()
+    # def updateSig(self):
+    #     self.app.updateSigText()
+    #
+    # def updateUsr(self):
+    #     self.app.updateUsrText()
 
     def updateMonitor(self):
         # 更新监控界面策略信息
-        strategyDict = self.strategyManager.getStrategyDict()
-        #TODO: strategyDict的异常策略应该怎么处理?
-        for stId in strategyDict:
-            if "RunningData" not in strategyDict[stId]:
-                continue
-            if strategyDict[stId]["StrategyState"] == ST_STATUS_PAUSE or strategyDict[stId][
-                  "StrategyState"] == ST_STATUS_QUIT or strategyDict[stId][
-                  "StrategyState"] == ST_STATUS_EXCEPTION:
-                continue
+        try:
+            strategyDict = self.strategyManager.getStrategyDict()
+            #TODO: strategyDict的异常策略应该怎么处理?
+            for stId in strategyDict:
+                if "RunningData" not in strategyDict[stId]:
+                    continue
+                try:
+                    #TODO：StrategyState为什么会不存在呢？
+                    if strategyDict[stId]["StrategyState"] == ST_STATUS_PAUSE or strategyDict[stId][
+                          "StrategyState"] == ST_STATUS_QUIT or strategyDict[stId][
+                          "StrategyState"] == ST_STATUS_EXCEPTION:
+                        continue
+                except KeyError as e:
+                    self.logger.warn(f"策略数据错误: {stId}, {strategyDict[stId]}")
 
-            self.app.updateValue(stId, strategyDict[stId]["RunningData"])
+                self.app.updateValue(stId, strategyDict[stId]["RunningData"])
+        except PermissionError as e:
+            self.logger.error("更新监控信息时出错")
 
     def quitThread(self):
         self.logger.info("quitThread exit")
         # 停止更新界面子线程
-        self.monitorThread.stop()
-        self.monitorThread.join()
+        # self.monitorThread.stop()
+        # self.monitorThread.join()
 
         # 停止更新信号记录
-        self.sigThread.stop()
-        self.sigThread.join()
+        # self.sigThread.stop()
+        # self.sigThread.join()
 
         # 停止更新用户日志
-        self.usrThread.stop()
-        self.usrThread.join()
+        # self.usrThread.stop()
+        # self.usrThread.join()
 
         # 停止接收策略引擎队列数据
         self.receiveEgThread.stop()
@@ -118,13 +129,13 @@ class TkinterController(object):
 
     def run(self):
         #启动监控策略线程
-        self.monitorThread.start()
+        # self.monitorThread.start()
         #启动接收数据线程
         self.receiveEgThread.start()
 
-        self.sigThread.start()
+        # self.sigThread.start()
 
-        self.usrThread.start()
+        # self.usrThread.start()
 
         #启动主界面线程
         self.app.mainloop()
@@ -153,12 +164,16 @@ class TkinterController(object):
         with open(strategyPath, 'r', encoding="utf-8") as f:
             content = [line.strip() for line in f]
             for c in content:
-                #regex = re.compile(r"\s*g_params[\[][\"\'](.*)[\"\'][\]]\s*=[\s]*([^\s]*)[\s]*(#[\s]*(.*))?")
-                regex = re.compile(r"^g_params[\[][\"\'](.*)[\"\'][\]]\s*=[\s]*([^\s]*)[\s]*(#[\s]*(.*))?")
-                reg = regex.search(c)
-                if reg:
-                    ret = [reg.groups()[1], reg.groups()[3]]
-                    if ret[1] is None: ret[1] = ""
+                # regex = re.compile(r"^g_params[\[][\"\'](.*)[\"\'][\]]\s*=[\s]*([^\s]*)[\s]*(#[\s]*(.*))?")
+                regex1 = re.compile(r"^g_params[\[][\"\'](.*)[\"\'][\]]\s*=[\s]*(.*)[\s]*#[\s]*(.*)?")
+                regex2 = re.compile(r"^g_params[\[][\"\'](.*)[\"\'][\]]\s*=[\s]*(.*)[\s]*#?[\s]*(.*)?")
+
+                reg1 = regex1.search(c)
+                reg2 = regex2.search(c)
+                if reg1 or reg2:
+                    reg = reg1 if reg1 else reg2
+                    ret = [reg.groups()[1], reg.groups()[2]]
+                    # if ret[1] is None: ret[1] = ""
                     try:
                         ret[0] = eval(ret[0])
                     except:
@@ -178,8 +193,6 @@ class TkinterController(object):
         :param param: 策略参数信息
         :return:
         """
-        # createAlarmWin("11111111111", 1, "test")
-        # return
         # 运行策略前将用户修改保存
         self.saveStrategy()
         # 解析策略参数
@@ -229,7 +242,8 @@ class TkinterController(object):
             f.write('import talib\n'
                     '\n\n'
                     'def initialize(context): \n    pass\n\n\n'
-                    'def handle_data(context):\n    pass')
+                    'def handle_data(context):\n    pass\n\n\n'
+                    'def exit_callback(context):\n    pass')
             f.close()
 
         self.app.updateEditorModifyTime(os.path.getmtime(path))

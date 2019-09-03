@@ -60,6 +60,7 @@ _all_func_ = {
                     ['Q_TurnOver'          , '当日成交金额'],
                     ['Q_UpperLimit'        , '当日涨停价'],
                     ['QuoteDataExist'      , '行情数据是否有效'],
+                    ['CalcTradeDate'      , '计算所属交易日'],
                 ],
                 
     '策略交易': [
@@ -158,6 +159,7 @@ _all_func_ = {
                 
     '账户函数': [
                     ['A_AccountID'         , '交易账户ID'],
+                    ['A_AllAccountID'      , '所有交易账户ID'],
                     ['A_GetAllPositionSymbol', '所有持仓合约'],
                     ['A_Cost'              , '手续费'],
                     ['A_Assets'            , '账户权益'],
@@ -187,6 +189,7 @@ _all_func_ = {
                     ['A_OrderPrice'        , '委托价格'],
                     ['A_OrderStatus'       , '定单状态'],
                     ['A_OrderTime'         , '下单时间'],
+                    #['A_OrderUpdateTime'   , '定单更新时间'],
                     ['A_FirstOrderNo'      , '当前账户第一个订单号'],
                     ['A_NextOrderNo'       , '当前账户下一个订单号'],
                     ['A_LastOrderNo'       , '当前账户最后一个订单号'],

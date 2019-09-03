@@ -244,28 +244,31 @@ class GetEgData(object):
 
     def _regAskCallback(self):
         self._egAskCallbackDict = {
-            EV_EG2UI_LOADSTRATEGY_RESPONSE: self._onEgLoadAnswer,
-            EV_EG2UI_REPORT_RESPONSE:       self._onEgReportAnswer,
-            EV_EG2UI_CHECK_RESULT:          self._onEgDebugInfo,
-            EV_EG2ST_MONITOR_INFO:          self._onEgMonitorInfo,
-            EV_EG2UI_STRATEGY_STATUS:       self._onEgStrategyStatus,
-            EV_EG2UI_POSITION_NOTICE:       self._onEgPositionNotice,
-            EEQU_SRVEVENT_EXCHANGE:         self._onEgExchangeInfo,
-            EEQU_SRVEVENT_COMMODITY:        self._onEgCommodityInfo,
-            EEQU_SRVEVENT_CONTRACT:         self._onEgContractInfo,
-            EEQU_SRVEVENT_TRADE_USERQRY:    self._onEgUserInfo,
-            EEQU_SRVEVENT_TRADE_EXCSTATEQRY:self._onEgExchangeStatus,
-            EEQU_SRVEVENT_TRADE_EXCSTATE:   self._onEgExchangeStatus,
+            EV_EG2UI_LOADSTRATEGY_RESPONSE:   self._onEgLoadAnswer,
+            EV_EG2UI_REPORT_RESPONSE:         self._onEgReportAnswer,
+            EV_EG2UI_CHECK_RESULT:            self._onEgDebugInfo,
+            EV_EG2ST_MONITOR_INFO:            self._onEgMonitorInfo,
+            EV_EG2UI_STRATEGY_STATUS:         self._onEgStrategyStatus,
+            EV_EG2UI_POSITION_NOTICE:         self._onEgPositionNotice,
+            EV_EG2UI_RUNMODE_SWITCH:          self._onEgRunmodeSwitch,
+            EV_EG2UI_USER_LOGOUT_NOTICE:      self._onEgLogoutUser,
+            EEQU_SRVEVENT_EXCHANGE:           self._onEgExchangeInfo,
+            EEQU_SRVEVENT_COMMODITY:          self._onEgCommodityInfo,
+            EEQU_SRVEVENT_CONTRACT:           self._onEgContractInfo,
+            EEQU_SRVEVENT_TRADE_USERQRY:      self._onEgUserInfo,
+            EEQU_SRVEVENT_TRADE_EXCSTATEQRY:  self._onEgExchangeStatus,
+            EEQU_SRVEVENT_TRADE_EXCSTATE:     self._onEgExchangeStatus,
 
-            EEQU_SRVEVENT_CONNECT:          self._onEgConnect,
-            EEQU_SRVEVENT_DISCONNECT:       self._onEgDisconnect
+            EEQU_SRVEVENT_CONNECT:            self._onEgConnect,
+            EEQU_SRVEVENT_DISCONNECT:         self._onEgDisconnect
         }
 
     # TODO: event.getChian()的类型为字符串：'1', '0'
     def _onEgLoadAnswer(self, event):
         """获取引擎加载应答数据"""
         self._curStId = event.getStrategyId()
-        self._stManager.addStrategy(event.getData())
+        data = event.getData()
+        self._stManager.addStrategy(data)
         self._logger.info(f"[UI][{self._curStId}]: Receiveing running answer successfully!")
 
     def _onEgReportAnswer(self, event):
@@ -335,6 +338,33 @@ class GetEgData(object):
         #TODO: 接收exchange、commodity、contract、user信息一起打印
         self._logger.info(f"[UI]: Receiving exchange, commodity, contract and user info successfully!")
 
+    def _onEgLogoutUser(self, event):
+        """Update self._userNo when user logouts"""
+        logoutUser = event.getData()
+        for userNo in logoutUser:
+            for uInfo in self._userNo:
+                if uInfo["UserNo"] == userNo:
+                    self._userNo.remove(uInfo)
+                    self._logger.info(f"[UI]: 账号{uInfo}登出")
+                    # 账号列表中可能存在重复账号
+                    if uInfo not in self._userNo:
+                        break
+
+    def _onEgRunmodeSwitch(self, event):
+        """update Running Actual/Virtual status"""
+        id = event.getStrategyId()
+        runStatus = event.getData()["Status"]
+
+        if id not in self._stManager.getStrategyDict():
+            return
+
+        # 策略状态改变后要通知监控界面
+        self._stManager.updateStrategyRunMode(id, runStatus)
+        # 更新策略Id的运行状态
+        self._app.updateRunMode(id, runStatus)
+
+        self._logger.info(f"[UI][{id}]: Receiving Runmode Switch {runStatus} successfully!")
+
     def _onEgStrategyStatus(self, event):
         """接收引擎推送策略状态改变信息"""
         id = event.getStrategyId()
@@ -353,7 +383,7 @@ class GetEgData(object):
             # 策略状态改变后要通知监控界面
             self._stManager.updateStrategyStatus(id, sStatus)
             # 更新策略Id的运行状态
-            self._app.updateStatus(id, sStatus)
+            self._app.updateRunStage(id, sStatus)
             if sStatus == ST_STATUS_QUIT:
                 # 策略停止时接收策略数据
                 self._stManager.addResultData(id, event.getData()["Result"])
@@ -388,8 +418,8 @@ class GetEgData(object):
     def handlerEgEvent(self):
         try:
             # 如果不给出超时则会导致线程退出时阻塞
-            # event = self._eg2uiQueue.get(timeout=0.1)
-            event = self._eg2uiQueue.get_nowait()
+            event = self._eg2uiQueue.get(timeout=0.01)
+            # event = self._eg2uiQueue.get_nowait()
             eventCode = event.getEventCode()
 
             if eventCode not in self._egAskCallbackDict:
@@ -456,42 +486,114 @@ class StrategyManager(object):
 
     def addStrategy(self, dataDict):
         id = dataDict['StrategyId']
-        self._strategyDict[id] = dataDict
+        self.lock.acquire()
+        try:
+            self._strategyDict[id] = dataDict
+        except Exception as e:
+            self._logger.error("addStrategy方法出错")
+        finally:
+            self.lock.release()
         self._app.addExecute(dataDict)
 
     def add_(self, dataDict):
         #TODO: 策略状态传过来事件问题
         id = dataDict['StrategyId']
-        self._strategyDict[id] = dataDict
+        self.lock.acquire()
+        try:
+            self._strategyDict[id] = dataDict
+        except Exception as e:
+            self._logger.error("add_方法出错")
+        finally:
+            self.lock.release()
 
     def addStrategyRunData(self, id, data):
         """策略运行数据实时更新"""
-        self._strategyDict[id].update({"RunningData": data})
+        self.lock.acquire()
+        try:
+            self._strategyDict[id].update({"RunningData": data})
+        except Exception as e:
+            self._logger.error("addStrategyRunData方法出错")
+        finally:
+            self.lock.release()
 
     def removeStrategy(self, id):
-        if id in self._strategyDict:
-            self._strategyDict.pop(id)
+        self.lock.acquire()
+        try:
+            if id in self._strategyDict:
+                self._strategyDict.pop(id)
+        except Exception as e:
+            self._logger.error("removeStrategy方法出错")
+        finally:
+            self.lock.release()
 
     def queryStrategyStatus(self, id):
-        return self._strategyDict[id]["StrategyState"]
+        self.lock.acquire()
+        try:
+            return self._strategyDict[id]["StrategyState"]
+        except Exception as e:
+            self._logger.error("queryStrategyStatus方法出错")
+        finally:
+            self.lock.release()
+        # return self._strategyDict[id]["StrategyState"]
 
     def queryStrategyRunType(self, id):
-        return self._strategyDict[id]["RunType"]
+        self.lock.acquire()
+        try:
+            return self._strategyDict[id]["RunType"]
+        except Exception as e:
+            self._logger.error("queryStrategyRunType方法出错")
+        finally:
+            self.lock.release()
 
     def queryStrategyName(self, id):
-        return self._strategyDict[id]["StrategyName"]
+        self.lock.acquire()
+        try:
+            return self._strategyDict[id]["StrategyName"]
+        except Exception as e:
+            self._logger.error("queryStrategyName方法出错")
+        finally:
+            self.lock.release()
 
     def updateStrategyStatus(self, id, status):
-        if id in self._strategyDict:
-            self._strategyDict[id]["StrategyState"] = status
+        self.lock.acquire()
+        try:
+            if id in self._strategyDict:
+                self._strategyDict[id]["StrategyState"] = status
+        except Exception as e:
+            self._logger.error("updateStrategyStatus方法出错")
+        finally:
+            self.lock.release()
+
+    def updateStrategyRunMode(self, id, status):
+        """运行模式更新"""
+        self.lock.acquire()
+        try:
+            if id in self._strategyDict:
+                self._strategyDict[id]["IsActualRun"] = status
+        except Exception as e:
+            self._logger.error("updateStrategyRunMode方法出错")
+        finally:
+            self.lock.release()
 
     def getStrategyConfigData(self, id):
         """获取运行设置信息"""
-        return self._strategyDict[id]["Config"]
+        self.lock.acquire()
+        try:
+            return self._strategyDict[id]["Config"]
+        except Exception as e:
+            self._logger.error("getStrategyConfigData方法出错")
+        finally:
+            self.lock.release()
 
     def getStrategyParamData(self, id):
         """获取用户参数设置信息"""
-        return self._strategyDict[id]["Params"]
+        self.lock.acquire()
+        try:
+            return self._strategyDict[id]["Params"]
+        except Exception as e:
+            self._logger.error("getStrategyParamData方法出错")
+        finally:
+            self.lock.release()
 
     def getStrategyDict(self):
         """获取全部运行策略"""
@@ -505,8 +607,20 @@ class StrategyManager(object):
 
     def getSingleStrategy(self, id):
         """获取某个运行策略"""
-        return self._strategyDict[id]
+        self.lock.acquire()
+        try:
+            return self._strategyDict[id]
+        except Exception as e:
+            self._logger.error("getSingleStrategy方法出错")
+        finally:
+            self.lock.release()
 
     def addResultData(self, id, data):
         """用于保存策略停止时的测试数据"""
-        self._strategyDict[id].update({"ResultData": data})
+        self.lock.acquire()
+        try:
+            self._strategyDict[id].update({"ResultData": data})
+        except Exception as e:
+            self._logger.error("addResultData方法出错")
+        finally:
+            self.lock.release()

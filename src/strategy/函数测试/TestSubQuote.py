@@ -1,13 +1,16 @@
 import talib
 
 g_CommNo1 = "NYMEX|F|CL"
-g_ContNo1 = "NYMEX|F|CL|1908"
+g_ContNo1 = "NYMEX|F|CL|1910"
 
 g_CommNo2 = "HKEX|F|HSI"
-g_ContNo2 = "HKEX|F|HSI|1907"
+g_ContNo2 = "HKEX|F|HSI|1908"
 
 g_60count = 0
 g_60times = 60
+S_Cont = 'COMEX|S|GC|1909|1910'
+F_Cont1 = 'COMEX|F|GC|1909'
+F_Cont2 = 'COMEX|F|GC|1910'
 
 
 def initialize(context): 

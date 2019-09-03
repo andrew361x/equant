@@ -112,3 +112,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+reportdata
+log
+/src/config/loadconfigure.json
+/src/config/StrategyContext.json
+FuncTemplate
+交易系统

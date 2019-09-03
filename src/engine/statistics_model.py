@@ -190,13 +190,14 @@ class StatisticsModel(object):
             return False, -1.0, -1
 
         LPrice = Price[::-1]
+        LPlen = len(LPrice)
 
         while LengthCntr < Length and not InstanceTest:
             CandidatePrice = LPrice[LengthCntr]
             PivotTest = True
             StrengthCntr = LengthCntr + 1
 
-            while PivotTest and (StrengthCntr - LengthCntr <= LeftStrength):
+            while StrengthCntr < LPlen and PivotTest and (StrengthCntr - LengthCntr <= LeftStrength):
                 if ( HiLo == 1 and CandidatePrice < LPrice[StrengthCntr] ) or ( HiLo == -1 and CandidatePrice > LPrice[StrengthCntr]):
                     PivotTest = False
                 else:

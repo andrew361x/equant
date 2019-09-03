@@ -908,10 +908,12 @@ class PyAPI(object):
         '''
         self.logger.info("Request query user info:%s"%event.getData())
         sessionId = c_uint()
+        data = event.getData()
         req = EEquUserInfoReq()
-        req.UserNo = "".encode()
-        req.Sign = "".encode()
+        req.UserNo = data['UserNo'].encode()
+        req.Sign = data['Sign'].encode()
         self._cDll.E_ReqQryUserInfo(byref(sessionId), byref(req))
+        return sessionId.value
         
     def reqQryMoney(self, event):
         '''
@@ -930,10 +932,11 @@ class PyAPI(object):
         sessionId = c_uint()
         data = event.getData()
         req = EEquUserMoneyReq()
-        req.UserNo = "".encode()
-        req.Sign = "".encode()
-        req.CurrencyNo = "".encode()
+        req.UserNo = data['UserNo'].encode()
+        req.Sign = data['Sign'].encode()
+        req.CurrencyNo = data['CurrencyNo'].encode()
         self._cDll.E_ReqQryMoney(byref(sessionId), byref(req))
+        return sessionId.value
         
     def reqQryOrder(self, event):
         '''
@@ -952,10 +955,11 @@ class PyAPI(object):
         data = event.getData()
         # self.logger.debug('Request query order:%s'%event.getData())
         req = EEquOrderQryReq()
-        req.UserNo = "".encode()
-        req.Sign = "".encode()
+        req.UserNo = data['UserNo'].encode()
+        req.Sign = data['Sign'].encode()
         self._cDll.E_ReqQryOrder(byref(sessionId), byref(req))
         self._setSessionId(sessionId.value, event.getStrategyId())
+        return sessionId.value
 
     def reqQryMatch(self, event):
         '''查询成交信息'''
@@ -963,10 +967,11 @@ class PyAPI(object):
         data = event.getData()
         # self.logger.debug('Request query match:%s'%event.getData())
         req = EEquOrderQryReq()
-        req.UserNo = "".encode()
-        req.Sign = "".encode()
+        req.UserNo = data['UserNo'].encode()
+        req.Sign = data['Sign'].encode()
         self._cDll.E_ReqQryMatch(byref(sessionId), byref(req))
         self._setSessionId(sessionId.value, event.getStrategyId())
+        return sessionId.value
         
     def reqQryPosition(self, event):
         '''查询持仓信息'''
@@ -974,10 +979,11 @@ class PyAPI(object):
         data = event.getData()
         # self.logger.debug('Request query position:%s'%event.getData())
         req = EEquOrderQryReq()
-        req.UserNo = "".encode()
-        req.Sign = "".encode()
+        req.UserNo = data['UserNo'].encode()
+        req.Sign = data['Sign'].encode()
         self._cDll.E_ReqQryPosition(byref(sessionId), byref(req))
         self._setSessionId(sessionId.value, event.getStrategyId())
+        return sessionId.value
 
     # 委托下单
     def reqInsertOrder(self, event):
@@ -1504,6 +1510,8 @@ class PyAPI(object):
         for i in range(len(dataList)):
             dataList[i]["StrategyId"] = apiEvent.getStrategyId()
             dataList[i]["StrategyOrderId"] = apiEvent.getESessionId()
+            
+            # self.logger.debug('UNo:%s,stId:%d,StOId:%s,OId:%s,ONo:%s' %(dataList[i]["UserNo"],dataList[i]["StrategyId"],dataList[i]["StrategyOrderId"],dataList[i]["OrderId"],dataList[i]["OrderNo"]))
 
         # 发送到引擎
         apiEvent.setData(dataList)

@@ -403,7 +403,7 @@ class EditorText(ParentText, ModifiedMixin):
         menu.post(event.x_root, event.y_root)
 
 
-class LogText(ParentText):
+class UsrLogText(ParentText):
     def __init__(self, master, **kw):
         ParentText.__init__(self, master, **kw)
         color_config(self, fontSize=10)
@@ -451,9 +451,68 @@ class LogText(ParentText):
             self.see("current")
         # self.see("end")
 
-class MonitorText(ParentText):
-    def __init__(self, master, **kw):
+    def delText(self):
+        self.delete(0.0, END+"-1c")
+
+
+class SigText(ParentText):
+    def __init__(self, master, topWin, **kw):
         ParentText.__init__(self, master, **kw)
+        self.topWin = topWin
+        color_config(self, fontSize=10)
+        self.bind("<Button-3>", self.create_menu)
+
+    def write(self, obj):
+        self.config(state='normal')
+        index1 = self.index("end-1c")
+        self.insert(index1, obj)
+
+        if " - INFO " in obj:
+            self.tag_add(obj, index1, "end")
+            self.tag_configure(obj, foreground="black")
+        elif " - ERROR" in obj:
+            self.tag_add(obj, index1, "end")
+            self.tag_configure(obj, foreground="red")
+        elif " - WARNING" in obj:
+            self.tag_add(obj, index1, "end")
+            self.tag_configure(obj, foreground="red")
+        else:
+            self.tag_add(obj, index1, "end")
+            self.tag_configure(obj, foreground="black")
+
+        self.see("end")
+
+    def create_menu(self, event):
+        menu = Menu(self, tearoff=0)
+        menu.add_command(label="复制", command=self.copy)
+        menu.add_command(label="全选", command=self.select_all)
+        menu.add_command(label="清除", command=self.clear_all)
+        # menu.add_checkbutton(label="自动滚屏", onvalue=True, offvalue=0, variable=self.rollFlag)
+        menu.add_command(label="刷新", command=self.topWin.loadSigLogFile)
+        menu.post(event.x_root, event.y_root)
+
+    # TODO:setText重写
+    def setText(self, text="", file=None):
+        self.config(state="normal")
+        self.config(state="normal")
+        # self.insert("end", text + "\n")
+        self.insert("end", text)
+        self.config(state="disabled")
+        self.update()
+        if self.rollFlag.get():
+            self.see("end")
+        else:
+            self.see("current")
+        # self.see("end")
+
+    def delText(self):
+        self.delete(0.0, END+"-1c")
+
+class MonitorText(ParentText):
+    """系统日志"""
+    def __init__(self, master, topWin, **kw):
+        ParentText.__init__(self, master, **kw)
+        self.topWin = topWin # 调用监控界面的方法用
         self.setConfig()
         self.bind("<Button-3>", self.create_menu)
 
@@ -489,14 +548,17 @@ class MonitorText(ParentText):
             self.see("current")
         # self.see("end")
 
+    def delText(self):
+        self.delete(0.0, END+"-1c")
+
     def create_menu(self, event):
         menu = Menu(self, tearoff=0)
         menu.add_command(label="复制", command=self.copy)
         menu.add_command(label="全选", command=self.select_all)
         menu.add_command(label="清除", command=self.clear_all)
-        menu.add_checkbutton(label="自动滚屏", onvalue=True, offvalue=0, variable=self.rollFlag)
+        # menu.add_checkbutton(label="自动滚屏", onvalue=True, offvalue=0, variable=self.rollFlag)
+        menu.add_command(label="刷新", command=self.topWin.loadSysLogFile)
         menu.post(event.x_root, event.y_root)
-
 
     def setConfig(self, fontSize=10):
         self.config(
