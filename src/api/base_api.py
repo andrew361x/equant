@@ -1087,6 +1087,139 @@ class BaseApi(object):
               无
         '''
         return self._dataModel.getQUpperLimit(contractNo)
+        
+    def Q_TheoryPrice(self, contractNo=''):
+        '''
+        【说明】
+              当日期权理论价
+
+        【语法】
+              float Q_TheoryPrice(string contractNo='')
+
+        【参数】
+              contractNo 合约编号
+
+        【备注】
+              返回浮点数, 不存在时返回None
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getQTheoryPrice(contractNo)
+        
+    def Q_Sigma(self, contractNo=''):
+        '''
+        【说明】
+              当日期权波动率
+
+        【语法】
+              float Q_Sigma(string contractNo='')
+
+        【参数】
+              contractNo 合约编号
+
+        【备注】
+              返回浮点数, 不存在时返回None
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getQSigma(contractNo)
+        
+    def Q_Delta(self, contractNo=''):
+        '''
+        【说明】
+              当日期权Delta
+
+        【语法】
+              float Q_Delta(string contractNo='')
+
+        【参数】
+              contractNo 合约编号
+
+        【备注】
+              返回浮点数, 不存在时返回None
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getQDelta(contractNo)
+        
+    def Q_Gamma(self, contractNo=''):
+        '''
+        【说明】
+              当日期权Gamma
+
+        【语法】
+              float Q_Gamma(string contractNo='')
+
+        【参数】
+              contractNo 合约编号
+
+        【备注】
+              返回浮点数, 不存在时返回None
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getQGamma(contractNo)
+        
+    def Q_Vega(self, contractNo=''):
+        '''
+        【说明】
+              当日期权Vega
+
+        【语法】
+              float Q_Vega(string contractNo='')
+
+        【参数】
+              contractNo 合约编号
+
+        【备注】
+              返回浮点数, 不存在时返回None
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getQVega(contractNo)
+        
+    def Q_Theta(self, contractNo=''):
+        '''
+        【说明】
+              当日期权Theta
+
+        【语法】
+              float Q_Theta(string contractNo='')
+
+        【参数】
+              contractNo 合约编号
+
+        【备注】
+              返回浮点数, 不存在时返回None
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getQTheta(contractNo)
+        
+    def Q_Rho(self, contractNo=''):
+        '''
+        【说明】
+              当日期权Rho
+
+        【语法】
+              float Q_Rho(string contractNo='')
+
+        【参数】
+              contractNo 合约编号
+
+        【备注】
+              返回浮点数, 不存在时返回None
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getQRho(contractNo)
 
     def QuoteDataExist(self, contractNo=''):
         '''
@@ -6522,6 +6655,27 @@ def Q_TurnOver(contractNo=''):
 
 def Q_UpperLimit(contractNo=''):
     return baseApi.Q_UpperLimit(contractNo)
+    
+def Q_TheoryPrice(contractNo=''):
+    return baseApi.Q_TheoryPrice(contractNo)
+
+def Q_Sigma(contractNo=''):
+    return baseApi.Q_Sigma(contractNo)
+    
+def Q_Delta(contractNo=''):
+    return baseApi.Q_Delta(contractNo)
+    
+def Q_Gamma(contractNo=''):
+    return baseApi.Q_Gamma(contractNo)
+
+def Q_Vega(contractNo=''):
+    return baseApi.Q_Vega(contractNo)
+
+def Q_Theta(contractNo=''):
+    return baseApi.Q_Theta(contractNo)
+
+def Q_Rho(contractNo=''):
+    return baseApi.Q_Rho(contractNo)
 
 def QuoteDataExist(contractNo=''):
     return baseApi.QuoteDataExist(contractNo)

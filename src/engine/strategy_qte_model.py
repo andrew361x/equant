@@ -389,7 +389,48 @@ class StrategyQuote(QuoteModel):
     def getQUpperLimit(self, contNo):
         quoteDataModel = self._contractData[contNo]
         return quoteDataModel.getLv1Data(9, 0.0)
+        
+    # 当日期权理论价
+    @paramValidatorFactory(None)
+    def getQTheoryPrice(self, contNo):
+        quoteDataModel = self._contractData[contNo]
+        return quoteDataModel.getLv1Data(30, None)
 
+    # 当日期权波动率
+    @paramValidatorFactory(None)
+    def getQSigma(self, contNo):
+        quoteDataModel = self._contractData[contNo]
+        return quoteDataModel.getLv1Data(31, None)
+
+    # 当日期权Delta
+    @paramValidatorFactory(None)
+    def getQDelta(self, contNo):
+        quoteDataModel = self._contractData[contNo]
+        return quoteDataModel.getLv1Data(32, None)
+
+    # 当日期权Gamma
+    @paramValidatorFactory(None)
+    def getQGamma(self, contNo):
+        quoteDataModel = self._contractData[contNo]
+        return quoteDataModel.getLv1Data(33, None)
+
+    # 当日期权Vega
+    @paramValidatorFactory(None)
+    def getQVega(self, contNo):
+        quoteDataModel = self._contractData[contNo]
+        return quoteDataModel.getLv1Data(34, None)
+
+    # 当日期权Theta
+    @paramValidatorFactory(None)
+    def getQTheta(self, contNo):
+        quoteDataModel = self._contractData[contNo]
+        return quoteDataModel.getLv1Data(35, None)
+
+    # 当日期权Rho
+    @paramValidatorFactory(None)
+    def getQRho(self, contNo):
+        quoteDataModel = self._contractData[contNo]
+        return quoteDataModel.getLv1Data(36, None)
 
     # 行情数据是否有效
     @paramValidatorFactory(False)

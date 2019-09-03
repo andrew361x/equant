@@ -981,7 +981,8 @@ class StrategyHisQuote(object):
         allHisData = newDF.to_dict(orient="index")
 
         # print(newDF[["ContractNo", "TradeDate", "DateTimeStamp"]])
-        beginTime = datetime.now();beginTimeStr = datetime.now().strftime('%H:%M:%S.%f')
+        beginTime = datetime.now()
+        beginTimeStr = datetime.now().strftime('%H:%M:%S.%f')
         print('**************************** run his begin', len(allHisData))
         self.logger.info('[runReport] run report begin')
         beginPos = 0

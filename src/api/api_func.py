@@ -59,8 +59,15 @@ _all_func_ = {
                     ['Q_TotalVol'          , '当日成交量'],
                     ['Q_TurnOver'          , '当日成交金额'],
                     ['Q_UpperLimit'        , '当日涨停价'],
+                    ['Q_TheoryPrice'       , '当日期权理论价'],
+                    ['Q_Sigma'             , '当日期权波动率'],
+                    ['Q_Delta'             , '当日期权Delta'],
+                    ['Q_Gamma'             , '当日期权Gamma'],
+                    ['Q_Vega'              , '当日期权Vega'],
+                    ['Q_Theta'             , '当日期权Theta'],
+                    ['Q_Rho'               , '当日期权Rho'],
                     ['QuoteDataExist'      , '行情数据是否有效'],
-                    ['CalcTradeDate'      , '计算所属交易日'],
+                    ['CalcTradeDate'       , '计算所属交易日'],
                 ],
                 
     '策略交易': [

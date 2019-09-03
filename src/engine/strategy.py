@@ -1168,11 +1168,13 @@ class Strategy:
 
     # 停止策略
     def _onStrategyQuit(self, event=None, status=ST_STATUS_QUIT):
-    
-        #回调退出函数
-        if hasattr(self._userModule, 'exit_callback'):
-            self._userModule.exit_callback(self._context)
-    
+        try:
+            #回调退出函数
+            if hasattr(self._userModule, 'exit_callback'):
+                self._userModule.exit_callback(self._context)
+        except Exception as e:
+            self.logger.error('onStrategyStop callback error: %s' % str(e))
+
         self._isSt2EgQueueEffective = False
         self._strategyState = StrategyStatusExit
         config = None if self._dataModel is None else self._dataModel.getConfigData()
@@ -1199,10 +1201,13 @@ class Strategy:
             time.sleep(2)
 
     def _onEquantExit(self, event):
-        #回调退出函数
-        if hasattr(self._userModule, 'exit_callback'):
-            self._userModule.exit_callback(self._context)
-            
+        try:
+            #回调退出函数
+            if hasattr(self._userModule, 'exit_callback'):
+                self._userModule.exit_callback(self._context)
+        except Exception as e:
+            self.logger.error('onEquantExit callback error: %s' % str(e))
+
         self._isSt2EgQueueEffective = False
         self._strategyState = StrategyStatusExit
         config = None if self._dataModel is None else self._dataModel.getConfigData()

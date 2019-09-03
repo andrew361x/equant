@@ -334,6 +334,9 @@ class Analyse(BaseFrame):
         )
 
         detail = data['Detail']
+        if not detail:
+            return
+
         detailFormatter = [
             '{:.2f}'.format(float(detail["InitialFund"])),
             detail["Contract"],

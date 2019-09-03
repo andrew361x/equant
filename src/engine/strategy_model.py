@@ -374,6 +374,27 @@ class StrategyModel(object):
     def getQUpperLimit(self, symbol):
         return self._qteModel.getQUpperLimit(symbol)
 
+    def getQTheoryPrice(self, symbol):
+        return self._qteModel.getQTheoryPrice(symbol)
+
+    def getQSigma(self, symbol):
+        return self._qteModel.getQSigma(symbol)
+
+    def getQDelta(self, symbol):
+        return self._qteModel.getQDelta(symbol)
+        
+    def getQGamma(self, symbol):
+        return self._qteModel.getQGamma(symbol)
+        
+    def getQVega(self, symbol):
+        return self._qteModel.getQVega(symbol)
+        
+    def getQTheta(self, symbol):
+        return self._qteModel.getQTheta(symbol)
+    
+    def getQRho(self, symbol):
+        return self._qteModel.getQRho(symbol)
+
     def getQuoteDataExist(self, symbol):
         return self._qteModel.getQuoteDataExist(symbol)
 
@@ -599,6 +620,9 @@ class StrategyModel(object):
                 createAlarmWin(alarmStr, self._strategy.getStrategyId(), self._strategy.getStrategyName())
 
     def setStartTrade(self):
+        #状态未变化不做处理
+        if not self._cfgModel.getPending():
+            return
         self._cfgModel.setPending(False)
         # TODO: 通知界面策略状态发生变化
         event = Event({
@@ -611,6 +635,9 @@ class StrategyModel(object):
         self._strategy.sendEvent2UI(event)
         
     def setStopTrade(self):
+        if self._cfgModel.getPending():
+            return
+        
         self._cfgModel.setPending(True)
         # TODO：通知界面策略状态发生变化
         event = Event({

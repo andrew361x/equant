@@ -333,4 +333,5 @@ class QuoteDataModel:
     def getLv1Data(self, key, errRet):
         if key not in self._metaData['Lv1Data']:
             return errRet
+        #self.logger.debug("%d:%s" %(key, str(self._metaData['Lv1Data'][key])))
         return self._metaData['Lv1Data'][key]
