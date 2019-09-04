@@ -1250,6 +1250,8 @@ class PyAPI(object):
                     fidValue = field.QuoteFieldUnion1.Price      
                 elif fieldType == EEQU_FIDTYPE_QTY:
                     fidValue = field.QuoteFieldUnion1.Qty
+                elif fieldType == EEQU_FIDTYPE_GREEK:
+                    fidValue = field.QuoteFieldUnion1.Greek
                 else:
                     pass
                     

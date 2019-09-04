@@ -93,6 +93,7 @@ class StrategyEngine(object):
             'CME|Z|ES', 'CME|Z|NQ', 'COMEX|Z|HG', 'COMEX|Z|GC',
             'NYMEX|F|CL', 'ICUS|F|SB', 'ICUS|F|CT',
             'NYMEX|Z|CL', 'ICUS|Z|SB', 'ICUS|Z|CT',
+            'NYMEX|O|CL', 'COMEX|O|GC',
             'ICEU|F|B', 'ICEU|F|Z', 'SGX|F|CN',
             'ICEU|Z|B', 'ICEU|Z|Z', 'SGX|Z|CN',
             'HKEX|F|HSI','HKEX|F|MHI','HKEX|F|HHI','HKEX|F|ICUS','HKEX|F|MCH',

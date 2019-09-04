@@ -966,6 +966,10 @@ class StrategyHisQuote(object):
                 curEffectiveDTS = curBarDTS-relativedelta(minutes=record[2])
             elif record[1] == EEQU_KLINE_DAY:
                 curEffectiveDTS = curBarDTS-relativedelta(days=record[2])
+                if curEffectiveDTS.isoweekday() == 6:
+                    curEffectiveDTS = curEffectiveDTS - relativedelta(days=1)
+                if curEffectiveDTS.isoweekday() == 7:
+                    curEffectiveDTS = curEffectiveDTS - relativedelta(days=2)
             elif record[1] == EEQU_KLINE_TICK:
                 curEffectiveDTS = curBarDTS-relativedelta(seconds=record[2])
             else:
@@ -1002,7 +1006,7 @@ class StrategyHisQuote(object):
             self._stopWinOrLose(key[0], row["HighPrice"], row["LowPrice"])
             self._stopFloatWinLose(key[0], row["HighPrice"], row["LowPrice"])
 
-            if key in self._config.getKLineTriggerInfoSimple():
+            if isShow or key in self._config.getKLineTriggerInfoSimple():
                 args = {
                     "Status": ST_STATUS_HISTORY,
                     "TriggerType":ST_TRIGGER_HIS_KLINE,
@@ -1038,7 +1042,8 @@ class StrategyHisQuote(object):
             batchKLine = self._curBarDict[showKey].getBarList()[beginPos:]
             self._addBatchKLine(batchKLine)
         self._sendFlushEvent()
-        endTime = datetime.now();endTimeStr = datetime.now().strftime('%H:%M:%S.%f')
+        endTime = datetime.now()
+        endTimeStr = datetime.now().strftime('%H:%M:%S.%f')
         self.logger.debug('[runReport] run report completed!')
         # self.logger.debug('[runReport] run report completed!, k线数量: {}, 耗时: {}s'.format(len(allHisData), endTime-beginTime))
         # print('**************************** run his end')

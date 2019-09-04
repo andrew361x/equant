@@ -709,8 +709,7 @@ class StrategyConfig_new(object):
                 if barInfo['UseSample']:
                     # 需要订阅历史K线
                     sampleInfo = self._getKLineCount(barInfo)
-                    subDict[triggerTuple] = {"ContractNo": contNo, "KLineType": barInfo['KLineType'],
-                                             "KLineSlice": barInfo['KLineSlice'], "BarCount": sampleInfo}
+                    subDict[triggerTuple] = {"ContractNo": contNo, "KLineType": barInfo['KLineType'], "KLineSlice": barInfo['KLineSlice'], "BarCount": sampleInfo}
                 elif triggerTuple in subDict:
                     # 不需要
                     del subDict[triggerTuple]
