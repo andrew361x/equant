@@ -29,6 +29,9 @@ class CalcCenter(object):
         self._firstOpenOrder = {}  # 交易合约第一个有持仓的订单
         self._latestOpenOrder = {}  # 交易合约最近一个有持仓的订单
         self._latestCoverOrder = {}  # 交易合约最近一个平仓单
+        #
+        self._latestBuyOpenOrder = {}   # 交易合约最近一个有买持仓的买开仓单信息
+        self._latestSellOpenOrder = {}  # 交易合约最近一个有卖持仓的卖开仓单信息
 
         self._runSet = defaultdict(int)  # 配置
         self._costs = defaultdict()  # 费率，存放所有合约的费率
@@ -716,6 +719,7 @@ class CalcCenter(object):
                                   * order["OrderPrice"]) / (pInfo["TotalBuy"] + order["OrderQty"])
             pInfo["TodayBuy"] = 0  # 外盘不计算今持仓，将今持仓置为0
 
+        #self._logger.debug("Margin1:%.2f, %d, %d, %d, %.2f" %(lastPrice, pInfo["TotalBuy"], pInfo["TotalSell"], cost["TradeDot"], cost["Margin"]))
         pInfo["LongMargin"] = lastPrice * pInfo["TotalBuy"] * cost["TradeDot"] * cost["Margin"]
         pInfo["ShortMargin"] = lastPrice * pInfo["TotalSell"] * cost["TradeDot"] * cost["Margin"]
         # 持仓盈亏（浮动盈亏）
@@ -775,18 +779,97 @@ class CalcCenter(object):
             return self._firstOpenOrder[contract]
         return {}
 
+    # def _updateLatestOpenOrder(self, user, contract):
+    #     """
+    #     更新最近一笔开仓单
+    #     """
+    #     pInfo = self._getSpecificPositionInfo(user, contract)
+    #     if pInfo["TotalBuy"] > 0 or pInfo["TotalSell"] > 0:
+    #         head = self._firstHoldPosition - 1 if self._firstHoldPosition > 0 else (-len(self._orders) - 1)
+    #         for eo in self._orders[:head:-1]:
+    #             if eo["Order"]["Cont"] == contract and eo["LeftNum"] > 0:
+    #                 self._latestOpenOrder[contract] = eo["Order"]
+    #                 return
+    #     else:
+    #         self._latestOpenOrder[contract] = {}
+
     def _updateLatestOpenOrder(self, user, contract):
-        """更新最近一笔开仓单"""
+        """
+        更新最近一笔开仓单，以及最近一笔买方向开仓单和卖方向开仓单
+        """
         pInfo = self._getSpecificPositionInfo(user, contract)
-        if pInfo["TotalBuy"] > 0 or pInfo["TotalSell"] > 0:
-            head = self._firstHoldPosition - 1 if self._firstHoldPosition > 0 else (-len(self._orders) - 1)
-            # for eo in self._orders[:(-len(self._orders)+1-self._firstHoldPosition):-1]:
-            for eo in self._orders[:head:-1]:
-                if eo["Order"]["Cont"] == contract and eo["LeftNum"] > 0:
-                    self._latestOpenOrder[contract] = eo["Order"]
-                    return
-        else:
-            self._latestOpenOrder[contract] = {}
+        order = self._orders[-1]["Order"]
+
+        if order["Offset"] == oOpen:
+            self._latestOpenOrder[order["Cont"]] = order
+            if order["Direct"] == dBuy:
+                self._latestBuyOpenOrder[order["Cont"]] = {
+                    "Order": order,
+                    "LastEntryHPrice": order["OrderPrice"],
+                    "LastEntryLPrice": order["OrderPrice"]
+                }
+                # 更新卖开仓的持仓价
+                self._updateSellOpenOrderPrice(order["OrderPrice"], order["OrderPrice"], order["Cont"])
+
+            elif order["Direct"] == dSell:
+                self._latestSellOpenOrder[order["Cont"]] = {
+                    "Order": order,
+                    "LastEntryHPrice": order["OrderPrice"],
+                    "LastEntryLPrice": order["OrderPrice"]
+                }
+                # 更新买开仓的持仓价
+                self._updateBuyOpenOrderPrice(order["OrderPrice"], order["OrderPrice"],  order["Cont"])
+        #TODO: 没有考虑外盘
+        elif order["Offset"] == oCover:
+            if pInfo["TotalBuy"] == 0 and pInfo["TotalSell"] == 0:
+                self._latestOpenOrder[order["Cont"]] = {}
+            if pInfo["TotalBuy"] == 0:
+                self._latestBuyOpenOrder[order["Cont"]] = {
+                    "Order": {},
+                    "LastEntryHPrice": 0,
+                    "LastEntryLPrice": 0
+                }
+            else:
+                self._updateBuyOpenOrderPrice(order["OrderPrice"], order["OrderPrice"],  order["Cont"])
+            if pInfo["TotalSell"] == 0:
+                self._latestSellOpenOrder[order["Cont"]] = {
+                    "Order": {},
+                    "LastEntryHPrice": 0,
+                    "LastEntryLPrice": 0
+                }
+            else:
+                self._updateSellOpenOrderPrice(order["OrderPrice"], order["OrderPrice"],  order["Cont"])
+
+
+    def _updateBuyOpenOrderPrice(self, price1, price2, contract):
+        """
+        更新买开仓单的最高价最低价
+        :param price1:  最高价
+        :param price2:  最低价
+        :param contract: 合约
+        :return:
+        """
+        if contract in self._latestBuyOpenOrder:
+            if self._latestBuyOpenOrder[contract]["Order"]:
+                if price1 > self._latestBuyOpenOrder[contract]["LastEntryHPrice"]:
+                    self._latestBuyOpenOrder[contract]["LastEntryHPrice"] = price1
+                if price2 < self._latestBuyOpenOrder[contract]["LastEntryLPrice"]:
+                    self._latestBuyOpenOrder[contract]["LastEntryLPrice"] = price2
+
+    def _updateSellOpenOrderPrice(self, price1, price2, contract):
+        """
+        更新卖开仓单的最高价最低价
+        :param price1: 最高价
+        :param price2: 最低价
+        :param contract: 合约
+        :return:
+        """
+        if contract in self._latestSellOpenOrder:
+            if self._latestSellOpenOrder[contract]["Order"]:
+                if price1 > self._latestSellOpenOrder[contract]["LastEntryHPrice"]:
+                    self._latestSellOpenOrder[contract]["LastEntryHPrice"] = price1
+                if price2 < self._latestSellOpenOrder[contract]["LastEntryLPrice"]:
+                    self._latestSellOpenOrder[contract]["LastEntryLPrice"] = price2
 
     def getLatestOpenOrder(self, contract):
         """
@@ -797,6 +880,24 @@ class CalcCenter(object):
         if contract in self._latestOpenOrder:
             return self._latestOpenOrder[contract]
         return {}
+
+    def getLatestBuyOpenOrder(self, contract):
+        if contract in self._latestBuyOpenOrder:
+            return self._latestBuyOpenOrder[contract]
+        return {
+            "Order": {},
+            "LastEntryHPrice": 0,
+            "LastEntryLPrice": 0
+        }
+
+    def getLatestSellOpenOrder(self, contract):
+        if contract in self._latestSellOpenOrder:
+            return self._latestSellOpenOrder[contract]
+        return {
+            "Order": {},
+            "LastEntryHPrice": 0,
+            "LastEntryLPrice": 0
+        }
 
     def _updateLatestCoverOrder(self, contract):
         """更新最近一笔平仓单"""
@@ -938,8 +1039,8 @@ class CalcCenter(object):
         :param contract: 合约
         :return: 持仓盈亏
         """
-        positions = self.getPositionInfo(contract)
-        # print("3333333333: ", positions)
+        positions = self.getPositionInfo()
+        #print("HoldProfit1:%s" %str(positions))
         if not contract:
             profit = 0
             for pInfo in positions.values():
@@ -1212,6 +1313,11 @@ class CalcCenter(object):
         self._updateTradeDate(t)
         self._updatePosition(contPrices)
         self._updateOtherProfit(timeStamp)
+
+        # 更新最近一笔有仓未平的开仓单的最高价、最低价
+        for c in contractList:
+            self._updateBuyOpenOrderPrice(barInfo[c]["HighPrice"], barInfo[c]["LowPrice"], c)
+            self._updateSellOpenOrderPrice(barInfo[c]["HighPrice"], barInfo[c]["LowPrice"], c)
 
         self._updateFundRecord(timeStamp, 0, 0)
         # ----------1ms或小于1ms-----------------------

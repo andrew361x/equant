@@ -5,8 +5,17 @@ from engine.engine import StrategyEngine
 from capi.py2c import PyAPI
 import time
 import sys
+import requests
+import os
+import traceback
+
 sys.path.append(".")
 sys.path.append("./ui")
+
+VERSION = ""
+
+#URL = "https://raw.githubusercontent.com/fanliangde/equant/master/VerNo.txt"
+URL = "https://gitee.com/epolestar/equant/raw/master/VerNo.txt"
 
 def run_log_process(logger):
     logger.run()
@@ -14,14 +23,45 @@ def run_log_process(logger):
 def run_engine_process(engine):
     engine.run()
 
+def checkUpdate(logger):
+    try:
+        if os.path.exists('../VerNo.txt'):
+            with open('../VerNo.txt', 'r') as f:
+                VERSION = f.read()
+        
+            lvl = VERSION.split('.')[:-1]
+            lmv =  '.'.join(lvl)
+        
+        rsp = requests.get(URL, timeout=10)
+        if rsp.status_code == 200:
+            rvstr = rsp.content.decode('utf-8')
+            rvl = rvstr.split('.')[:-1]
+            rmv = '.'.join(rvl)
+            
+        logger.info("Start epolestar, version info, equant local version: %s, remote version: %s!" %(VERSION, rvstr))
+            
+        if (len(lmv) == len(rmv) > 0 and rmv > lmv) or ( 0 < len(lmv) != len(rmv)):
+                logger.info("Version need update local: %s, remote: %s" %(lmv, rmv))
+                time.sleep(3)
+                cmdstr = '"start %s %s.0"' %(os.path.abspath("..") + "\\update.bat ", rmv)
+                logger.info("Update cmdstr:%s" %cmdstr)
+                curDir = os.getcwd()
+                os.chdir(os.path.abspath(os.path.join(curDir, "..")))
+                os.system(cmdstr)
+                os.chdir(curDir)
+        else:
+            logger.info("Version don't need update, local:%s, remote:%s" %(lmv, rmv))
+    except Exception as e:
+       logger.error("checkUpdate Error:%s" %(traceback.format_exc()))
 
 def main():
     # 创建日志模块
     logger = Logger()
     log_process = Process(target=run_log_process, args=(logger,))
     log_process.start()
-    
-    logger.info("Start epolestar equant version:%s!"%("EquantV1.0.8.20190903"))
+
+    # 检查软件更新
+    checkUpdate(logger)
 
     # 创建策略引擎到界面的队列，发送资金数据
     eg2ui_q = Queue(10000)

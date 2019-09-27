@@ -96,6 +96,7 @@ class SendRequest(object):
             'UserNo'     : '',
             'Data': {
                 'Path' : path,
+                #'Path' : r'C:\Users\slmu\Desktop\程序化\equant\src\strategy\NewTest\weika1-ok-cpython-37.pyc',
                 'Args' : config,
             }
         }

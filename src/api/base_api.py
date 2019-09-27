@@ -1771,6 +1771,48 @@ class BaseApi(object):
         '''
         return self._dataModel.getNextTimeInfo(contractNo, timeStamp)
 
+    def TradeSessionBeginTime(self, contractNo, tradeDate, index):
+        '''
+        【说明】
+              获取指定合约指定交易日的指定交易时间段的开始时间戳。
+
+        【语法】
+              int TradeSessionBeginTime(string contractNo='', int tradeDate=0, int index=0)
+
+        【参数】
+              contractNo 合约编号，为空时，取基准合约。
+              tradeDate  指定的交易日, 默认0
+              index 交易时间段的索引值, 从0开始，默认取第一个交易时段。
+
+        【备注】
+              返回时间戳类型, 如20190904213000000
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getTradeSessionBeginTime(contractNo, tradeDate, index)
+        
+    def TradeSessionEndTime(self, contractNo, tradeDate, index):
+        '''
+        【说明】
+              获取指定合约指定交易日的指定交易时间段的结束时间戳。
+
+        【语法】
+              int TradeSessionEndTime(string contractNo='', int tradeDate=0, int index=-1)
+
+        【参数】
+              contractNo 合约编号，为空时，取基准合约。
+              tradeDate  指定的交易日, 默认0
+              index 交易时间段的索引值, 从0开始，默认取最后一个交易时段。
+
+        【备注】
+              返回时间戳类型, 如20190904213000000
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getTradeSessionEndTime(contractNo, tradeDate, index)
+
     def CurrentDate(self):
         '''
         【说明】
@@ -2445,6 +2487,126 @@ class BaseApi(object):
               无
         '''
         return self._dataModel.getLastEntryPrice(contractNo)
+
+    def LastBuyEntryPrice(self, contractNo):
+        '''
+        【说明】
+              获得当前Buy持仓的最后一次建仓的委托价格。
+
+        【语法】
+              float LastBuyEntryPrice(string contractNo='')
+
+        【参数】
+              contractNo 合约编号，默认为基准合约。
+
+        【备注】
+              获得当前Buy持仓的最后一个建仓价格，返回值为浮点数。
+              若策略当前Buy持仓为0，则返回0。
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getLastBuyEntryPrice(contractNo)
+
+    def LastSellEntryPrice(self, contractNo):
+        '''
+        【说明】
+              获得当前Sell持仓的最后一次建仓的委托价格。
+
+        【语法】
+              float LastSellEntryPrice(string contractNo='')
+
+        【参数】
+              contractNo 合约编号，默认为基准合约。
+
+        【备注】
+              获得当前Sell持仓的最后一个建仓价格，返回值为浮点数。
+              若策略当前Sell持仓为0，则返回0。
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getLastSellEntryPrice(contractNo)
+        
+    def HighestSinceLastBuyEntry(self, contractNo):
+        '''
+        【说明】
+              获得当前Buy持仓的最后一次建仓以来的最高价。
+
+        【语法】
+              float HighestSinceLastBuyEntry(string contractNo='')
+
+        【参数】
+              contractNo 合约编号，默认为基准合约。
+
+        【备注】
+              获得当前Buy持仓的最后一个建仓以来的最高价，返回值为浮点数。
+              若策略当前Buy持仓为0，则返回0。
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getHighestSinceLastBuyEntry(contractNo)
+        
+    def LowestSinceLastBuyEntry(self, contractNo):
+        '''
+        【说明】
+              获得当前Buy持仓的最后一次建仓以来的最低价。
+
+        【语法】
+              float LowestSinceLastBuyEntry(string contractNo='')
+
+        【参数】
+              contractNo 合约编号，默认为基准合约。
+
+        【备注】
+              获得当前Buy持仓的最后一个建仓以来的最低价，返回值为浮点数。
+              若策略当前Buy持仓为0，则返回0。
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getLowestSinceLastBuyEntry(contractNo)
+
+    def HighestSinceLastSellEntry(self, contractNo):
+        '''
+        【说明】
+              获得当前Sell持仓的最后一次建仓以来的最高价。
+
+        【语法】
+              float HighestSinceLastSellEntry(string contractNo='')
+
+        【参数】
+              contractNo 合约编号，默认为基准合约。
+
+        【备注】
+              获得当前Sell持仓的最后一个建仓以来的最高价，返回值为浮点数。
+              若策略当前Sell持仓为0，则返回0。
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getHighestSinceLastSellEntry(contractNo)
+        
+    def LowestSinceLastSellEntry(self, contractNo):
+        '''
+        【说明】
+              获得当前Sell持仓的最后一次建仓以来的最低价。
+
+        【语法】
+              float LowestSinceLastSellEntry(string contractNo='')
+
+        【参数】
+              contractNo 合约编号，默认为基准合约。
+
+        【备注】
+              获得当前Sell持仓的最后一个建仓以来的最低价，返回值为浮点数。
+              若策略当前Sell持仓为0，则返回0。
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getLowestSinceLastSellEntry(contractNo)
 
     def LastEntryTime(self, contractNo):
         '''
@@ -3778,6 +3940,86 @@ class BaseApi(object):
          '''
         return self._dataModel.sendOrder(userNo, contractNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty, \
                                                       triggerType, triggerMode, triggerCondition, triggerPrice, aFunc=True)
+
+
+    def A_ModifyOrder(self, userNo, localOrderId, contractNo, orderDirct, entryOrExit, orderQty, orderPrice, orderType, validType, hedge, triggerType, triggerMode, triggerCondition, triggerPrice):
+        '''
+        【说明】
+              发送改单指令。
+
+        【语法】
+              bool A_ModifyOrder(string localOrderId, char orderDirct, char entryOrExit, int orderQty, float orderPrice, string contractNo='', string userNo='', char orderType='2', char validType='0', char hedge='T', char triggerType='N', char triggerMode='N', char triggerCondition='N', float triggerPrice=0)
+
+        【参数】
+              localOrderId 定单号，或者使用A_SendOrder返回的下单编号，
+              orderDirct 发送委托单的买卖类型，取值为Enum_Buy或Enum_Sell之一，
+              entryOrExit 发送委托单的开平仓类型，取值为Enum_Entry,Enum_Exit,Enum_ExitToday之一，
+              orderQty 委托单的交易数量，
+              orderPrice 委托单的交易价格，
+              contractNo 商品合约编号，默认值为基准合约，
+              userNo 指定的账户名称，默认为界面选定的账户名称，
+              orderType 订单类型，字符类型，默认值为'2'，可选值为：
+                '1' : 市价单
+                '2' : 限价单
+                '3' : 市价止损
+                '4' : 限价止损
+                '5' : 行权
+                '6' : 弃权
+                '7' : 询价
+                '8' : 应价
+                '9' : 冰山单
+                'A' : 影子单
+                'B' : 互换
+                'C' : 套利申请
+                'D' : 套保申请
+                'F' : 行权前期权自对冲申请
+                'G' : 履约期货自对冲申请
+                'H' : 做市商留仓
+                可使用如Enum_Order_Market、Enum_Order_Limit等订单类型枚举函数获取相应的类型，
+              validType 订单有效类型，字符类型，默认值为'0'， 可选值为：
+                '0' : 当日有效
+                '1' : 长期有效
+                '2' : 限期有效
+                '3' : 即时部分
+                '4' : 即时全部
+                可使用如Enum_GFD、Enum_GTC等订单有效类型枚举函数获取相应的类型，
+              hedge 投保标记，字符类型，默认值为'T'，可选值为：
+                'T' : 投机
+                'B' : 套保
+                'S' : 套利
+                'M' : 做市
+                可使用如Enum_Speculate、Enum_Hedge等订单投保标记枚举函数获取相应的类型，
+              triggerType 触发委托类型，默认值为'N'，可用的值为：
+                'N' : 普通单
+                'P' : 预备单(埋单)
+                'A' : 自动单
+                'C' : 条件单
+              triggerMode 触发模式，默认值为'N'，可用的值为：
+                'N' : 普通单
+                'L' : 最新价
+                'B' : 买价
+                'A' : 卖价
+              triggerCondition 触发条件，默认值为'N'，可用的值为：
+                'N' : 无
+                'g' : 大于
+                'G' : 大于等于
+                'l' : 小于
+                'L' : 小于等于
+              triggerPrice 触发价格，默认价格为0。
+
+        【备注】
+              针对指定帐户、订单发送改单指令，发送成功返回True, 发送失败返回False。
+              该函数直接发单，不经过任何确认，并会在每次公式计算时发送，一般需要配合着仓位头寸进行条件处理，在不清楚运行机制的情况下，请慎用。
+              注：不能使用于历史测试，仅适用于实时行情交易。
+
+        【示例】
+              无
+ 
+         '''
+         
+        return self._dataModel.modifyOrder(userNo, localOrderId, contractNo, orderType, validType, orderDirct, entryOrExit, \
+                                            hedge, orderPrice, orderQty, triggerType, triggerMode, triggerCondition, triggerPrice)
+                                            
 
     def A_DeleteOrder(self, userNo, localOrderId):
         '''
@@ -6735,6 +6977,24 @@ def LastEntryDate(contractNo=''):
 def LastEntryPrice(contractNo=''):
     return baseApi.LastEntryPrice(contractNo)
 
+def LastBuyEntryPrice(contractNo=''):
+    return baseApi.LastBuyEntryPrice(contractNo)
+
+def LastSellEntryPrice(contractNo=''):
+    return baseApi.LastSellEntryPrice(contractNo)
+
+def HighestSinceLastBuyEntry(contractNo=''):
+    return baseApi.HighestSinceLastBuyEntry(contractNo)
+    
+def HighestSinceLastSellEntry(contractNo=''):
+    return baseApi.HighestSinceLastSellEntry(contractNo)
+
+def LowestSinceLastBuyEntry(contractNo=''):
+    return baseApi.LowestSinceLastBuyEntry(contractNo)
+
+def LowestSinceLastSellEntry(contractNo=''):
+    return baseApi.LowestSinceLastSellEntry(contractNo)
+
 def LastEntryTime(contractNo=''):
     return baseApi.LastEntryTime(contractNo)
 
@@ -6922,6 +7182,9 @@ def A_OrderContractNo(localOrderId=0, userNo=''):
 
 def A_SendOrder(orderDirct, entryOrExit, orderQty, orderPrice, contractNo='', userNo='', orderType='2', validType='0', hedge='T', triggerType='N', triggerMode='N', triggerCondition='N', triggerPrice=0):
     return baseApi.A_SendOrder(userNo, contractNo, orderDirct, entryOrExit, orderQty, orderPrice, orderType, validType, hedge, triggerType, triggerMode, triggerCondition, triggerPrice)
+
+def A_ModifyOrder(localOrderId, orderDirct, entryOrExit, orderQty, orderPrice, contractNo='', userNo='', orderType='2', validType='0', hedge='T', triggerType='N', triggerMode='N', triggerCondition='N', triggerPrice=0):
+    return baseApi.A_ModifyOrder(userNo, localOrderId, contractNo, orderDirct, entryOrExit, orderQty, orderPrice, orderType, validType, hedge, triggerType, triggerMode, triggerCondition, triggerPrice)
 
 def A_DeleteOrder(localOrderId):
     return baseApi.A_DeleteOrder('', localOrderId)
@@ -7271,6 +7534,12 @@ def GetSessionStartTime(contractNo='', index=0):
 
 def GetNextTimeInfo(contractNo, timeStr):
     return baseApi.GetNextTimeInfo(contractNo, timeStr)
+    
+def TradeSessionBeginTime(contractNo='', tradeDate=0, index=0):
+    return baseApi.TradeSessionBeginTime(contractNo, tradeDate, index)
+
+def TradeSessionEndTime(contractNo='', tradeDate=0, index=-1):
+    return baseApi.TradeSessionEndTime(contractNo, tradeDate, index)
 
 def CurrentTime():
     return baseApi.CurrentTime()

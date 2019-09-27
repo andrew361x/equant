@@ -45,7 +45,8 @@ class QuoteModel:
             exchangeModel = self._exchangeData[dataDict['ExchangeNo']]
             exchangeModel.updateStatus(strategyId, dataDict)
         if apiEvent.isChainEnd():
-            self.logger.info('Initialize exchange status successfully!') 
+            #self.logger.info('Initialize exchange status successfully!') 
+            pass
 
     # 品种
     def updateCommodity(self, apiEvent):

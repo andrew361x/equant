@@ -1,11 +1,10 @@
 import os
+import sys
 import shutil
 import requests
 import zipfile
 
-#equantUrl    = "https://github.com/epolestar/equant/archive/master.zip"
-equantUrl    = "https://github.com/fanliangde/equant/archive/master.zip"
-#epolestarUrl = "https://epolestar-master-1255628687.cos.ap-beijing.myqcloud.com/epolestar.zip"
+equantUrl    = "https://epolestar-master-1255628687.cos.ap-beijing.myqcloud.com/"
 epolestarUrl = "https://epolestar95-1255628687.cos.ap-beijing.myqcloud.com/epolestar.zip"
 
 urls         = [equantUrl, epolestarUrl]
@@ -40,8 +39,9 @@ def backup(directory, des):
 
 
     if os.path.exists(directory):
-        os.system(f"xcopy {directory} {des} /y /e /i /h")
-        print("%s 备份成功！" % directory)
+        ret = os.system(f'xcopy "{directory}" "{des}" /y /e /i /h')
+        if ret == 0:
+            print("%s 备份成功！" % directory)
         return 1
     else:
         print("Equant or Equant-master directory dosen't exist!")
@@ -62,16 +62,6 @@ def killProcess():
         os.system('taskkill /f /fi "IMAGENAME eq %s"' % "epolestar v9.5.exe")
 
 
-# 根据版本号判断是否更新
-def isNeedUpdate(versionNo):
-    with open(os.path.join(dirPath, "update.ini"), 'r') as f:
-        context = f.readlines()
-        oldVer = context[1][4:]
-        if versionNo == oldVer:
-            return 1
-    return 0
-
-
 def requestZip(zipUrl, tag):
     """下载"""
     try:
@@ -82,7 +72,7 @@ def requestZip(zipUrl, tag):
             f.write(response.content)
         return 1
     except Exception as e:
-        print(tag, ":", "There is a exception %s when downloading file!" % (e))
+        print(tag, ":", "There is an exception %s when downloading file!" % (e))
         return 0
 
 
@@ -141,11 +131,11 @@ def mergeFile(src, dst):
             else:
                 print("Copy %s ===> %s"%(sfPath, dfPath))
                 #shutil.copyfile(sfPath, dfPath)
-                os.system(f"xcopy {sfPath} {dfPath} /y /e /i /h ")
+                os.system(f'xcopy "{sfPath}" "{dfPath}" /y /e /i /h ')
         elif os.path.isfile(sfPath):
             if os.path.exists(dfPath):
                 # shutil.copyfile(sfPath, dfPath)
-                os.system(f"xcopy {sfPath} {dfPath} /y /e /i /h")
+                os.system(f'xcopy "{sfPath}" "{dfPath}" /y /e /i /h')
                 print("Cover %s ===> %s" % (sfPath, dfPath))
             else:
                 # shutil.copy2(sfPath, dfPath)
@@ -158,12 +148,15 @@ def readonly_handler(func, path, ececinfo):
     func(path)
 
 
-def main():
-    inp = input("升级前请关闭极星9.5客户端和量化终端，否则将更新失败\n"
+def main(versionNo=None):
+    inp = input(f"存在新版本{versionNo}可以升级,\n"
+                "升级前请关闭极星9.5客户端和量化终端，否则将更新失败\n"
                 "更新会覆盖本地代码，请做好备份。确认是否升级(y/n): ")
     if inp == 'y' or inp == 'Y':  # 确认升级
         # killProcess()
-
+		
+        urls[0] = urls[0] + versionNo + ".zip"
+        print("222222: ", urls[0])
         # 下载
         for url, tag in zip(urls, tags):
             print("开始下载%s" % tag)
@@ -171,8 +164,7 @@ def main():
             if reqRlt == 0:   # 下载失败
                  print("下载过程出错，请重新尝试！")
                  return
-				 
-		
+
         # 解压并删除压缩包
         for name in zipname:
             zipFile(name)
@@ -203,7 +195,7 @@ def main():
 
         src = os.path.join(workDir, "epolestar")
         des = os.path.abspath(os.path.join(dirPath, "..\\epolestar"))
-        os.system(f"xcopy {src} {des} /y /e /i /h")
+        os.system(f'xcopy "{src}" "{des}" /y /e /i /h')
 
         # 合并config, strategy, log去重
         # TODO：会不会存在合并出错情况
@@ -229,7 +221,7 @@ def main():
         print("更新完成！")
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1])
 
 
 

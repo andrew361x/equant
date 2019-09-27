@@ -7,7 +7,7 @@
 4. 实盘交易需要用户使用各自有效的期货交易账号，并在极星9.5上完成登录。
 
 #### 安装教程  
-1. 下载[极星量化终端](	https://equant-1255628687.cos.ap-beijing.myqcloud.com/EquantPackage.zip)  
+1. 下载[极星量化安装包](	https://equant-1255628687.cos.ap-beijing.myqcloud.com/EquantPackage.zip)  
 
 2. 解压后，在install文件夹中，右键以管理员身份运行install.bat脚本进行安装  
 
@@ -21,7 +21,7 @@
     b. 拷贝升级文件epolestar.zip至极星量化终端安装目录，重命名原epolestar目录名，解压epolestar.zip   
     
 2. 升级极星量化终端  
-    a. 从github或者gitee上下载极星量化终端equant-master.zip   
+    a. 从github或者gitee上下载[极星量化终端](https://github.com/fanliangde/equant/archive/master.zip)equant-master.zip   
     b. 拷贝升级文件equant-master.zip至极星量化终端安装目录，重命名原equant-master目录名，解压equant-master.zip     
     
         

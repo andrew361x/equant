@@ -148,7 +148,7 @@ class StrategyConfig_new(object):
         if argDict and isinstance(argDict, dict):
             self._metaData = deepcopy(argDict)
             return
-
+            
         self._metaData = {
             'SubContract' : [],     # 订阅的合约信息，列表中的第一个合约为基准合约
             'Sample'      : {
@@ -453,30 +453,39 @@ class StrategyConfig_new(object):
         return self._metaData['Money']['Hedge']
 
     # ----------------------- 保证金 ----------------------
-    def setMargin(self, type, value, contNo='Default'):
+    def setMargin(self, type, value, contNo=''):
         '''设置保证金的类型及比例/额度'''
         if value < 0 or type not in (EEQU_FEE_TYPE_RATIO, EEQU_FEE_TYPE_FIXED):
             raise Exception("保证金类型只能是 'R': 按比例收取，'F': 按定额收取 中的一个，并且保证金比例/额度不能小于0！")
 
         # TODO : 清空界面设置的参数
 
-        if contNo not in self._metaData['Money']:
-            self._metaData['Money']['Margin'][contNo] = {'Type':'', 'Value':''}
+        if contNo not in self._metaData['Money']['Margin']:
+            self._metaData['Money']['Margin'][contNo] = {}
+
         self._metaData['Money']['Margin'][contNo]['Type'] = type
         self._metaData['Money']['Margin'][contNo]['Value'] = value
         return 0
 
-    def getMarginType(self, contNo='Default'):
+    def getMarginType(self, contNo=''):
         '''获取保证金类型'''
+        if not contNo:
+            contNo = self.getBenchmark()
+            
         if contNo not in self._metaData['Money']['Margin']:
-            raise Exception("请确保为合约%s设置了保证金类型！"%contNo)
+            #raise Exception("请确保为合约%s设置了保证金类型！"%contNo)
+            return 0
 
         return self._metaData['Money']['Margin'][contNo]['Type']
 
-    def getMarginValue(self, contNo='Default'):
+    def getMarginValue(self, contNo=''):
         '''获取保证金比例值'''
+        if not contNo:
+            contNo = self.getBenchmark()
+            
         if contNo not in self._metaData['Money']['Margin']:
-            raise Exception("请确保为合约%s设置了保证金比例/额度！"%contNo)
+            #raise Exception("请确保为合约%s设置了保证金比例/额度！"%contNo)
+            return 0.08
 
         return self._metaData['Money']['Margin'][contNo]['Value']
 
@@ -576,6 +585,7 @@ class StrategyConfig_new(object):
             "StopPoint": winPoint,
             "AddPoint": nAddTick,
             "CoverPosOrderType": nPriceType,
+            "StopType": '0',
         }
 
     def getStopWinParams(self, contractNo=None):
@@ -599,6 +609,7 @@ class StrategyConfig_new(object):
             "StopPoint": stopPoint,
             "AddPoint": nAddTick,
             "CoverPosOrderType": nPriceType,
+            "StopType": '1',
         }
 
     def getStopLoseParams(self, contractNo=None):
@@ -624,6 +635,7 @@ class StrategyConfig_new(object):
             "StopPoint": stopPoint,
             "AddPoint": nAddTick,
             "CoverPosOrderType": nPriceType,
+            "StopType": '1', 
         }
 
     def getFloatStopPoint(self, contractNo=None):

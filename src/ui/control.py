@@ -211,6 +211,7 @@ class TkinterController(object):
         self.app.createRunWin(param, strategyPath, True)
 
         config = self.app.runWin.getConfig()
+        #self.logger.debug("paramLoad: %s" %config)
         if config:  # 获取到config
             self._request.strategyParamRestart(id, config)
             self.logger.info("Restarting strategy by new paramters")

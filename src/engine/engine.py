@@ -1372,6 +1372,7 @@ class StrategyEngine(object):
             self._strategyMgr.destroyProcessByStrategyId(strategyId)
 
         allConfig = copy.deepcopy(self._strategyMgr.getStrategyAttribute(strategyId)["Config"])
+        #allConfig = copy.deepcopy(event.getData()["Config"])
         allConfig["Params"] = event.getData()["Config"]["Params"]
         self._strategyMgr.getStrategyAttribute(strategyId)['Config'] = allConfig
         loadEvent = Event({

@@ -168,7 +168,7 @@ class RunWin(QuantToplevel, QuantFrame):
             self.defaultQty.set(conf[VDefaultQty]),
             self.minQty.set(conf[VMinQty]),
             # self.hedge.set(conf[VHedge]),
-            self.margin.set(conf[VMinQty]),
+            self.margin.set(conf[VMargin]),
 
             self.openType.set(conf[VOpenType]),
             self.closeType.set(conf[VCloseType]),
@@ -320,7 +320,8 @@ class RunWin(QuantToplevel, QuantFrame):
         #弹出输入窗口，输入文件名称
         self.geometry('%dx%d+%d+%d' % (w, h, x, y))
         self.minsize(620, 570)
-        self.resizable(0, 0)
+        #self.resizable(0, 0)
+        self.resizable(width=True, height=True)
 
     def createNotebook(self, frame):
         nbFrame = tk.Frame(frame, height=30, bg=self.bgColor)
@@ -1606,7 +1607,7 @@ class SelectContractWin(QuantToplevel, QuantFrame):
         #弹出输入窗口，输入文件名称
         self.geometry('%dx%d+%d+%d' % (w, h, x, y))
         self.minsize(870, 560)
-        self.resizable(0, 0)
+        self.resizable(width=True, height=True)
 
     def createWidgets(self, frame):
         topFrame = tk.Frame(frame, relief=tk.RAISED, bg=rgb_to_hex(255, 255, 255))
@@ -1827,7 +1828,7 @@ class AddContWin(QuantToplevel, QuantFrame):
         pass
 
     def _initArgs(self):
-        self.margin.set("5")
+        self.margin.set("8")
         # K线类型
         self.kLineType.set("分钟")
         # K线周期
@@ -1857,7 +1858,8 @@ class AddContWin(QuantToplevel, QuantFrame):
         #弹出输入窗口，输入文件名称
         self.geometry('%dx%d+%d+%d' % (w, h, x, y))
         self.minsize(400, 260)
-        self.resizable(0, 0)
+        #self.resizable(0, 0)
+        self.resizable(width=True, height=True)
 
     def setWinValue(self, item, value):
         """设置增加多合约信息时界面的参数值"""
@@ -1899,9 +1901,10 @@ class AddContWin(QuantToplevel, QuantFrame):
         """设置商品代码"""
         contCodeFrame = tk.Frame(frame, relief=tk.RAISED, bg=rgb_to_hex(245, 245, 245))
         contCodeFrame.pack(fill=tk.X, padx=15, pady=2)
+        #contCodeFrame.pack(fill=tk.BOTH, expand=tk.YES, padx=15, pady=2)
 
         codeLabel = tk.Label(contCodeFrame, text='商品代码:', bg=rgb_to_hex(245, 245, 245),
-                                justif=tk.LEFT, anchor=tk.W, width=15)
+                                justif=tk.LEFT, anchor=tk.W, width=10)
         codeLabel.pack(side=tk.LEFT)
         self.codeEntry = tk.Entry(contCodeFrame, relief=tk.GROOVE, bd=2, textvariable=self.contCode)
         self.codeEntry.pack(side=tk.LEFT, fill=tk.X, padx=5)
@@ -1911,13 +1914,14 @@ class AddContWin(QuantToplevel, QuantFrame):
                                    overrelief="groove",
                                    bg=rgb_to_hex(230, 230, 230),
                                    command=self.selectContract)
+        #self.contractButton.pack(fill=tk.BOTH, expand=tk.YES, side=tk.LEFT, ipadx=5, padx=5)
         self.contractButton.pack(side=tk.LEFT, ipadx=5, padx=5)
 
     def setKLineType(self, frame):
         kLineTypeFrame = tk.Frame(frame, relief=tk.RAISED, bg=rgb_to_hex(245, 245, 245))
         kLineTypeFrame.pack(fill=tk.NONE, anchor=tk.W, padx=15, pady=2)
         kLineTypeLabel = tk.Label(kLineTypeFrame, text='K线类型:', bg=rgb_to_hex(245, 245, 245),
-                                  justify=tk.LEFT, anchor=tk.W, width=15)
+                                  justify=tk.LEFT, anchor=tk.W, width=10)
         kLineTypeLabel.pack(side=tk.LEFT)
 
         self.kLineTypeChosen = ttk.Combobox(kLineTypeFrame, state="readonly", textvariable=self.kLineType, width=17)
@@ -1929,7 +1933,7 @@ class AddContWin(QuantToplevel, QuantFrame):
         self.klineSliceFrame = tk.Frame(frame, relief=tk.RAISED, bg=rgb_to_hex(245, 245, 245))
         self.klineSliceFrame.pack(fill=tk.X, padx=15, pady=2)
         klineSliceLabel = tk.Label(self.klineSliceFrame, text="K线周期:", bg=rgb_to_hex(245, 245, 245),
-                                   justify=tk.LEFT, anchor=tk.W, width=15)
+                                   justify=tk.LEFT, anchor=tk.W, width=10)
         klineSliceLabel.pack(side=tk.LEFT)
 
         self.klineSliceChosen = ttk.Combobox(self.klineSliceFrame, state="readonly",

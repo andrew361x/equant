@@ -184,7 +184,6 @@ class StrategyHisQuote(object):
         #
         self._firstRealTimeKLine = {}
         self._triggerMgr = None
-        # self.isMonitorTrigger = {}
 
     def initialize(self):
         self._contractTuple = self._config.getContract()
@@ -968,7 +967,7 @@ class StrategyHisQuote(object):
                 curEffectiveDTS = curBarDTS-relativedelta(days=record[2])
                 if curEffectiveDTS.isoweekday() == 6:
                     curEffectiveDTS = curEffectiveDTS - relativedelta(days=1)
-                if curEffectiveDTS.isoweekday() == 7:
+                elif curEffectiveDTS.isoweekday() == 7:
                     curEffectiveDTS = curEffectiveDTS - relativedelta(days=2)
             elif record[1] == EEQU_KLINE_TICK:
                 curEffectiveDTS = curBarDTS-relativedelta(seconds=record[2])
@@ -1002,10 +1001,6 @@ class StrategyHisQuote(object):
             if not self._config.hasKLineTrigger():
                 continue
 
-            # 处理历史回测阶段止损止盈
-            self._stopWinOrLose(key[0], row["HighPrice"], row["LowPrice"])
-            self._stopFloatWinLose(key[0], row["HighPrice"], row["LowPrice"])
-
             if isShow or key in self._config.getKLineTriggerInfoSimple():
                 args = {
                     "Status": ST_STATUS_HISTORY,
@@ -1020,6 +1015,10 @@ class StrategyHisQuote(object):
                 self._strategy.setCurTriggerSourceInfo(args)
                 context.setCurTriggerSourceInfo(args)
                 handle_data(context)
+
+            # 处理历史回测阶段止损止盈
+            self._stopWinOrLose(key[0], True, row)
+            self._stopFloatWinLose(key[0], True, row)
 
             # # 要显示的k线
             if isShow:
@@ -1091,8 +1090,8 @@ class StrategyHisQuote(object):
             handle_data(context)
 
         # 处理中间阶段止损止盈,按照历史回测止损止盈
-        self._stopWinOrLose(key[0], kLineData["HighPrice"], kLineData["LowPrice"])
-        self._stopFloatWinLose(key[0], kLineData["HighPrice"], kLineData["LowPrice"])
+        self._stopWinOrLose(key[0], True, kLineData)
+        self._stopFloatWinLose(key[0], True, kLineData)
 
         # **********************************
         if isShow:
@@ -1108,13 +1107,17 @@ class StrategyHisQuote(object):
         key = (curTriggerInfo["ContractNo"], curTriggerInfo["KLineType"], curTriggerInfo["KLineSlice"])
 
         curBar = self._curBarDict[key].getCurBar()
-        priceInfos[key[0]] = {
+        contNo = self._dataModel.getIndexMap(key[0])
+        priceInfos[contNo] = {
             "LastPrice": curBar['LastPrice'],
+            "HighPrice": curBar['HighPrice'],
+            "LowPrice": curBar['LowPrice'],
             "DateTimeStamp": curBar['DateTimeStamp'],
             "TradeDate": curBar['TradeDate'],
             "LastPriceSource": KLineFromHis,
         }
-        self._calc.calcProfit([key[0]], priceInfos)
+
+        self._calc.calcProfit([contNo], priceInfos)
 
     def drawBatchHisKine(self, data):
         self.sendAllHisKLine(data)
@@ -1152,33 +1155,6 @@ class StrategyHisQuote(object):
         assert eventCode in [ST_TRIGGER_KLINE, ST_TRIGGER_TRADE_ORDER, ST_TRIGGER_TRADE_MATCH,\
         ST_TRIGGER_SANPSHOT_FILL, ST_TRIGGER_TIMER, ST_TRIGGER_CYCLE],  "Error "
 
-        if eventCode == ST_TRIGGER_SANPSHOT_FILL:
-            # 计算浮动盈亏
-            try:
-                self._calcProfitByQuote(event)
-            except Exception as e:
-                errText = traceback.format_exc()
-                self.logger.error(f"即时行情计算浮动盈亏出现错误，{errText}")
-
-            # 处理实时阶段止损止盈
-            lv1Data = event.getData()["Data"]
-            if 4 in lv1Data:
-                self._stopWinOrLose(event.getContractNo(), lv1Data[4], lv1Data[4])
-                self._stopFloatWinLose(event.getContractNo(), lv1Data[4], lv1Data[4])
-            else:
-                # 交易所套利无最新价
-                comtype = event.getContractNo().split('|')[1]
-                if comtype != 'S' and comtype != 'M':
-                    self.logger.info(f"即时行情中的字段没有最新价")
-
-            # 延迟判断是否即时行情触发
-            if not self._config.hasSnapShotTrigger() or not self._strategy.isRealTimeStatus():
-                return
-            if event.getContractNo() not in self._config.getTriggerContract():
-                return
-        else:
-            pass
-
         if not self._strategy.isRealTimeStatus():
             return
 
@@ -1197,6 +1173,34 @@ class StrategyHisQuote(object):
         self._strategy.setCurTriggerSourceInfo(args)
         context.setCurTriggerSourceInfo(args)
         handle_data(context)
+        
+        if eventCode == ST_TRIGGER_SANPSHOT_FILL:
+            # 计算浮动盈亏
+            try:
+                self._calcProfitByQuote(event)
+            except Exception as e:
+                errText = traceback.format_exc()
+                self.logger.error(f"即时行情计算浮动盈亏出现错误，{errText}")
+
+            # 处理实时阶段止损止盈
+            lv1Data = event.getData()["Data"]
+            if 4 in lv1Data:
+                self._stopWinOrLose(event.getContractNo(), False, lv1Data)
+                self._stopFloatWinLose(event.getContractNo(), False, lv1Data)
+            else:
+                # 交易所套利无最新价
+                comtype = event.getContractNo().split('|')[1]
+                if comtype != 'S' and comtype != 'M':
+                    self.logger.info(f"即时行情中的字段没有最新价")
+
+            # 延迟判断是否即时行情触发
+            if not self._config.hasSnapShotTrigger() or not self._strategy.isRealTimeStatus():
+                return
+            if event.getContractNo() not in self._config.getTriggerContract():
+                return
+        else:
+            pass
+        
         self._sendFlushEvent()
 
     def _sendRealTimeKLine2Client(self, key, data):
@@ -1229,132 +1233,296 @@ class StrategyHisQuote(object):
             return
 
         priceInfos = {}
+        contNo = self._dataModel.getIndexMap(contNo)
         priceInfos[contNo] = {
             "LastPrice": lv1Data[4],
+            "HighPrice": lv1Data[4],
+            "LowPrice": lv1Data[4],
             "TradeDate": tradeDate,
             "DateTimeStamp" : dateTimeStamp,
             "LastPriceSource": LastPriceFromQuote
         }
         
         #self.logger.debug("_calcProfitByQuote:%s"%priceInfos)
-        self._calc.calcProfit([event.getContractNo()], priceInfos)
+        self._calc.calcProfit([contNo], priceInfos)
 
     #
-    def _stopWinOrLose(self, contractNo, highPrice, lowPrice):
+    def _stopWinOrLose(self, contractNo, isHis, data):
         stopWinParams = self._config.getStopWinParams(contractNo)
         stopLoseParams = self._config.getStopLoseParams(contractNo)
-        priceTick = self._dataModel.getPriceTick(contractNo)
+        
         # 处理止损止盈
-        latestPos = self._calc.getLatestOpenOrder(contractNo)
+        # latestPos = self._calc.getLatestOpenOrder(contractNo)
+        latestBuyPos = self._calc.getLatestBuyOpenOrder(contractNo)["Order"]
+        latestSellPos = self._calc.getLatestSellOpenOrder(contractNo)["Order"]
         
         # 没有设置止损止盈, 或者没有持仓
-        if (not stopLoseParams and not stopWinParams) or not latestPos:
+        if (not stopLoseParams and not stopWinParams) or (not latestBuyPos and not latestSellPos):
             return
 
+        if isHis:
+            highPrice = data["HighPrice"]
+            lowPrice  = data["LowPrice"]
+        else:
+            highPrice = data[4]
+            lowPrice  = data[4]
+
+        priceTick = self._dataModel.getPriceTick(contractNo)
+
         # 止损或者止盈是否触发
-        isStopWinTrigger = False; isStopLoseTrigger = False
+        isStopWinBuyTrigger = False
+        isStopLoseBuyTrigger = False
+        isStopWinSellTrigger = False
+        isStopLoseSellTrigger = False
 
         # 买方向，价格上涨，需要止盈，价格下跌需要止损
         # 卖方向，价格下跌，需要止盈，价格上涨需要止损
         # self.logger.debug('AAAA:%s,%s,%f'%(latestPos, stopWinParams, curPrice))
         if stopWinParams:
-            if latestPos['Direct'] == 'B':
-                isStopWinTrigger = highPrice-latestPos["OrderPrice"]-stopWinParams["StopPoint"]*priceTick>-1e-6
-            else:
-                isStopWinTrigger = latestPos["OrderPrice"]-lowPrice-stopWinParams["StopPoint"]*priceTick>-1e-6
+            if latestBuyPos:
+                isStopWinBuyTrigger = highPrice-latestBuyPos["OrderPrice"]-stopWinParams["StopPoint"]*priceTick>-1e-6
+            if latestSellPos:
+                isStopWinSellTrigger = latestSellPos["OrderPrice"]-lowPrice-stopWinParams["StopPoint"]*priceTick>-1e-6
         if stopLoseParams:
-            if latestPos['Direct'] == 'B':
-                isStopLoseTrigger = latestPos["OrderPrice"]-lowPrice-stopLoseParams["StopPoint"]*priceTick>-1e-6
-            else:
-                isStopLoseTrigger = highPrice-latestPos["OrderPrice"]-stopLoseParams["StopPoint"]*priceTick>-1e-6
+            if latestBuyPos:
+                isStopLoseBuyTrigger = latestBuyPos["OrderPrice"]-lowPrice-stopLoseParams["StopPoint"]*priceTick>-1e-6
+            if latestSellPos:
+                isStopLoseSellTrigger = highPrice-latestSellPos["OrderPrice"]-stopLoseParams["StopPoint"]*priceTick>-1e-6
 
         # 日志记录
-        if isStopWinTrigger:
+        if isStopWinBuyTrigger:
             if self._strategy.isHisStatus():
-                self.logger.info(f"{contractNo} 的历史k线触发了止盈, High: {highPrice}, Low: {lowPrice}")
+                self.logger.info(f"{contractNo} 的历史k线触发了BuyPos止盈, High: {highPrice}, Low: {lowPrice}")
             else:
-                self.logger.info(f"{contractNo} 的即时行情触发了止盈, High: {highPrice}, Low: {lowPrice}")
-        if isStopLoseTrigger:
+                self.logger.info(f"{contractNo} 的即时行情触发了BuyPos止盈, High: {highPrice}, Low: {lowPrice}")
+        if isStopLoseBuyTrigger:
             if self._strategy.isHisStatus():
-                self.logger.info(f"{contractNo} 的历史k线触发了止损, High: {highPrice}, Low: {lowPrice}")
+                self.logger.info(f"{contractNo} 的历史k线触发了BuyPos止损, High: {highPrice}, Low: {lowPrice}")
             else:
-                self.logger.info(f"{contractNo} 的即时行情触发了止损, High: {highPrice}, Low: {lowPrice}")
-
+                self.logger.info(f"{contractNo} 的即时行情触发了BuyPos止损, High: {highPrice}, Low: {lowPrice}")       
+        if isStopWinSellTrigger:
+            if self._strategy.isHisStatus():
+                self.logger.info(f"{contractNo} 的历史k线触发了SellPos止盈, High: {highPrice}, Low: {lowPrice}")
+            else:
+                self.logger.info(f"{contractNo} 的即时行情触发了SellPos止盈, High: {highPrice}, Low: {lowPrice}")
+        if isStopLoseSellTrigger:
+            if self._strategy.isHisStatus():
+                self.logger.info(f"{contractNo} 的历史k线触发了SellPos止损, High: {highPrice}, Low: {lowPrice}")
+            else:
+                self.logger.info(f"{contractNo} 的即时行情触发了SellPos止损, High: {highPrice}, Low: {lowPrice}")
+    
         allPos = self._calc.getPositionInfo(contractNo)
 
-        if isStopWinTrigger:
-            if allPos["TotalBuy"] >= 1:
-                coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], stopWinParams["CoverPosOrderType"], stopWinParams["AddPoint"], priceTick, dSell)
-                self._dataModel.setSell('', contractNo, allPos["TotalBuy"], coverPosPrice)
-            elif allPos["TotalSell"] >= 1:
-                coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], stopWinParams["CoverPosOrderType"], stopWinParams["AddPoint"], priceTick, dBuy)
-                self._dataModel.setBuyToCover('', contractNo, allPos["TotalSell"], coverPosPrice)
+        priceStopWinType = stopWinParams["CoverPosOrderType"]
+        orderStopWinType = otLimit
+        if priceStopWinType == 3:
+            orderStopWinType = otMarket
+            
+        priceStopLoseType = stopLoseParams["CoverPosOrderType"]
+        orderStopLoseType = otLimit
+        if priceStopLoseType == 3:
+            orderStopLoseType = otMarket
 
-        elif isStopLoseTrigger:
-            if allPos["TotalBuy"] >= 1:
-                coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], stopLoseParams["CoverPosOrderType"], stopLoseParams["AddPoint"], priceTick, dSell)
-                self._dataModel.setSell('', contractNo, allPos["TotalBuy"], coverPosPrice)
-            elif allPos["TotalSell"] >= 1:
-                coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], stopLoseParams["CoverPosOrderType"], stopLoseParams["AddPoint"], priceTick, dBuy)
-                self._dataModel.setBuyToCover('', contractNo, allPos["TotalSell"], coverPosPrice)
+        if isStopWinBuyTrigger:
+            coverPosPrice = self.getCoverPosPrice(isHis, data, latestBuyPos["OrderPrice"], stopWinParams, priceTick, dSell)
+            self._dataModel.setSell('', contractNo, allPos["TotalBuy"], coverPosPrice, oCoverA, orderStopWinType)
+            self._dataModel.setPlotText(coverPosPrice, "止盈", 0x2F4F4F, True, 0)
+        if isStopWinSellTrigger:
+            coverPosPrice = self.getCoverPosPrice(isHis, data, latestSellPos["OrderPrice"], stopWinParams, priceTick, dBuy)
+            self._dataModel.setBuyToCover('', contractNo, allPos["TotalSell"], coverPosPrice, oCoverA, orderStopWinType)
+            self._dataModel.setPlotText(coverPosPrice, "止盈", 0x2F4F4F, True, 0)
+        if isStopLoseBuyTrigger:
+            coverPosPrice = self.getCoverPosPrice(isHis, data, latestBuyPos["OrderPrice"], stopLoseParams, priceTick, dSell)
+            self._dataModel.setSell('', contractNo, allPos["TotalBuy"], coverPosPrice, oCoverA, orderStopLoseType)
+            self._dataModel.setPlotText(coverPosPrice, "止损", 0x2F4F4F, True, 0)
+        if isStopLoseSellTrigger:
+            coverPosPrice = self.getCoverPosPrice(isHis, data, latestSellPos["OrderPrice"], stopLoseParams, priceTick, dBuy)
+            self._dataModel.setBuyToCover('', contractNo, allPos["TotalSell"], coverPosPrice, oCoverA, orderStopLoseType)
+            self._dataModel.setPlotText(coverPosPrice, "止损", 0x2F4F4F, True, 0)
+            
+    def getCoverPosPrice(self, isHis, data, orderPrice, stopParams, priceTick, direction):
+        # price 应该根据coverPosOrderType调整, 0: 最新价，1：对盘价，2：挂单价，3：市价，4：停板价
+        price = None
+        priceType = stopParams["CoverPosOrderType"]
+        addPoint  = stopParams["AddPoint"]
+        stopPoint = stopParams["StopPoint"]
+        stopType  = stopParams["StopType"]
+        # 历史阶段
+        if isHis:
+            price = orderPrice
 
-    def getCoverPosPrice(self, curPrice, coverPosOrderType, addPoint, priceTick, direction):
-        # price 应该根据coverPosOrderType调整, todo
-        price = curPrice
-        # 根据超价点数买+ 卖-
-        if direction==dBuy:
-            return price+addPoint*priceTick
-        elif direction==dSell:
-            return price-addPoint*priceTick
+            # 根据买卖方向,超价点数调整价格
+            if direction == dBuy:
+                price = price + addPoint*priceTick
+                
+                # 根据止损止盈类型调整价格
+                if stopType == '0':
+                    price = price - stopPoint*priceTick
+                elif stopType == '1':
+                    price = price + stopPoint*priceTick
+            elif direction == dSell:
+                price = price - addPoint*priceTick
+                
+                # 根据止损止盈类型调整价格
+                if stopType == '0':
+                    price = price + stopPoint*priceTick
+                elif stopType == '1':
+                    price = price - stopPoint*priceTick
+            
+            # 根据最高最低价调整价格
+            price = min(price, data["HighPrice"])
+            price = max(price, data["LowPrice"])
+            
+        # 即时阶段
         else:
-            return None
+            # 默认取最新价
+            key = 4
+            # 买方向
+            if direction == dBuy:
+                # 最新价
+                if priceType == 0:
+                    pass
+                # 对盘价
+                elif priceType == 1:
+                    if 19 in data:
+                        key = 19
+                # 挂单价
+                elif priceType == 2:
+                    if 17 in data:
+                        key = 17
+                # 市价
+                elif priceType == 3:
+                    return 0
+                # 停板价
+                elif priceType == 4:
+                    if 9 in data:
+                        return data[9]
+                else:
+                    return data[key]
+                # 买价根据超价点数调整（买加卖减）
+                price = data[key] + addPoint*priceTick
+                # 买价根据涨停价调整
+                if 9 in data:
+                    price = min(price, data[9])
+                
+            elif direction == dSell:
+                # 最新价
+                if priceType == 0:
+                    pass
+                # 对盘价
+                elif priceType == 1:
+                    if 17 in data:
+                        key = 17
+                # 挂单价
+                elif priceType == 2:
+                    if 19 in data:
+                        key = 19
+                # 市价
+                elif priceType == 3:
+                    return 0
+                # 停板价
+                elif priceType == 4:
+                    if 10 in data:
+                        return data[10]
+                else:
+                    return data[key]
+                # 卖价根据超价点数调整（买加卖减）
+                price = data[key] - addPoint*priceTick
+                # 卖价根据跌停价调整
+                if 10 in data:
+                    price = max(price, data[10])
+                                
+        return price
 
     # 相对于
-    isMonitorTrigger = {}
-    def _stopFloatWinLose(self, contractNo, highPrice, lowPrice):
+    #isMonitorTrigger = {}
+    def _stopFloatWinLose(self, contractNo, isHis, data):
         floatStopParams = self._config.getFloatStopPoint(contractNo)
-        priceTick = self._dataModel.getPriceTick(contractNo)
-        latestPos = self._calc.getLatestOpenOrder(contractNo)
-        if not floatStopParams or not latestPos:
+        #latestPos = self._calc.getLatestOpenOrder(contractNo)
+        latestBuyPos = self._calc.getLatestBuyOpenOrder(contractNo)["Order"]
+        latestSellPos = self._calc.getLatestSellOpenOrder(contractNo)["Order"]
+    
+        if not floatStopParams or (not latestBuyPos and not latestSellPos):
             return
+            
+        if isHis:
+            highPrice = data["HighPrice"]
+            lowPrice  = data["LowPrice"]
+            lastPrice = data["LastPrice"]
+        else:
+            highPrice = data[4]
+            lowPrice  = data[4]
+            lastPrice = data[4]
+            
 
-        isFloatStopTrigger = False
-        isContractMonitorTrigger = self.isMonitorTrigger.get(contractNo, False)
+        priceTick = self._dataModel.getPriceTick(contractNo)
+
+        highBuyPrice  = self._calc.getLatestBuyOpenOrder(contractNo)["LastEntryHPrice"]
+        lowBuyPrice   = self._calc.getLatestBuyOpenOrder(contractNo)["LastEntryLPrice"]  
+        highSellPrice = self._calc.getLatestSellOpenOrder(contractNo)["LastEntryHPrice"]
+        lowSellPrice  = self._calc.getLatestSellOpenOrder(contractNo)["LastEntryLPrice"]
+
+        highBuyPrice = max(highBuyPrice, highPrice)
+        lowBuyPrice  = min(lowBuyPrice, lowPrice)
+        highSellPrice = max(highSellPrice, highPrice)
+        lowSellPrice  = min(lowSellPrice, lowPrice)
+
+        '''
+        allPos = self._calc.getPositionInfo(contractNo)
+
+        buyPrice  = latestBuyPos.get("OrderPrice", 0)
+        sellPrice = latestSellPos.get("OrderPrice", 0)
+        self.logger.debug("BuyPos:%d, SellPos:%d, buyPrice:%f, sellPrice:%f, highBuyPrice:%f, lowBuyPrice:%f, highSellPrice:%f, lowSellPrice:%f, priceTick:%f, buyPos:%s, sellPos:%s" %(allPos["TotalBuy"], allPos["TotalSell"], buyPrice, sellPrice, highBuyPrice, lowBuyPrice, highSellPrice, lowSellPrice, priceTick, latestBuyPos, latestSellPos))
+        '''
+        
+        isFloatStopBuyTrigger  = False
+        isFloatStopSellTrigger = False
+
         # 监控最高点
         # 买方向，达到最高点，开始监控止损，下跌到止损点时触发
         # 卖方向，达到最低点，开始监控止损，上涨到止损点时触发
-        if latestPos['Direct'] == 'B':
-            if not isContractMonitorTrigger:
-                if highPrice-latestPos["OrderPrice"]-floatStopParams["StartPoint"]*priceTick>-1e-6:
-                    self.isMonitorTrigger[contractNo] = True
-            else:
-                if highPrice-latestPos["OrderPrice"]-(floatStopParams["StartPoint"]-floatStopParams["StopPoint"])*priceTick<1e-6:
-                    isFloatStopTrigger = True
-        else:
-            if not isContractMonitorTrigger:
-                if latestPos["OrderPrice"]-lowPrice-floatStopParams["StartPoint"]*priceTick>-1e-6:
-                    self.isMonitorTrigger[contractNo] = True
-            else:
-                if latestPos["OrderPrice"]-lowPrice-(floatStopParams["StartPoint"]-floatStopParams["StopPoint"])*priceTick<1e-6:
-                    isFloatStopTrigger = True
-
-        allPos = self._calc.getPositionInfo(contractNo)
-        if not isFloatStopTrigger:
+        if latestBuyPos:
+            if highBuyPrice - latestBuyPos["OrderPrice"] >= floatStopParams["StartPoint"]*priceTick:
+                if highBuyPrice - lowPrice >= floatStopParams["StopPoint"]*priceTick:
+                    isFloatStopBuyTrigger = True
+         
+        if latestSellPos:
+            if latestSellPos["OrderPrice"] - lowSellPrice >= floatStopParams["StartPoint"]*priceTick:
+                if highPrice - lowSellPrice >= floatStopParams["StopPoint"]*priceTick:
+                    isFloatStopSellTrigger = True
+    
+        if not isFloatStopBuyTrigger and not isFloatStopSellTrigger:
             return
+            
+        allPos = self._calc.getPositionInfo(contractNo)
+        
+        if isFloatStopBuyTrigger:
+            if self._strategy.isHisStatus():
+                self.logger.info(f"{contractNo} 的历史k线触发了BuyPos浮动止损止盈, High: {highPrice}, Low: {lowPrice}")
+            else:
+                self.logger.info(f"{contractNo} 的即时行情触发了BuyPos浮动止损止盈, High: {highPrice}, Low: {lowPrice}")
+        
+        if isFloatStopSellTrigger:
+            if self._strategy.isHisStatus():
+                self.logger.info(f"{contractNo} 的历史k线触发了SellPos浮动止损止盈, High: {highPrice}, Low: {lowPrice}")
+            else:
+                self.logger.info(f"{contractNo} 的即时行情触发了SellPos浮动止损止盈, High: {highPrice}, Low: {lowPrice}")      
 
-        if self._strategy.isHisStatus():
-            self.logger.info(f"{contractNo} 的历史k线触发了浮动止损止盈, High: {highPrice}, Low: {lowPrice}")
-        else:
-            self.logger.info(f"{contractNo} 的即时行情触发了浮动止损止盈, High: {highPrice}, Low: {lowPrice}")
+        priceFloatStopType = floatStopParams["CoverPosOrderType"]
+        orderFloatStopType = otLimit
+        if priceFloatStopType == 3:
+            orderFloatStopType = otMarket
 
-        if allPos["TotalBuy"] >= 1:
-            coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], floatStopParams["CoverPosOrderType"],floatStopParams["AddPoint"], priceTick, dSell)
-            self._dataModel.setSell('', contractNo, allPos["TotalBuy"], coverPosPrice)
-        elif allPos["TotalSell"] >= 1:
-            coverPosPrice = self.getCoverPosPrice(latestPos["OrderPrice"], floatStopParams["CoverPosOrderType"],floatStopParams["AddPoint"], priceTick, dBuy)
-            self._dataModel.setBuyToCover('', contractNo, allPos["TotalSell"], coverPosPrice)
-        # 平仓之后取消监控
-        self.isMonitorTrigger[contractNo] = False
+        if isFloatStopBuyTrigger:
+            coverPosPrice = self.getCoverPosPrice(isHis, data, highBuyPrice, floatStopParams, priceTick, dSell)
+            self._dataModel.setSell('', contractNo, allPos["TotalBuy"], coverPosPrice, oCoverA, orderFloatStopType)
+            self._dataModel.setPlotText(coverPosPrice, "跟踪止损", 0x2F4F4F, True, 0)
+            
+        if isFloatStopSellTrigger:
+            coverPosPrice = self.getCoverPosPrice(isHis, data, lowSellPrice, floatStopParams, priceTick, dBuy)
+            self._dataModel.setBuyToCover('', contractNo, allPos["TotalSell"], coverPosPrice, oCoverA, orderFloatStopType)
+            self._dataModel.setPlotText(coverPosPrice, "跟踪止损", 0x2F4F4F, True, 0)
+            
 
     def _sendSyncTriggerEvent(self, contractNo):
         syncTriggerInfo = self._triggerMgr.getSyncTriggerInfo(contractNo)

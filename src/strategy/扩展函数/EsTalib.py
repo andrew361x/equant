@@ -30,6 +30,57 @@ def U_Summation(data,period):
     index = len(data) - period if len(data) > period else 0
     return sum(data[index:])
 
+def U_Average(data,period):
+    '''
+    【说明】
+          求最近length周期的均值
+
+    【参数】
+          data 计算参考序列，类型可为[],NumericSeries或者np.array
+          period 周期数，整型
+
+    【返回值】
+          返回最近length周期的均值，浮点型
+
+    【备注】
+          无
+    '''
+    nBars =  min(len(data), period)
+    
+    return U_Summation(data, period) / nBars
+    
+def U_AverageFC(X, data, period):
+    '''
+    【说明】
+          快速求最近length周期的均值
+
+    【参数】
+          X 所有length周期的均值, NumericSeries类型
+          data 计算参考序列，类型可为[],NumericSeries或者np.array
+          period 周期数，整型
+
+    【返回值】
+          返回最近length周期的均值，浮点型
+
+    【备注】
+          无
+    '''
+    nSum = 0
+    nBars = 1
+    dLen = len(data)
+    
+    if dLen <= 1:
+        return data[-1]
+    
+    if dLen <= period:
+        nSum = X[-1] * (dLen-1) + data[-1]
+        nBars = dLen
+    else:
+        nSum = X[-1] * period + data[-1] - data[-period-1]
+        nBars = period
+    
+    return nSum / nBars
+
 
 def U_XAverage(X, data, period):
     '''

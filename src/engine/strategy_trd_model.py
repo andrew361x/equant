@@ -50,7 +50,8 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo
             
         if len(self._userInfo) == 0 or userNo not in self._userInfo:
-            raise Exception("请确保您的账号已经在客户端登录")
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return []
 
         tUserInfoModel = self._userInfo[userNo]
         if not tUserInfoModel.isReady():
@@ -78,7 +79,8 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo       
         
         if len(self._userInfo) == 0 or userNo not in self._userInfo:
-            raise Exception("请确保您的账号已经在客户端登录")
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return 0
 
         tUserInfoModel = self._userInfo[userNo]
         if not tUserInfoModel.isReady():
@@ -214,7 +216,8 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo
             
         if len(self._userInfo) == 0 or userNo not in self._userInfo:
-            raise Exception("请确保您的账号已经在客户端登录")
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return 0
 
         tUserInfoModel = self._userInfo[userNo]
         if len(tUserInfoModel._position) == 0:
@@ -258,7 +261,9 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo
             
         if len(self._userInfo) == 0 or userNo not in self._userInfo:
-            raise Exception("请确保您的账号已经在客户端登录")
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return 0
+            
         tUserInfoModel = self._userInfo[userNo]
 
         if len(tUserInfoModel._order) == 0:
@@ -296,7 +301,8 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo
             
         if len(self._userInfo) == 0 or userNo not in self._userInfo:
-            raise Exception("请确保您的账号已经在客户端登录")
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return 0
 
         tUserInfoModel = self._userInfo[userNo]
         if len(tUserInfoModel._position) == 0:
@@ -354,7 +360,8 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo
             
         if len(self._userInfo) == 0 or userNo not in self._userInfo:
-            raise Exception("请确保您的账号已经在客户端登录")
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return 0
 
         tUserInfoModel = self._userInfo[userNo]
         if len(tUserInfoModel._position) == 0:
@@ -512,7 +519,8 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo
             
         if userNo not in self._userInfo:
-            raise Exception("请先在极星客户端登录您的交易账号")
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return -1
 
         tUserInfoModel = self._userInfo[userNo]
         if len(tUserInfoModel._order) == 0:
@@ -532,7 +540,8 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo
             
         if userNo not in self._userInfo:
-            raise Exception("请先在极星客户端登录您的交易账号")
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return -1
 
         tUserInfoModel = self._userInfo[userNo]
         if len(tUserInfoModel._order) == 0:
@@ -559,7 +568,9 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo
             
         if userNo not in self._userInfo:
-            raise Exception("请先在极星客户端登录您的交易账号")
+            #raise Exception("请先在极星客户端登录您的交易账号")
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return -1
 
         tUserInfoModel = self._userInfo[userNo]
         if len(tUserInfoModel._order) == 0:
@@ -585,7 +596,8 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo
             
         if userNo not in self._userInfo:
-            raise Exception("请先在极星客户端登录您的交易账号")
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return -1
 
         tUserInfoModel = self._userInfo[userNo]
         if len(tUserInfoModel._order) == 0:
@@ -609,8 +621,9 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo
             
         if userNo not in self._userInfo:
-            raise Exception("请先在极星客户端登录您的交易账号")
-
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return -1
+            
         tUserInfoModel = self._userInfo[userNo]
         if len(tUserInfoModel._order) == 0:
             return -1
@@ -639,7 +652,8 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo
             
         if userNo not in self._userInfo:
-            raise Exception("请先在极星客户端登录您的交易账号")
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return -1
 
         tUserInfoModel = self._userInfo[userNo]
         latestTime = -1
@@ -684,7 +698,8 @@ class StrategyTrade(TradeModel):
             userNo = self._selectedUserNo
             
         if userNo not in self._userInfo:
-            raise Exception("请先在极星客户端登录您的交易账号")
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return -1
 
         userInfoModel = self._userInfo[userNo]
         if orderId not in userInfoModel._order:
@@ -699,4 +714,66 @@ class StrategyTrade(TradeModel):
             "Data": aOrder
         })
         self._strategy.sendEvent2Engine(aOrderEvent)
+        return True
+
+    def modifyOrder(self, userNo, eSession, contNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty, \
+                  triggerType, triggerMode, triggerCondition, triggerPrice):
+        '''
+        针对当前公式应用的帐户、商品发送改单指令。
+        :param eSession: 所要改委托单的定单号
+        :return: 发送成功返回True, 发送失败返回False
+        '''
+        #if not userNo:
+        #   userNo = self._selectedUserNo
+        
+        orderId = ''
+        if isinstance(eSession, str) and '-' in eSession:
+            orderId = self._strategy.getOrderId(eSession)
+            if not orderId:
+                return False
+        else:
+            orderId = eSession
+            
+        realUserNo = self.getUserNoByOrderId(orderId)
+        
+        #if userNo != realUserNo:
+        #    self.logger.warn('Order modify realUser(%s) not user(%s)!'%(realUserNo, userNo))
+        #    return False
+        
+        if realUserNo not in self._userInfo:
+            self.logger.error('user(%s) not login!'%realUserNo)
+            return False
+
+        userInfoModel = self._userInfo[realUserNo]
+        if orderId not in userInfoModel._order:
+            return False
+
+        aOrder = {
+            'UserNo': realUserNo,
+            'Sign': self.getSign(realUserNo),
+            'Cont': contNo,
+            'OrderType': orderType,
+            'ValidType': validType,
+            'ValidTime': '0',
+            'Direct': orderDirct,
+            'Offset': entryOrExit,
+            'Hedge': hedge,
+            'OrderPrice': orderPrice,
+            'TriggerPrice': triggerPrice,
+            'TriggerMode': triggerMode,
+            'TriggerCondition': triggerCondition,
+            'OrderQty': orderQty,
+            'StrategyType': triggerType,
+            'Remark': '',
+            'AddOneIsValid': tsDay,
+            "OrderId": orderId,
+        }
+        
+        aOrderEvent = Event({
+            "EventCode": EV_ST2EG_ACTUAL_MODIFY_ORDER,
+            "StrategyId": self._strategy.getStrategyId(),
+            "Data": aOrder
+        })
+        self._strategy.sendEvent2Engine(aOrderEvent)
+        
         return True
