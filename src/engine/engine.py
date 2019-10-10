@@ -98,6 +98,7 @@ class StrategyEngine(object):
             'ICEU|Z|B', 'ICEU|Z|Z', 'SGX|Z|CN',
             'HKEX|F|HSI','HKEX|F|MHI','HKEX|F|HHI','HKEX|F|ICUS','HKEX|F|MCH',
             'HKEX|Z|HSI','HKEX|Z|MHI','HKEX|Z|HHI','HKEX|Z|ICUS','HKEX|Z|MCH',
+            'SGE',
         ]
         
         self.logger.debug('Initialize strategy engine ok!')

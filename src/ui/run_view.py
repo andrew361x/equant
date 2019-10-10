@@ -1552,7 +1552,7 @@ class RunWin(QuantToplevel, QuantFrame):
 class SelectContractWin(QuantToplevel, QuantFrame):
 
     # exchangeList = ["CFFEX", "CME", "DCE", "SGE", "SHFE", "ZCE", "SPD", "INE", "NYMEX", "SSE", "SZSE"]
-    exchangeList = ["SPD", "ZCE", "DCE", "SHFE", "INE", "CFFEX",
+    exchangeList = ["SPD", "ZCE", "DCE", "SHFE", "INE", "CFFEX", "SGE",
                     "CME", "COMEX", "LEM", "NYMEX", "HKEX", "CBOT", "ICUS", "ICEU", "SGX"]
     commodityType = {"P": "现货", "Y": "现货", "F": "期货", "O": "期权",
                      "S": "跨期套利", "M": "品种套利", "s": "", "m": "",
@@ -1728,8 +1728,20 @@ class SelectContractWin(QuantToplevel, QuantFrame):
                     commodityNoZ = "|".join(temp)
 
                 ePattern = r"\A" + exchangeNo[0] + "\|"
+
+                # 品种中的括号和+号字符需要转义
+                if commodityNo[0].find("("):
+                    temp = "\(".join(commodityNo[0].split("("))
+                    commodityNo[0] = "\)".join(temp.split(")"))
+                    temp = "\(".join(commodityNoZ.split("("))
+                    commodityNoZ = "\)".join(temp.split(")"))
+                if commodityNo[0].find("+"):
+                    commodityNo[0] = "\+".join(commodityNo[0].split("+"))
+                    commodityNoZ = "\+".join(commodityNoZ.split("+"))
+
                 cPattern = r"\A" + "\|".join(commodityNo[0].split("|")) + "\|"
                 cZPattern = r"\A" + "\|".join(commodityNoZ.split("|")) + "\|"
+
                 contract = self._contract.loc[
                     (self._contract.ContractNo.str.contains(ePattern))
                     & (

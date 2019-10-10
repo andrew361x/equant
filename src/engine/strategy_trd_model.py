@@ -668,6 +668,28 @@ class StrategyTrade(TradeModel):
                         latestTime = float(timeStamp)
         return latestTime
 
+    def getAllOrderNo(self, userNo, contNo):
+        # 默认usrNo为空字符串（''），此时取当前用户
+        if not userNo:
+            userNo = self._selectedUserNo
+            
+        if userNo not in self._userInfo:
+            self.logger.error("请先在极星客户端登录您的交易账号")
+            return -1
+
+        tUserInfoModel = self._userInfo[userNo]
+        if len(tUserInfoModel._order) == 0:
+            return -1
+
+        orderIdList = []
+        for orderKey in list(tUserInfoModel._order.keys()):
+            orderModel = tUserInfoModel._order[orderKey]
+            if not contNo or contNo == orderModel._metaData['Cont']:
+                orderId = orderModel._metaData['OrderId']
+                orderIdList.append(orderId)
+
+        return orderIdList
+
     def getOrderContractNo(self, userNo, eSession):
         return self.getDataByOrderId(eSession, 'Cont', '')
 

@@ -3836,6 +3836,26 @@ class BaseApi(object):
               无
          '''
         return self._dataModel.getALatestFilledTime(userNo, contractNo)
+        
+    def A_AllOrderNo(self, contractNo, userNo):
+        '''
+        【说明】
+              返回包含指定合约指定账户所有订单号的列表。
+
+        【语法】
+              list A_AllOrderNo(string contractNo='', string userNo='')
+
+        【参数】
+              contractNo 合约代码，默认为遍历所有合约，指定后只遍历指定合约。
+              userNo  指定的交易账户，默认当前账户
+
+        【备注】
+              无
+
+        【示例】
+              无
+         '''
+        return self._dataModel.getAllOrderNo(userNo, contractNo)
 
     def A_OrderContractNo(self, userNo, localOrderId):
         '''
@@ -7176,6 +7196,9 @@ def A_AllQueueOrderNo(contractNo='', userNo=''):
 
 def A_LatestFilledTime(contractNo='', userNo=''):
     return baseApi.A_LatestFilledTime(contractNo, userNo)
+
+def A_AllOrderNo(contractNo='', userNo=''):
+    return baseApi.A_AllOrderNo(contractNo, userNo)
 
 def A_OrderContractNo(localOrderId=0, userNo=''):
     return baseApi.A_OrderContractNo(userNo, localOrderId)

@@ -949,6 +949,7 @@ class StrategyHisQuote(object):
         allHisData = []
         for record in self._config.getKLineKindsInfo():
             key = (record["ContractNo"], record["KLineType"], record["KLineSlice"])
+            #self.logger.error(key)
             hisData = self._kLineRspData[key]["KLineData"]
             allHisData.extend(hisData)
 

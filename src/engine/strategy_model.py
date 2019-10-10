@@ -952,6 +952,12 @@ class StrategyModel(object):
             contNo = underlayCont
         return self._trdModel.getALatestFilledTime(userNo, contNo)
 
+    def getAllOrderNo(self, userNo, contNo):
+        underlayCont = self._qteModel.getUnderlayContractNo(contNo)
+        if len(underlayCont) > 0:
+            contNo = underlayCont
+        return self._trdModel.getAllOrderNo(userNo, contNo)
+
     def getOrderContractNo(self, userNo, orderId):
         return self._trdModel.getOrderContractNo(userNo, orderId)
 
