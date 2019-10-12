@@ -54,11 +54,17 @@ def checkUpdate(logger):
     except Exception as e:
        logger.error("checkUpdate Error:%s" %(traceback.format_exc()))
 
+def saveMainPid(pid=""):
+    with open("log/mainpid.log", 'w') as f:
+        f.write(str(pid))
+
 def main():
     # 创建日志模块
     logger = Logger()
     log_process = Process(target=run_log_process, args=(logger,))
     log_process.start()
+    
+    saveMainPid(os.getpid())
 
     # 检查软件更新
     checkUpdate(logger)
@@ -77,6 +83,8 @@ def main():
     app = TkinterController(logger, ui2eg_q, eg2ui_q)
     # 等待界面事件
     app.run()
+
+    saveMainPid()
 
     time.sleep(3)
     import atexit

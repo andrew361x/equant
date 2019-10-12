@@ -1,0 +1,5 @@
+.log
+.dat
+.git
+.idea
+__pycache__
