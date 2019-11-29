@@ -191,11 +191,13 @@ class StrategyConfig_new(object):
             'WinPoint' : {},         # 止盈信息
             'StopPoint' : {},        # 止损信息
             'FloatStopPoint' : {},   # 浮动止损信息
+            'StopWinKtBlack': [],    # 不触发止损止盈浮动K线类型
             'SubQuoteContract' : [], # 即时行情订阅合约列表
             'Params': {}, # 用户设置参数
-            'Pending': False,
+            'Pending': False,  # 是否允许向实盘下单
             'Alarm': False, # 是否开启警报
             'PopOn': False, # 是否允许弹窗
+            'AutoSyncPos': False, #是否自动同步持仓, 和引擎设置一致
         }
 
     # ----------------------- 合约/K线类型/K线周期 ----------------------
@@ -275,6 +277,12 @@ class StrategyConfig_new(object):
                     'UseSample': useSample, # 运算起始点-不执行历史K线
                     'Trigger': trigger     # 是否订阅历史K线
                 }
+
+    def setAutoSyncPos(self, conf):
+        self._metaData['AutoSyncPos'] = conf['AutoSyncPos']
+        
+    def getAutoSyncPos(self):
+        return self._metaData['AutoSyncPos']
 
     def isVaildDate(self, date, format):
         try:
@@ -458,8 +466,6 @@ class StrategyConfig_new(object):
         if value < 0 or type not in (EEQU_FEE_TYPE_RATIO, EEQU_FEE_TYPE_FIXED):
             raise Exception("保证金类型只能是 'R': 按比例收取，'F': 按定额收取 中的一个，并且保证金比例/额度不能小于0！")
 
-        # TODO : 清空界面设置的参数
-
         if contNo not in self._metaData['Money']['Margin']:
             self._metaData['Money']['Margin'][contNo] = {}
 
@@ -490,8 +496,11 @@ class StrategyConfig_new(object):
         return self._metaData['Money']['Margin'][contNo]['Value']
 
     # ----------------------- 交易手续费 ----------------------
-    def setTradeFee(self, type, feeType, feeValue, contNo='Default'):
+    def setTradeFee(self, type, feeType, feeValue, contNo=''):
         '''设置交易手续费'''
+        if not contNo:
+            contNo = self.getBenchmarkNo()
+            
         typeMap = {
             'A': ('OpenFee', 'CloseFee', 'CloseTodayFee'),
             'O': ('OpenFee',),
@@ -504,49 +513,58 @@ class StrategyConfig_new(object):
         if feeType not in (EEQU_FEE_TYPE_RATIO, EEQU_FEE_TYPE_FIXED):
             raise Exception("手续费收取方式只能取 'R': 按比例收取，'F': 按定额收取 中的一个！")
 
-        # TODO : 清空界面设置信息
-
         keyList = typeMap[type]
         for key in keyList:
             feeDict = self._metaData['Money'][key]
-            feeDict[contNo] = {
-                'Type': feeType,
-                'Value': feeValue
-            }
+            if contNo not in feeDict:
+                feeDict[contNo] = {}
+            #print("[0000000000]SetTradeFee:%s" %feeDict)    
+            feeDict[contNo]['Type'] = feeType
+            feeDict[contNo]['Value'] = feeValue
+            #print("[11111111]SetTradeFee:%s" %feeDict)
+             
+        return 0
 
-    def getRatioOrFixedFee(self, feeType, isRatio, contNo='Default'):
+    def getRatioOrFixedFee(self, feeType, isRatio, contNo=''):
         '''获取 开仓/平仓/今平 手续费率或固定手续费'''
+        if not contNo:
+            contNo = self.getBenchmarkNo()
+        
         typeDict = {'OpenFee':'开仓', 'CloseFee':'平仓', 'CloseTodayFee':'平今'}
         if feeType not in typeDict:
             return 0
 
         openFeeType = EEQU_FEE_TYPE_RATIO if isRatio else EEQU_FEE_TYPE_FIXED
         if contNo not in self._metaData['Money'][feeType]:
-            raise Exception("请确保为合约%s设置了%s手续费！"%(contNo, typeDict[feeType]))
+            contList = list(self._metaData['Money'][feeType].keys())
+            if len(contList) > 0:
+                contNo = contList[0]
+            else:
+                raise Exception("请确保为合约%s设置了%s手续费！"%(contNo, typeDict[feeType]))
 
         return self._metaData['Money'][feeType][contNo]['Value'] if self._metaData['Money'][feeType][contNo]['Type'] == openFeeType else 0
 
-    def getOpenRatio(self, contNo='Default'):
+    def getOpenRatio(self, contNo=''):
         '''获取开仓手续费率'''
         return self.getRatioOrFixedFee('OpenFee', True, contNo)
 
-    def getOpenFixed(self, contNo='Default'):
+    def getOpenFixed(self, contNo=''):
         '''获取开仓固定手续费'''
         return self.getRatioOrFixedFee('OpenFee', False, contNo)
 
-    def getCloseRatio(self, contNo='Default'):
+    def getCloseRatio(self, contNo=''):
         '''获取平仓手续费率'''
         return self.getRatioOrFixedFee('CloseFee', True, contNo)
 
-    def getCloseFixed(self, contNo='Default'):
+    def getCloseFixed(self, contNo=''):
         '''获取平仓固定手续费'''
         return self.getRatioOrFixedFee('CloseFee', False, contNo)
 
-    def getCloseTodayRatio(self, contNo='Default'):
+    def getCloseTodayRatio(self, contNo=''):
         '''获取今平手续费率'''
         return self.getRatioOrFixedFee('CloseTodayFee', True, contNo)
 
-    def getCloseTodayFixed(self, contNo='Default'):
+    def getCloseTodayFixed(self, contNo=''):
         '''获取今平固定手续费'''
         return self.getRatioOrFixedFee('CloseTodayFee', False, contNo)
 
@@ -588,6 +606,25 @@ class StrategyConfig_new(object):
             "StopType": '0',
         }
 
+    def setStopWinKtBlack(self, op, kt):
+        if kt not in ('D', 'M', 'T'):
+            raise Exception("设置的K线类型必须为 'D', 'M', 'T'中的一个")
+            
+        if op not in (0, 1):
+            raise Exception("设置的操作类型必须为 0: 取消, 1: 增加 中的一个")
+            
+        if op == 0:
+            if kt in self._metaData["StopWinKtBlack"]:
+                self._metaData["StopWinKtBlack"].remove(kt)
+        else:
+            if kt not in self._metaData["StopWinKtBlack"]:
+                self._metaData["StopWinKtBlack"].append(kt)
+                
+        return 0
+                
+    def getStopWinKtBlack(self):
+        return self._metaData["StopWinKtBlack"]
+            
     def getStopWinParams(self, contractNo=None):
         '''获取止盈信息'''
         contNo = self.getBenchmark() if not contractNo else contractNo
@@ -698,6 +735,15 @@ class StrategyConfig_new(object):
         subContract = self._metaData['SubContract']
         if not subContract or len(subContract) == 0:
             raise Exception("请确保在设置界面或者在策略中调用SetBarInterval方法设置展示的合约、K线类型和周期")
+
+        return subContract[0]
+        
+    def getBenchmarkNo(self):
+        '''获取基准合约'''
+        # 1、取界面设置的第一个合约 2、取SetBarinterval第一个设置的合约
+        subContract = self._metaData['SubContract']
+        if not subContract or len(subContract) == 0:
+            return 'Default'
 
         return subContract[0]
 

@@ -2,11 +2,11 @@
 # 历史阶段用了buy、sell进行测试
 # 实盘阶段用了A函数进行更精细的下单控制
 import talib
+import time
 
 p1 = 5
 p2 = 20
 qty = 1
-
 def initialize(context):
     SetOrderWay(2)
     SetActual()

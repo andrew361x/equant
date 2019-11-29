@@ -2,8 +2,8 @@
 import talib
 import numpy as np
 
-code1="ZCE|F|TA|909"
-code2="ZCE|F|TA|001"
+code1="ZCE|F|TA|001"
+code2="ZCE|F|TA|005"
 
 p1=5
 p2=20
@@ -37,8 +37,8 @@ def handle_data(context):
         return
 
     # 计算价差ma
-    sma1 = talib.MA(np.array(spds), p1, 2, 2)  
-    sma2 = talib.MA(np.array(spds), p2, 2, 2)         
+    sma1 = talib.MA(np.array(spds), p1)  
+    sma2 = talib.MA(np.array(spds), p2)         
 
     # 根据两根ma的交叉关系下单
     if sma1[-1] > sma2[-1] + dot * PriceTick() and MarketPosition(code1) <= 0:

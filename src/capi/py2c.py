@@ -1735,7 +1735,8 @@ class PyAPI(object):
                 'ExchangeNo'        : data.ExchangeNo.decode('utf-8'),
                 'ExchangeDateTime'  : data.ExchangeDateTime.decode('utf-8'),
                 'LocalDateTime'     : data.LocalDateTime.decode('utf-8'),
-                'TradeState'        : data.TradeState.decode('utf-8')
+                'TradeState'        : data.TradeState.decode('utf-8'),
+                'CommodityNo'       : data.CommodityNo.decode('utf-8'),
             }
             dataList.append(idict)
         

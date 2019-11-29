@@ -344,6 +344,7 @@ class BaseApi(object):
 
         【备注】
               第一个Bar返回值为0，其他Bar递增
+              当无数据时，不存在当前Bar，返回-1
 
         【示例】
               无
@@ -1270,7 +1271,7 @@ class BaseApi(object):
               产生一个多头建仓操作
 
         【语法】
-              Bool Buy(int share=0, float price=0, string contractNo=None, bool needCover = True, string userNo='')
+              void Buy(int share=0, float price=0, string contractNo=None, bool needCover = True, string userNo='')
 
         【参数】
               share 买入数量，为整型值，默认为0；
@@ -1280,7 +1281,7 @@ class BaseApi(object):
               userNo 用户编号，为字符串，默认使用界面选定用户编号。
 
         【备注】
-              产生一个多头建仓操作，返回值为布尔型，执行成功返回True，否则返回False。
+              产生一个多头建仓操作，无返回值。
               该函数仅用于多头建仓，其处理规则如下：
               如果当前持仓状态为持平，该函数按照参数进行多头建仓。
               如果当前持仓状态为空仓，该函数平掉所有空仓，同时按照参数进行多头建仓，两个动作同时发出。
@@ -1306,7 +1307,7 @@ class BaseApi(object):
               产生一个空头平仓操作
 
         【语法】
-              Bool BuyToCover(int share=0, float price=0, string contractNo=None, string userNo='', char coverFlag = 'A')
+              void BuyToCover(int share=0, float price=0, string contractNo=None, string userNo='', char coverFlag = 'A')
 
         【参数】
               share 买入数量，为整型值，默认为0；
@@ -1319,7 +1320,7 @@ class BaseApi(object):
                         若平今，则需设置为'T'
 
         【备注】
-              产生一个空头平仓操作，返回值为布尔型，执行成功返回True，否则返回False。
+              产生一个空头平仓操作，无返回值。
               该函数仅用于空头平仓，其处理规则如下：
               如果当前持仓状态为持平，该函数不执行任何操作。
               如果当前持仓状态为多仓，该函数不执行任何操作。
@@ -1342,7 +1343,7 @@ class BaseApi(object):
               产生一个多头平仓操作
 
         【语法】
-              Bool Sell(int share=0, float price=0, string contractNo=None, string userNo='', char coverFlag = 'A')
+              void Sell(int share=0, float price=0, string contractNo=None, string userNo='', char coverFlag = 'A')
 
         【参数】
               share 买入数量，为整型值，默认为0；
@@ -1355,7 +1356,7 @@ class BaseApi(object):
                         若平今，则需设置为'T'
 
         【备注】
-              产生一个多头平仓操作，返回值为布尔型，执行成功返回True，否则返回False。
+              产生一个多头平仓操作，无返回值。
               该函数仅用于多头平仓，其处理规则如下：
               如果当前持仓状态为持平，该函数不执行任何操作。
               如果当前持仓状态为空仓，该函数不执行任何操作。
@@ -1378,7 +1379,7 @@ class BaseApi(object):
               产生一个空头建仓操作
 
         【语法】
-              Bool SellShort(int share=0, float price=0, string contractNo=None, bool needCover = True, string userNo='')
+              void SellShort(int share=0, float price=0, string contractNo=None, bool needCover = True, string userNo='')
 
         【参数】
               share 买入数量，为整型值，默认为0；
@@ -1388,7 +1389,7 @@ class BaseApi(object):
               userNo 用户编号，为字符串，默认使用界面选定用户编号。
 
         【备注】
-              产生一个空头建仓操作，返回值为布尔型，执行成功返回True，否则返回False。
+              产生一个空头建仓操作，无返回值。
               该函数仅用于空头建仓，其处理规则如下：
               如果当前持仓状态为持平，该函数按照参数进行空头建仓。
               如果当前持仓状态为多仓，该函数平掉所有多仓，同时按照参数进行空头建仓，两个动作同时发出
@@ -1472,16 +1473,16 @@ class BaseApi(object):
     def BarInterval(self):
         '''
         【说明】
-              合约图表周期数值
+              返回界面合约图表K线周期数值
 
         【语法】
-              list BarInterval()
+              int BarInterval()
 
         【参数】
               无
 
         【备注】
-              返回周期数值列表，通常和BarType一起使用进行数据周期的判别
+              返回界面图表K线周期数值，通常和BarType一起使用进行数据周期的判别
 
         【示例】
               当前数据周期为1日线，BarInterval等于1；
@@ -1494,7 +1495,7 @@ class BaseApi(object):
     def BarType(self):
         '''
         【说明】
-              合约图表周期类型值
+              返回界面合约K线图表周期类型字符
 
         【语法】
               char BarType()
@@ -1597,7 +1598,7 @@ class BaseApi(object):
     def ExchangeTime(self, exchangeNo):
         '''
         【说明】
-              合约对应交易所名称
+              交易所时间
 
         【语法】
               string ExchangeTime(string contractNo)
@@ -1616,10 +1617,10 @@ class BaseApi(object):
     def ExchangeStatus(self, exchangeNo):
         '''
         【说明】
-              合约对应交易所名称
+              交易所状态
 
         【语法】
-              string ExchangeStatus(string contractNo)
+              string ExchangeStatus(string exchangeNo)
 
         【参数】
               exchangeNo: 交易所编号，例如"ZCE","DCE","SHFE","CFFEX","INE"
@@ -1644,6 +1645,39 @@ class BaseApi(object):
               ExchangeStatus('ZCE')
         '''
         return self._dataModel.getExchangeStatus(exchangeNo)
+        
+    def CommodityStatus(self, commodityNo):
+        '''
+        【说明】
+              品种或合约交易状态
+
+        【语法】
+              string CommodityStatus(string commodityNo|string contractNo)
+
+        【参数】
+              commodityNo: 品种编号，例如"ZCE|F|SR", "DCE|F|I"
+                或者
+              contractNo: 合约编号，例如"ZCE|F|SR|001", "DCE|F|I|2001"
+        【备注】
+              返回字符
+              'N'   未知状态
+              'I'   正初始化
+              'R'   准备就绪
+              '0'   交易日切换
+              '1'   竞价申报
+              '2'   竞价撮合
+              '3'   连续交易
+              '4'   交易暂停
+              '5'   交易闭市  
+              '6'   竞价暂停
+              '7'   报盘未连
+              '8'   交易未连
+              '9'   闭市处理
+
+        【示例】
+              CommodityStatus('ZCE|F|SR')
+        '''
+        return self._dataModel.getCommodityStatus(commodityNo)
         
         
     def ExpiredDate(self, contractNo):
@@ -2238,6 +2272,48 @@ class BaseApi(object):
               无
         '''
         return self._dataModel.getBarsSinceLastEntry(contractNo)
+
+    def BarsSinceLastBuyEntry(self, contractNo):
+        '''
+        【说明】
+              获得当前持仓的最后一个Buy建仓位置到当前位置的Bar计数。
+
+        【语法】
+              int BarsSinceLastBuyEntry(string contractNo='')
+
+        【参数】
+              contractNo 合约编号，默认为基准合约。
+
+        【备注】
+              获得当前持仓指定合约的最后一个Buy建仓位置到当前位置的Bar计数，返回值为整型。
+              若当前策略持仓为0，则返回-1。
+              注意：在建仓Bar上为0。
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getBarsSinceLastBuyEntry(contractNo)
+
+    def BarsSinceLastSellEntry(self, contractNo):
+        '''
+        【说明】
+              获得当前持仓的最后一个Sell建仓位置到当前位置的Bar计数。
+
+        【语法】
+              int BarsSinceLastSellEntry(string contractNo='')
+
+        【参数】
+              contractNo 合约编号，默认为基准合约。
+
+        【备注】
+              获得当前持仓指定合约的最后一个Sell建仓位置到当前位置的Bar计数，返回值为整型。
+              若当前策略持仓为0，则返回-1。
+              注意：在建仓Bar上为0。
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getBarsSinceLastSellEntry(contractNo)
 
     def BarsSinceToday(self, contractNo, kLineType, kLineValue):
         '''
@@ -3665,6 +3741,25 @@ class BaseApi(object):
               无
          '''
         return self._dataModel.getOrderStatus(userNo, localOrderId)
+
+    def A_OrderIsClose(self, userNo, localOrderId):
+        '''
+        【说明】
+              判断某个委托单是否完结。
+
+        【语法】
+              bool A_OrderIsClose(int|string localOrderId='')
+
+        【参数】
+              localOrderId 定单号，或者使用A_SendOrder返回的下单编号。
+
+        【备注】
+              当委托单是完结状态，返回True，否则返回False。
+              
+        【示例】
+              无
+         '''
+        return self._dataModel.getOrderIsClose(userNo, localOrderId)
 
     def A_OrderTime(self, userNo, localOrderId):
         '''
@@ -5846,6 +5941,45 @@ class BaseApi(object):
         '''
         return self._dataModel.setFloatStopPoint(startPoint, stopPoint, nPriceType, nAddTick, contractNo)
 
+    def SetStopWinKtBlack(self, op, kt):
+        '''
+        【说明】
+             设置不触发止损止盈和浮动止损的K线类型
+
+        【语法】
+              int SetStopWinKtBlack(op, kt)
+
+        【参数】
+              op  操作类型必须为 0: 取消设置, 1: 增加设置，中的一个
+              kt  K线类型必须为 'D', 'M', 'T'   ，中的一个
+
+        【备注】
+              返回整型，0成功，-1失败
+
+        【示例】
+              无
+        '''
+        return self._dataModel.setStopWinKtBlack(op, kt)
+
+    def GetStopWinKtBlack(self):
+        '''
+        【说明】
+             获取不触发止损止盈和浮动止损的K线类型列表
+
+        【语法】
+              list GetStopWinKtBlack()
+
+        【参数】
+
+
+        【备注】
+              返回不触发止损/止盈/浮动止损的K线类型列表
+
+        【示例】
+              无
+        '''
+        return self._dataModel.getStopWinKtBlack()
+
     def SubQuote(self, contNoTuple):
         '''
         【说明】
@@ -6462,7 +6596,7 @@ class BaseApi(object):
             获取最近N周期条件满足的计数
 
         【示例】
-            CountIf(Close > Open , 10); 最近10周期出现Close>Open的周期总数
+            CountIf(Close() > Open() , 10); 最近10周期出现Close>Open的周期总数
         '''
         return self._dataModel.getCountIf(cond, period)
         
@@ -6735,6 +6869,25 @@ class BaseApi(object):
               无
         '''
         pass
+        
+    def StrategyId(self):
+        '''
+        【说明】
+             获取当前策略Id
+
+        【语法】
+             int StrategyId()
+
+        【参数】
+              无
+
+        【备注】
+              无
+              
+        【示例】
+              无
+        '''
+        return self._dataModel.getStrategyId()
 
 baseApi = BaseApi()
 
@@ -6958,6 +7111,12 @@ def BarsSinceExit(contractNo=''):
 def BarsSinceLastEntry(contractNo=''):
     return baseApi.BarsSinceLastEntry(contractNo)
 
+def BarsSinceLastBuyEntry(contractNo=''):
+    return baseApi.BarsSinceLastBuyEntry(contractNo)
+
+def BarsSinceLastSellEntry(contractNo=''):
+    return baseApi.BarsSinceLastSellEntry(contractNo)
+
 def BarsSinceToday(contractNo='', barType='', barValue=''):
     return baseApi.BarsSinceToday(contractNo, barType, barValue)
 
@@ -7172,6 +7331,9 @@ def A_OrderPrice(localOrderId):
 
 def A_OrderStatus(localOrderId):
     return baseApi.A_OrderStatus('', localOrderId)
+
+def A_OrderIsClose(localOrderId):
+    return baseApi.A_OrderIsClose('', localOrderId)
 
 def A_OrderTime(localOrderId):
     return baseApi.A_OrderTime('', localOrderId)
@@ -7512,6 +7674,9 @@ def SetStopPoint(stopPoint, nPriceType=0, nAddTick=0, contractNo=''):
 def SetFloatStopPoint(startPoint, stopPoint, nPriceType=0, nAddTick=0, contractNo=''):
     return baseApi.SetFloatStopPoint(startPoint, stopPoint, nPriceType, nAddTick, contractNo)
 
+def SetStopWinKtBlack(op, kt):
+    return baseApi.SetStopWinKtBlack(op, kt)
+
 def SubQuote(*args):
     return baseApi.SubQuote(args)
 
@@ -7542,6 +7707,9 @@ def ExchangeTime(exchangeNo):
   
 def ExchangeStatus(exchangeNo):
     return baseApi.ExchangeStatus(exchangeNo)
+    
+def CommodityStatus(commodityNo):
+    return baseApi.CommodityStatus(commodityNo)
 
 def ExpiredDate(contractNo=''):
     return baseApi.ExpiredDate(contractNo)
@@ -7708,5 +7876,8 @@ def SwingLow(Price, Length, Instance, Strength):
 
 def Alert(Info, bKeep=True, level='Signal'):
     return baseApi.Alert(Info, bKeep, level)
+    
+def StrategyId():
+    return baseApi.StrategyId()
 
     

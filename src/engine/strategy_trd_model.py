@@ -24,6 +24,9 @@ class StrategyTrade(TradeModel):
         if not self._selectedUserNo:
             return ''
         
+        if self._selectedUserNo not in self._userInfo:
+            return ''
+        
         user = self._userInfo[self._selectedUserNo]
         if not user.isReady():
             return ''
@@ -432,7 +435,8 @@ class StrategyTrade(TradeModel):
             
         realUserNo = self.getUserNoByOrderId(orderId)
         if realUserNo not in self._userInfo:
-            self.logger.error('user(%s) not login!'%realUserNo)
+            if not realUserNo:
+                self.logger.error('user(%s) not login!'%realUserNo)
             return ret
 
         order = self._userInfo[realUserNo].getOrderDict()
@@ -672,16 +676,16 @@ class StrategyTrade(TradeModel):
         # 默认usrNo为空字符串（''），此时取当前用户
         if not userNo:
             userNo = self._selectedUserNo
-            
+        
+        orderIdList = []        
         if userNo not in self._userInfo:
             self.logger.error("请先在极星客户端登录您的交易账号")
-            return -1
+            return orderIdList
 
         tUserInfoModel = self._userInfo[userNo]
         if len(tUserInfoModel._order) == 0:
-            return -1
+            return orderIdList
 
-        orderIdList = []
         for orderKey in list(tUserInfoModel._order.keys()):
             orderModel = tUserInfoModel._order[orderKey]
             if not contNo or contNo == orderModel._metaData['Cont']:
@@ -709,7 +713,8 @@ class StrategyTrade(TradeModel):
             
         realUserNo = self.getUserNoByOrderId(orderId)
         if realUserNo not in self._userInfo:
-            self.logger.error('user(%s) not login!'%realUserNo)
+            if not realUserNo:
+                self.logger.error('user(%s) not login!'%realUserNo)
             return False
 
         return self.deleteOrderByOrderId(realUserNo, orderId)
@@ -763,7 +768,8 @@ class StrategyTrade(TradeModel):
         #    return False
         
         if realUserNo not in self._userInfo:
-            self.logger.error('user(%s) not login!'%realUserNo)
+            if not realUserNo:
+                self.logger.error('user(%s) not login!'%realUserNo)
             return False
 
         userInfoModel = self._userInfo[realUserNo]

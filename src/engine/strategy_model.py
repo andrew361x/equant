@@ -163,7 +163,7 @@ class StrategyModel(object):
         multiContKey = self.getKey(contNo, kLineType, kLineValue)
         curBar = self._hisModel.getCurBar(multiContKey)
         if not curBar:
-            return None
+            return -1
         return curBar['KLineIndex']
 
     def getCurrentBarEntity(self, contNo, kLineType, kLineValue):
@@ -400,6 +400,9 @@ class StrategyModel(object):
 
     # ////////////////////////策略函数////////////////////////////
     def setBuy(self, userNo, contractNo, share, price, needCover=True, orderType=otLimit):
+        if self._cfgModel.getTradeDirection() == 2:
+            return
+        
         contNo = contractNo if contractNo else self._cfgModel.getBenchmark()
         
         if contNo not in self._cfgModel.getContract():
@@ -425,13 +428,21 @@ class StrategyModel(object):
             userNo = "Default"
         # 对于开仓，需要平掉反向持仓
         qty = self._calcCenter.needCover(userNo, contNo, dBuy, share, price)
-        if qty > 0 and needCover:
-            self.buySellOrder(userNo, contNo, orderType, vtGFD, dBuy, oCoverA, hSpeculate, price, qty, curBar, (defaultPrice > 0))
-
+        exchg = contNo.split('|')[0]
+        if qty > 0:
+            if exchg in ('ZCE', 'DCE', 'SHFE', 'INE', 'CFFEX'):
+                if needCover:
+                    self.buySellOrder(userNo, contNo, orderType, vtGFD, dBuy, oCoverA, hSpeculate, price, qty, curBar, (defaultPrice > 0))
+            else:
+                self.buySellOrder(userNo, contNo, orderType, vtGFD, dBuy, oCoverA, hSpeculate, price, qty, curBar, (defaultPrice > 0))
+            
         # 交易计算、生成回测报告
         self.buySellOrder(userNo, contNo, orderType, vtGFD, dBuy, oOpen, hSpeculate, price, share, curBar, (defaultPrice > 0))
 
     def setBuyToCover(self, userNo, contractNo, share, price, coverFlag='A', orderType=otLimit):
+        if self._cfgModel.getTradeDirection() == 1:
+            return
+    
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
 
         if contNo not in self._cfgModel.getContract():
@@ -461,6 +472,9 @@ class StrategyModel(object):
 
 
     def setSell(self, userNo, contractNo, share, price, coverFlag='A', orderType=otLimit):
+        if self._cfgModel.getTradeDirection() == 1:
+            return
+    
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
 
         if contNo not in self._cfgModel.getContract():
@@ -489,6 +503,9 @@ class StrategyModel(object):
         self.buySellOrder(userNo, contNo, orderType, vtGFD, dSell, coverFlag, hSpeculate, price, share, curBar, (defaultPrice > 0))
 
     def setSellShort(self, userNo, contractNo, share, price, needCover=True, orderType=otLimit):
+        if self._cfgModel.getTradeDirection() == 2:
+            return
+    
         contNo = contractNo if contractNo is not None else self._cfgModel.getBenchmark()
 
         if contNo not in self._cfgModel.getContract():
@@ -513,9 +530,14 @@ class StrategyModel(object):
         if not userNo:
             userNo = "Default"
         qty = self._calcCenter.needCover(userNo, contNo, dSell, share, price)
-        if qty > 0 and needCover:
-            self.buySellOrder(userNo, contNo, orderType, vtGFD, dSell, oCoverA, hSpeculate, price, qty, curBar, (defaultPrice > 0))
-
+        exchg = contNo.split('|')[0]
+        if qty > 0:
+            if exchg in ('ZCE', 'DCE', 'SHFE', 'INE', 'CFFEX'):
+                if needCover:
+                    self.buySellOrder(userNo, contNo, orderType, vtGFD, dSell, oCoverA, hSpeculate, price, qty, curBar, (defaultPrice > 0))
+            else:
+                self.buySellOrder(userNo, contNo, orderType, vtGFD, dSell, oCoverA, hSpeculate, price, qty, curBar, (defaultPrice > 0))
+        
         # 交易计算、生成回测报告
         self.buySellOrder(userNo, contNo, orderType, vtGFD, dSell, oOpen, hSpeculate,price, share, curBar, (defaultPrice > 0))
 
@@ -878,6 +900,14 @@ class StrategyModel(object):
     def getOrderStatus(self, userNo, eSession):
         return self._trdModel.getOrderStatus(userNo, eSession)
 
+    def getOrderIsClose(self, userNo, eSession):
+        orderStatus = self.getOrderStatus(userNo, eSession)
+        
+        if orderStatus in ('N', '1', '2', '3', '4', '7', '8', 'C', 'E'):
+            return False
+        
+        return True
+
     def getOrderTime(self, userNo, eSession):
         return self._trdModel.getOrderTime(userNo, eSession)
 
@@ -1090,6 +1120,12 @@ class StrategyModel(object):
     def sendOrder(self, userNo, contNo, orderType, validType, orderDirct, entryOrExit, hedge, orderPrice, orderQty, \
                   triggerType=stNone, triggerMode=tmNone, triggerCondition=tcNone, triggerPrice=0, aFunc=False):
         '''A账户下单函数，不经过calc模块，直接发单'''
+        if entryOrExit in (oCover, oCoverA) and self._cfgModel.getTradeDirection() == 1:
+            return -6, "当前设置仅允许开仓"
+            
+        if entryOrExit == oOpen and self._cfgModel.getTradeDirection() == 2:
+            return -7, "当前设置仅允许平仓"
+        
         if not userNo:
             userNo = self._cfgModel.getUserNo()
             
@@ -1686,7 +1722,7 @@ class StrategyModel(object):
             else:
                 argStr = argStr + ' ' + str(arg)
 
-        return '[User]%s' % argStr
+        return '[User][%d]:%s' % (self.getStrategyId(), argStr)
 
     def LogDebug(self, args):
         logInfo = self.formatArgs(args)
@@ -1754,16 +1790,28 @@ class StrategyModel(object):
         if len(contList) == 0:
             return ret
 
+        #if contNo not in self._qteModel._contractData:
+        #    return ret
+
         ret['ExchangeCode'] = contList[0]
-        ret['CommodityCode'] = '|'.join(contList[:-1])
+        ret['CommodityCode'] = '|'.join(contList[0:3])
+        #ret['CommodityCode'] = self._qteModel._contractData[contNo].getContract()['CommodityNo']
         ret['CommodityNo'] = contList[-1]
         return ret
+
+    def setStopWinKtBlack(self, op, kt):
+        return self._cfgModel.setStopWinKtBlack(op, kt)
+        
+    def getStopWinKtBlack(self):
+        return self._cfgModel.getStopWinKtBlack()
 
     def getCanTrade(self, contNo):
         return 0
 
     def getContractUnit(self, contNo):
         commodityNo = self.getCommodityInfoFromContNo(contNo)['CommodityCode']
+        #if contNo == 'ZCE|S|OI|001|005':
+        #    self.logger.debug("222222:commNo:%s,%s" %(commodityNo, self._qteModel._commodityData))
         if commodityNo not in self._qteModel._commodityData:
             return 0
 
@@ -1784,6 +1832,9 @@ class StrategyModel(object):
 
     def getExchangeStatus(self, exgNo):
         return self._qteModel.getExchangeStatus(exgNo)
+        
+    def getCommodityStatus(self, commodityNo):
+        return self._qteModel.getCommodityStatus(commodityNo)
 
     def getExpiredDate(self, contNo):
         return 0
@@ -2137,8 +2188,8 @@ class StrategyModel(object):
         if not contNo:
             contNo = self._cfgModel.getBenchmark()
 
-        if self.getMarketPosition(contNo) == 0:
-            return -1
+        #if self.getMarketPosition(contNo) == 0:
+        #    return -1
 
         orderInfo = self._calcCenter.getFirstOpenOrder(contNo)
         if not orderInfo or key not in orderInfo:
@@ -2186,10 +2237,42 @@ class StrategyModel(object):
         '''获得当前持仓的最后一个建仓位置到当前位置的Bar计数'''
         contNo = self.getIndexMap(contNo)
 
-        if self.getMarketPosition(contNo) == 0:
+        #if self.getMarketPosition(contNo) == 0:
+        #    return -1
+
+        orderInfo = self._calcCenter.getLatestOpenOrder(contNo)
+        if not orderInfo or 'CurBarIndex' not in orderInfo:
             return -1
 
-        orderInfo = self._calcCenter.getLatestCoverOrder(contNo)
+        barIndex = orderInfo['CurBarIndex']
+
+        curBar = self._hisModel.getCurBar()
+        return (int(curBar['KLineIndex']) - barIndex)
+    
+    def getBarsSinceLastBuyEntry(self, contNo):
+        '''获得当前持仓的最后一个Buy建仓位置到当前位置的Bar计数'''
+        contNo = self.getIndexMap(contNo)
+
+        #if self.getMarketPosition(contNo) == 0:
+        #    return -1
+
+        orderInfo = self._calcCenter.getLatestBuyOpenOrder(contNo)["Order"]
+        if not orderInfo or 'CurBarIndex' not in orderInfo:
+            return -1
+
+        barIndex = orderInfo['CurBarIndex']
+
+        curBar = self._hisModel.getCurBar()
+        return (int(curBar['KLineIndex']) - barIndex)
+    
+    def getBarsSinceLastSellEntry(self, contNo):
+        '''获得当前持仓的最后一个Sell建仓位置到当前位置的Bar计数'''
+        contNo = self.getIndexMap(contNo)
+
+        #if self.getMarketPosition(contNo) == 0:
+        #    return -1
+
+        orderInfo = self._calcCenter.getLatestSellOpenOrder(contNo)["Order"]
         if not orderInfo or 'CurBarIndex' not in orderInfo:
             return -1
 
@@ -2618,3 +2701,6 @@ class StrategyModel(object):
             winsound.PlaySound(audioName, winsound.SND_ASYNC) 
         #弹窗        
         createAlarmWin(Info, self._strategy.getStrategyId(), self._strategy.getStrategyName());
+        
+    def getStrategyId(self):
+        return self._strategy.getStrategyId()

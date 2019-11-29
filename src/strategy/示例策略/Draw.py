@@ -1,4 +1,4 @@
-﻿import talib
+import talib
 
 def initialize(context): 
     SetOrderWay(2)

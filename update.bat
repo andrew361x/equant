@@ -9,6 +9,6 @@ if not exist %pypath% (
 )
 
 ::cmd /k %pypath%python.exe %curdir%update.py %1
-cmd /k %pypath%python.exe "%~dp0\update.py" %1
+cmd /k %pypath%python.exe "%~dp0\update.py"
 pause
                 

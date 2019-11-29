@@ -147,12 +147,14 @@ class ExchangeModel:
             'Sign'             : '',
             'ExchangeDateTime' : '',
             'LocalDateTime'    : '',
-            'TradeState'       : ''
+            'TradeState'       : '',
+            'CommTradeState'   : {},
         }
         self._timeDiff = 0
         self._delta = 0
         
     def updateStatus(self, strategyId, dataDict):
+        #self.logger.debug("UpdateCommTradeState:%s" %dataDict)
         if dataDict['Sign'] != '':
             self._metaData['Sign']  = dataDict['Sign']   
         if dataDict['ExchangeDateTime'] != '' and dataDict['LocalDateTime'] != '':
@@ -177,6 +179,13 @@ class ExchangeModel:
             if strategyId == 0:
                 #self.logger.info("Update exchange status(%s:%s)"%(dataDict['ExchangeNo'], self._metaData['TradeState']))
                 pass
+                
+        if 'CommTradeState' in dataDict:
+            self._metaData["CommTradeState"] = dataDict['CommTradeState']
+        elif 'CommodityNo' in dataDict and dataDict['CommodityNo']:
+            #self.logger.debug("UpdateCommTradeState:%s:%s" %(dataDict['CommodityNo'], dataDict['TradeState']))
+            self._metaData["CommTradeState"][dataDict['CommodityNo']] = dataDict['TradeState']
+            
 
     def getExchangeTime(self):
         '''获取交易所时间'''
@@ -187,6 +196,12 @@ class ExchangeModel:
         
     def getExchangeStatus(self):
         return self._metaData['TradeState']
+        
+    def getCommodityStatus(self, commNo):
+        if commNo not in self._metaData["CommTradeState"]:
+            return ""
+        else:
+            return self._metaData["CommTradeState"][commNo]
 
     def getExchange(self):
         return self._metaData

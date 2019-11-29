@@ -472,6 +472,12 @@ class TradeModel:
             self._userInfo[userNo] = userInfo
         
         # print(apiEvent.getData())
+        
+    def getSign(self, userNo):
+        if userNo not in self._userInfo:
+            return ''
+        
+        return self._userInfo[userNo].getSign()
 
     def updateMoney(self, apiEvent):
         dataList = apiEvent.getData()

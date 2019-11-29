@@ -480,6 +480,7 @@ class Strategy:
             EV_UI2EG_EQUANT_EXIT            : self._onEquantExit             ,
             EV_UI2EG_STRATEGY_FIGURE        : self._switchStrategy           ,
             EV_UI2EG_STRATEGY_REMOVE        : self._onStrategyRemove         ,
+            EV_UI2EG_SYNCPOS_CONF           : self._onSyncPosConf            ,
         }
         
     def _actualRun(self):
@@ -532,7 +533,7 @@ class Strategy:
             event = self._eg2stQueue.get()
             code = event.getEventCode()
             if code not in self._egCallbackDict:
-                self.logger.error("_egCallbackDict code(%d) not register!"%code)
+                self.logger.warn("_egCallbackDict code(%d) not register!"%code)
                 continue
             self._egCallbackDict[code](event) 
 
@@ -547,7 +548,7 @@ class Strategy:
         try:
             # 等待回测阶段
             self._runStatus = ST_STATUS_HISTORY
-            self._send2UIStatus(self._runStatus)
+            self._send2UiEgStatus(self._runStatus)
             # runReport中会有等待
 
             self._dataModel.runReport(self._context, self._userModule.handle_data)
@@ -562,8 +563,10 @@ class Strategy:
                     self._dataModel.runRealTime(self._context, self._userModule.handle_data, event)
                 except queue.Empty as e:
                     if self._firstTriggerQueueEmpty:
+                        self._clearHisPos()
+                        self._atHisOver()
                         self._runStatus = ST_STATUS_CONTINUES
-                        self._send2UIStatus(self._runStatus)
+                        self._send2UiEgStatus(self._runStatus)
                         self._firstTriggerQueueEmpty = False
                     else:
                         time.sleep(0.1)
@@ -573,6 +576,40 @@ class Strategy:
                 errorText = traceback.format_exc()
                 # traceback.print_exc()
                 self._exit(-1, errorText)
+
+    def _clearHisPos(self):
+        '''清空历史持仓'''
+        if self._runStatus == ST_STATUS_CONTINUES:
+            return
+            
+        if not self._cfgModel.isActualRun():
+            return
+            
+        if not self._cfgModel.getAutoSyncPos():
+            return
+    
+        calc = self._dataModel.getCalcCenter()
+        # 获取该策略所有合约的虚拟持仓
+        posDict = calc.getUsersPosition()
+        #self.logger.debug("PosDict1:%s" %posDict)
+        trd = self._dataModel.getTradeModel()
+        users = trd.getAllAccountId()
+        
+        for id in posDict:
+            conts = posDict[id]
+            for ct in conts:
+                buyPos = conts[ct]['TotalBuy']
+                buyPrice = conts[ct]['BuyPrice']
+                if buyPos > 0:
+                    self._dataModel.setSell(id, ct, buyPos, buyPrice)
+                    
+                sellPos = conts[ct]['TotalSell']
+                sellPrice = conts[ct]['SellPrice']
+                if sellPos > 0:
+                    self._dataModel.setBuyToCover(id, ct, sellPos, sellPrice)
+
+        posDict = calc.getUsersPosition()
+        #self.logger.debug("PosDict2:%s" %posDict)
 
     def _startStrategyThread(self):
         '''历史数据准备完成后，运行策略'''
@@ -687,8 +724,8 @@ class Strategy:
         self._stTimer = Thread(target=self._runTimer)
         self._stTimer.start()
         
-    def _send2UIStatus(self, status):
-        '''通知界面策略运行状态'''
+    def _send2UiEgStatus(self, status):
+        '''通知界面和引擎策略运行状态'''
         event = Event({
             "StrategyId" : self._strategyId,
             "EventCode"  : EV_EG2UI_STRATEGY_STATUS,
@@ -697,6 +734,7 @@ class Strategy:
             }
         })
         self.sendEvent2UI(event)
+        self.sendEvent2Engine(event)
     
     # ////////////////////////////内部数据请求接口////////////////////
     def _reqData(self, code, data=''):
@@ -765,6 +803,7 @@ class Strategy:
     def _onCommodity(self, event):
         '''品种查询应答'''
         self._qteModel.onCommodity(event)
+        #self.logger.debug("1111111:%s" %self._dataModel.getContractUnit('ZCE|S|OI|001|005'))
         self._dataModel.initializeCalc()
 
     def _onContract(self, event):
@@ -1224,8 +1263,20 @@ class Strategy:
         })
         self.sendEvent2EngineForce(responseEvent)
 
+    def _atHisOver(self):
+        try:
+            # 历史回测结束回调
+            if hasattr(self._userModule, 'hisover_callback'):
+                self._userModule.hisover_callback(self._context)
+        except Exception as e:
+            self.logger.error('atHisOver callback error: %s' % str(e))
+
     def _switchStrategy(self, event):
         self._dataModel.getHisQuoteModel()._switchKLine()
+
+    def _onSyncPosConf(self, event):
+        conf = event.getData()
+        self._cfgModel.setAutoSyncPos(conf)
 
     def _onStrategyRemove(self, event):
         self._isSt2EgQueueEffective = False

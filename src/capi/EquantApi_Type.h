@@ -1038,6 +1038,7 @@ typedef struct EEquExchangeStateRsp
 	EEquExchDateTimeType			ExchangeDateTime;
 	EEquExchDateTimeType			LocalDateTime;
 	EEquTradeState					TradeState;
+	EEquCommodityNoType				CommodityNo;
 }EEquExchangeStateRsp;
 
 typedef EEquExchangeStateRsp		EEquExchangeStateNotice;

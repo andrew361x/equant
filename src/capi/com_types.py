@@ -64,7 +64,7 @@ EV_UI2EG_STRATEGY_QUIT            = 0x106           # 策略停止
 EV_UI2EG_STRATEGY_FIGURE          = 0x107           # 策略信号和指标图
 EV_UI2EG_STRATEGY_REMOVE          = 0x108           # 删除策略
 EV_UI2EG_STRATEGY_RESTART         = 0x109           # 更改参数启动策略
-
+EV_UI2EG_SYNCPOS_CONF             = 0x110           # 持仓同步参数
 
 #////////////////////引擎->界面事件定义////////////////////////
 EV_EG2UI_LOADSTRATEGY_RESPONSE    = 0x181           # 策略加载应答
@@ -1229,7 +1229,8 @@ class EEquExchangeStateRsp(Structure):
         ("ExchangeNo", c_char*11),                        #交易所编号
         ("ExchangeDateTime", c_char*21),                  #交易所系统时间
         ("LocalDateTime", c_char*21),                     #本地系统时间
-        ("TradeState", c_char)                            #交易所状态
+        ("TradeState", c_char),                           #交易所状态
+        ("CommodityNo", c_char*21),                       #品种
     ]
 
 class EEquSpreadMappingReq(Structure):

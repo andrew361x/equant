@@ -1018,8 +1018,9 @@ class StrategyHisQuote(object):
                 handle_data(context)
 
             # 处理历史回测阶段止损止盈
-            self._stopWinOrLose(key[0], True, row)
-            self._stopFloatWinLose(key[0], True, row)
+            if key[1] not in self._config.getStopWinKtBlack():
+                self._stopWinOrLose(key[0], True, row)
+                self._stopFloatWinLose(key[0], True, row)
 
             # # 要显示的k线
             if isShow:
@@ -1079,9 +1080,9 @@ class StrategyHisQuote(object):
             args = {
                 "Status": ST_STATUS_HISTORY,
                 "TriggerType": ST_TRIGGER_HIS_KLINE,
-                "ContractNo": event.getContractNo(),
-                "KLineType": event.getKLineType(),
-                "KLineSlice": event.getKLineSlice(),
+                "ContractNo": key[0],
+                "KLineType": key[1],
+                "KLineSlice": key[2],
                 "TradeDate": kLineData["TradeDate"],
                 "DateTimeStamp": kLineData["DateTimeStamp"],
                 "TriggerData": kLineData
@@ -1091,8 +1092,9 @@ class StrategyHisQuote(object):
             handle_data(context)
 
         # 处理中间阶段止损止盈,按照历史回测止损止盈
-        self._stopWinOrLose(key[0], True, kLineData)
-        self._stopFloatWinLose(key[0], True, kLineData)
+        if key[1] not in self._config.getStopWinKtBlack():
+            self._stopWinOrLose(key[0], True, kLineData)
+            self._stopFloatWinLose(key[0], True, kLineData)
 
         # **********************************
         if isShow:
@@ -1150,6 +1152,20 @@ class StrategyHisQuote(object):
             # print(self._strategy.isRealTimeStatus(), self._strategy._runStatus, self._strategy._runRealTimeStatus, self._strategy.isRealTimeAsHisStatus())
             self._sendFlushEvent()
 
+    def checkTriggerEvent(self, eventCode):
+        if eventCode == ST_TRIGGER_SANPSHOT_FILL:
+            return self._config.hasSnapShotTrigger()
+        elif eventCode == ST_TRIGGER_KLINE:
+            return self._config.hasKLineTrigger()
+        elif eventCode in (ST_TRIGGER_TRADE_ORDER, ST_TRIGGER_TRADE_MATCH):
+            return self._config.hasTradeTrigger()
+        elif eventCode == ST_TRIGGER_TIMER:
+            return self._config.hasTimerTrigger()
+        elif eventCode == ST_TRIGGER_CYCLE:
+            return self._config.hasCycleTrigger()
+        
+        return True
+
     # ST_STATUS_CONTINUES_AS_REALTIME 阶段
     def runRealTime(self, context, handle_data, event):
         eventCode = event.getEventCode()
@@ -1160,20 +1176,24 @@ class StrategyHisQuote(object):
             return
 
         allData = event.getData()
+        klineType = event.getKLineType()
         args = {
             "Status": ST_STATUS_CONTINUES,
             "TriggerType": eventCode,
             "ContractNo": event.getContractNo(),
-            "KLineType": event.getKLineType(),
+            "KLineType": klineType,
             "KLineSlice": event.getKLineSlice(),
             "TradeDate": allData["TradeDate"],
             "DateTimeStamp": allData["DateTimeStamp"],
             "TriggerData": allData["Data"]
         }
-        # print(args)
-        self._strategy.setCurTriggerSourceInfo(args)
-        context.setCurTriggerSourceInfo(args)
-        handle_data(context)
+        
+        ## print(args)
+        # 判断当前触发类型是否需要触发
+        if self.checkTriggerEvent(eventCode):
+            self._strategy.setCurTriggerSourceInfo(args)
+            context.setCurTriggerSourceInfo(args)
+            handle_data(context)
         
         if eventCode == ST_TRIGGER_SANPSHOT_FILL:
             # 计算浮动盈亏
@@ -1186,17 +1206,15 @@ class StrategyHisQuote(object):
             # 处理实时阶段止损止盈
             lv1Data = event.getData()["Data"]
             if 4 in lv1Data:
-                self._stopWinOrLose(event.getContractNo(), False, lv1Data)
-                self._stopFloatWinLose(event.getContractNo(), False, lv1Data)
+                if klineType not in self._config.getStopWinKtBlack():
+                    self._stopWinOrLose(event.getContractNo(), False, lv1Data)
+                    self._stopFloatWinLose(event.getContractNo(), False, lv1Data)
             else:
                 # 交易所套利无最新价
                 comtype = event.getContractNo().split('|')[1]
                 if comtype != 'S' and comtype != 'M':
                     self.logger.info(f"即时行情中的字段没有最新价")
 
-            # 延迟判断是否即时行情触发
-            if not self._config.hasSnapShotTrigger() or not self._strategy.isRealTimeStatus():
-                return
             if event.getContractNo() not in self._config.getTriggerContract():
                 return
         else:
@@ -1275,16 +1293,28 @@ class StrategyHisQuote(object):
         isStopLoseBuyTrigger = False
         isStopWinSellTrigger = False
         isStopLoseSellTrigger = False
+        
+        orderStopWinType = otLimit
+        orderStopLoseType = otLimit
+
 
         # 买方向，价格上涨，需要止盈，价格下跌需要止损
         # 卖方向，价格下跌，需要止盈，价格上涨需要止损
         # self.logger.debug('AAAA:%s,%s,%f'%(latestPos, stopWinParams, curPrice))
         if stopWinParams:
+            priceStopWinType = stopWinParams["CoverPosOrderType"]
+            if priceStopWinType == 3:
+                orderStopWinType = otMarket
+                
             if latestBuyPos:
                 isStopWinBuyTrigger = highPrice-latestBuyPos["OrderPrice"]-stopWinParams["StopPoint"]*priceTick>-1e-6
             if latestSellPos:
                 isStopWinSellTrigger = latestSellPos["OrderPrice"]-lowPrice-stopWinParams["StopPoint"]*priceTick>-1e-6
         if stopLoseParams:
+            priceStopLoseType = stopLoseParams["CoverPosOrderType"]
+            if priceStopLoseType == 3:
+                orderStopLoseType = otMarket
+
             if latestBuyPos:
                 isStopLoseBuyTrigger = latestBuyPos["OrderPrice"]-lowPrice-stopLoseParams["StopPoint"]*priceTick>-1e-6
             if latestSellPos:
@@ -1313,16 +1343,6 @@ class StrategyHisQuote(object):
                 self.logger.info(f"{contractNo} 的即时行情触发了SellPos止损, High: {highPrice}, Low: {lowPrice}")
     
         allPos = self._calc.getPositionInfo(contractNo)
-
-        priceStopWinType = stopWinParams["CoverPosOrderType"]
-        orderStopWinType = otLimit
-        if priceStopWinType == 3:
-            orderStopWinType = otMarket
-            
-        priceStopLoseType = stopLoseParams["CoverPosOrderType"]
-        orderStopLoseType = otLimit
-        if priceStopLoseType == 3:
-            orderStopLoseType = otMarket
 
         if isStopWinBuyTrigger:
             coverPosPrice = self.getCoverPosPrice(isHis, data, latestBuyPos["OrderPrice"], stopWinParams, priceTick, dSell)

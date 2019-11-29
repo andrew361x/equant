@@ -6,6 +6,7 @@ from threading import Thread
 from .strategy import StartegyManager
 from capi.py2c import PyAPI
 from capi.event import *
+from capi.com_types import *
 import time, queue
 from .engine_model import DataModel
 import copy
@@ -59,7 +60,22 @@ class StrategyEngine(object):
         # 策略进程队列列表
         self._eg2stQueueDict = {} #{strategy_id, queue}
         self._isEffective = {}
-        self._isSt2EngineDataEffective= {}
+        self._isSt2EngineDataEffective= {} 
+        self._isStActualRun = {}             # 实盘运行
+        self._stRunStatus = {}               # 运行状态
+        
+        # 持仓同步参数
+        self._isAutoSyncPos = False
+        self._isOneKeySyncPos = False
+        self._autoSyncPosConf = {
+            'OneKeySync': self._isOneKeySyncPos,     # 一键同步
+            'AutoSyncPos': self._isAutoSyncPos,      # 是否自动同步
+            'PriceType': 0,                          # 价格类型 0:对盘价, 1:最新价, 2:市价
+            'PriceTick': 0,                          # 超价点数
+            'OnlyDec': False,                        # 是否只做减仓同步
+            'SyncTick': 500,                         # 同步间隔，毫秒
+        }
+        self._eSessionId = 0
         
         # 查询sessionId和账号对应关系
         self._SessionUserMap = {}
@@ -72,8 +88,9 @@ class StrategyEngine(object):
         # 历史K线订阅列表
         self._hisKLineOberverDict = {} #{'contractNo' : [strategyId1, strategyId2...]}
         
-        self._lastMoneyTime = 0  #资金查询时间
-        self._lastPosTime   = 0  #持仓同步时间
+        self._lastMoneyTime = 0      #资金查询时间
+        self._lastPosTime   = datetime.now()      #持仓同步差异计算时间
+        self._lastDoPosDiffTime = datetime.now()  #处理持仓差异时间
         
         #恢复策略
         self._resumeStrategy()
@@ -310,6 +327,8 @@ class StrategyEngine(object):
             self._switchStrategy(event)
         elif code == EV_UI2EG_STRATEGY_RESTART:
             self._restartStrategyWhenParamsChanged(event)
+        elif code == EV_UI2EG_SYNCPOS_CONF:
+            self._onSyncPosConf(event)
 
     #
     def _noticeStrategyReport(self, event):
@@ -336,22 +355,36 @@ class StrategyEngine(object):
         self.sendEvent2UI(event)
 
     def _onStrategyStatus(self, event):
-        if event.getData()["Status"] == ST_STATUS_QUIT:
+        stat = event.getData()["Status"]
+        if stat == ST_STATUS_QUIT:
             self._onStrategyQuitCom(event)
-        elif event.getData()["Status"] == EV_UI2EG_EQUANT_EXIT:
+        elif stat == EV_UI2EG_EQUANT_EXIT:
             self._singleStrategyExitComEquantExit(event)
-        elif event.getData()["Status"] == ST_STATUS_CONTINUES:
+        elif stat == ST_STATUS_CONTINUES:
             self.sendEvent2UI(event)
-        elif event.getData()["Status"] == ST_STATUS_REMOVE:
+        elif stat == ST_STATUS_REMOVE:
             self._onStrategyRemoveCom(event)
             self.logger.info(f"策略删除完成，策略id:{event.getStrategyId()}")
-        elif event.getData()["Status"] == ST_STATUS_EXCEPTION:
+        elif stat == ST_STATUS_EXCEPTION:
             self._onStrategyExceptionCom(event)
+            
+        self._stRunStatus[event.getStrategyId()] = stat
 
     def _onStrategyExceptionCom(self, event):
         self.sendEvent2UI(event)
         self._cleanStrategyInfo(event.getStrategyId())
         self._strategyMgr.handleStrategyException(event)
+        
+    def _onSyncPosConf(self, event):
+        conf = event.getData()
+        self._isAutoSyncPos = conf['AutoSyncPos']
+        self._isOneKeySyncPos = conf['OneKeySync']
+        self._autoSyncPosConf = conf
+        if conf['SyncTick'] <= 500:
+            self._autoSyncPosConf['SyncTick'] = 500
+            
+        for id in self._isStActualRun:
+            self._sendEvent2Strategy(id, event)
 
     # ////////////////api回调及策略请求事件处理//////////////////
     def _handleApiData(self):
@@ -425,7 +458,7 @@ class StrategyEngine(object):
             #10秒同步一次持仓
             self._syncPosition()
                 
-            time.sleep(1)
+            time.sleep(0.1)
                 
     def _start1secondsTimer(self):
         '''资金查询线程'''
@@ -445,15 +478,112 @@ class StrategyEngine(object):
             self._reqUserMoney()
             self._lastMoneyTime = nowTime
         
+    def _calPosDiff(self, positions):
+        '''计算账户仓和策略仓差异'''
+        strategyPos = {}
+        accountPos  = {}
+        strategyAccount = set()
+        # 重组策略仓
+        for sid in positions["Strategy"]:
+            for user in positions["Strategy"][sid]:
+                strategyAccount.add(user)
+
+                if user not in strategyPos:
+                    strategyPos.update(
+                        {
+                            #TODO：结构和下面的不一致
+                            user: positions["Strategy"][sid][user]
+                        }
+                    )
+                else:
+                    for pCont, pInfo in positions["Strategy"][sid][user].items():
+                        if pCont not in strategyPos[user]:
+                            strategyPos[user].update(
+                                {
+                                    pCont: pInfo
+                                }
+                            )
+                        else:
+                            strategyPos[user][pCont]["TotalBuy"] += pInfo["TotalBuy"]
+                            strategyPos[user][pCont]["TotalSell"] += pInfo["TotalSell"]
+                            strategyPos[user][pCont]["TodayBuy"] += pInfo["TodayBuy"]
+                            strategyPos[user][pCont]["TodaySell"] += pInfo["TodaySell"]
+        #print("sssssss: ", strategyPos)
+
+        # 重组账户仓
+        for user in positions["Account"]:
+            if user not in strategyAccount:
+                continue
+
+            if user not in accountPos:
+                accountPos[user] = {}
+
+            for pCont, pInfo in positions["Account"][user].items():
+                if pCont[-1] == "T":    # 只关注账户中的投机单的持仓
+                    if pCont[:-2] not in accountPos[user]:
+                        if pCont[-2] == "S":
+                            accountPos[user][pCont[:-2]] = {
+                                "TotalSell": pInfo["PositionQty"],
+                                "TodaySell": pInfo["PositionQty"] - pInfo["PrePositionQty"],
+                                "TotalBuy" : 0,
+                                "TodayBuy" : 0
+                            }
+                        else:
+                            accountPos[user][pCont[:-2]] = {
+                                "TotalBuy" : pInfo["PositionQty"],
+                                "TodayBuy" : pInfo["PositionQty"] - pInfo["PrePositionQty"],
+                                "TotalSell": 0,
+                                "TodaySell": 0
+                            }
+
+                    else:
+                        if pCont[-2] == "S":
+                            accountPos[user][pCont[:-2]]["TotalSell"] += pInfo["PositionQty"]
+                            accountPos[user][pCont[:-2]]["TodaySell"] += pInfo["PositionQty"] - pInfo["PrePositionQty"]
+
+                        else:
+                            accountPos[user][pCont[:-2]]["TotalBuy"] += pInfo["PositionQty"]
+                            accountPos[user][pCont[:-2]]["TodayBuy"] += pInfo["PositionQty"] - pInfo["PrePositionQty"]
+
+        #print("tttttttttt: ", accountPos)
+
+        rlt = []
+
+        for user in strategyAccount:
+            for c, p in strategyPos[user].items():
+
+                if user in accountPos:
+                    if c in accountPos[user]:
+                        aTPos = accountPos[user][c]["TotalBuy"] - (-accountPos[user][c]["TotalSell"]) # 账户仓
+                        sTPos = p["TotalBuy"] - (-p["TotalSell"])   # 策略仓
+                        posDif = sTPos - aTPos                      # 仓差
+                        rlt.append([user, c, aTPos, sTPos, posDif,
+                                    p["TotalBuy"], p["TotalSell"], p["TodayBuy"], p["TodaySell"],
+                                    accountPos[user][c]["TotalBuy"], accountPos[user][c]["TotalSell"],
+                                    accountPos[user][c]["TodayBuy"], accountPos[user][c]["TodaySell"]])
+                        continue
+
+                rlt.append([user, c, 0, p["TotalBuy"] - (-p["TotalSell"]), p["TotalBuy"] - (-p["TotalSell"]),
+                            p["TotalBuy"], p["TotalSell"], p["TodayBuy"], p["TodaySell"], 0, 0, 0, 0])
+                            
+        return rlt
+        
+    def _timeDiffMs(self, beg, end):
+        diff = end - beg
+        ret = diff.seconds*1000000 + diff.microseconds
+        
+        return ret/1000
+        
     def _syncPosition(self):
         nowTime = datetime.now()
         # 未登录，不同步持仓
         userDict = self._trdModel.getUserInfo()
         if len(userDict) <= 0:
             self._lastPosTime = nowTime
+            time.sleep(1)
             return
             
-        if self._lastPosTime == 0 or (nowTime - self._lastPosTime).total_seconds() >= 5:
+        if self._isOneKeySyncPos or self._timeDiffMs(self._lastPosTime, nowTime) >= 400:
             self._lastPosTime = nowTime
             
             accPos = {}
@@ -469,20 +599,208 @@ class StrategyEngine(object):
                     
                 if not self._isSt2EngineDataEffective[id]:
                     continue
+                
+                if not self._isStActualRun[id]:
+                    continue
+                    
+                if self._stRunStatus[id] != ST_STATUS_CONTINUES:
+                    continue
 
                 strategyPos[id] = self._strategyPosDict[id]
-                
+            
+            posInfo = {
+                    "Account"  : accPos,
+                    "Strategy" : strategyPos,
+                }
+            
+            posDiff = self._calPosDiff(posInfo)
+            
             event = Event({
                 "EventCode" : EV_EG2UI_POSITION_NOTICE,
-                "Data"      :{
-                    "Account"  : accPos,
-                    "Strategy" : strategyPos
-                }
+                "Data"      : posDiff,
             })
             
-            #self.logger.info("Sync position to ui:%s"%event.getData())
+            #self.logger.debug("Sync position to ui:%s"%event.getData())
             self._send2uiQueue(event)
             
+            if self._isOneKeySyncPos or self._isAutoSyncPos:
+                if self._isOneKeySyncPos or self._timeDiffMs(self._lastDoPosDiffTime, nowTime)>= self._autoSyncPosConf['SyncTick']:
+                    self._doPosDiff(posDiff)
+                    self._lastDoPosDiffTime = nowTime
+                    self._isOneKeySyncPos = False
+            
+            
+    def _doPosDiff(self, posDiff):
+        for pos in posDiff:
+            contNo = pos[1]
+            
+            contDict = self._qteModel.getContractDict()
+            if contNo not in contDict:
+                continue
+                
+            exchgNo = contDict[contNo].getContract()['ExchangeNo']
+            exchgDict = self._qteModel.getExchangeDict()
+            if exchgNo not in exchgDict:
+                continue
+            
+            stBuyPos = pos[5]
+            stSellPos = pos[6]
+            acBuyPos = pos[-4]
+            acSellPos = pos[-3]
+            
+            stTdBuyPos = pos[7]
+            stTdSellPos = pos[8]
+            acTdBuyPos = pos[-2]
+            acTdSellPos = pos[-1]
+            
+            # 内盘可以双向持仓
+            if exchgNo in ('ZCE', 'DCE', 'SHFE', 'INE', 'CFFEX'):
+                buyDiff = stBuyPos - acBuyPos
+                sellDiff = stSellPos - acSellPos
+                
+                buyTdDiff = stTdBuyPos - acTdBuyPos
+                sellTdDiff = stTdSellPos - acTdSellPos
+                
+                buyYsDiff = buyDiff - buyTdDiff
+                sellYsDiff = sellDiff - sellTdDiff
+            
+                # 处理买仓, 账户仓少开多平
+                if buyDiff > 0:
+                    if not self._autoSyncPosConf['OnlyDec']:
+                        self._sendSyncPosOrder(pos, buyDiff, dBuy, oOpen)
+                elif buyDiff < 0:
+                    # 上期区分平今平昨
+                    if exchgNo in ('SHFE', 'INE'):
+                        # 账户昨仓多, 平昨
+                        if buyYsDiff < 0:
+                            self._sendSyncPosOrder(pos, -buyYsDiff, dSell, oCover)
+                        # 账户今仓多, 平今
+                        if buyTdDiff < 0:
+                            self._sendSyncPosOrder(pos, -buyTdDiff, dSell, oCoverT)
+                    else:
+                        self._sendSyncPosOrder(pos, -buyDiff, dSell, oCover)
+                
+                # 处理卖仓, 账户仓少开多平
+                if sellDiff > 0:
+                    if not self._autoSyncPosConf['OnlyDec']:
+                        self._sendSyncPosOrder(pos, sellDiff, dSell, oOpen)
+                elif sellDiff < 0:
+                    if exchgNo in ('SHFE', 'INE'):
+                        # 账户昨仓多, 平昨
+                        if sellYsDiff < 0:
+                            self._sendSyncPosOrder(pos, -sellYsDiff, dBuy, oCover)
+                        # 账户今仓多, 平今
+                        if sellTdDiff < 0:
+                            self._sendSyncPosOrder(pos, -sellTdDiff, dBuy, oCoverT)
+                    else:
+                        self._sendSyncPosOrder(pos, -sellDiff, dBuy, oCover)
+                        
+            # 外盘不存在双向持仓      
+            else:
+                stPos = stBuyPos - stSellPos
+                acPos = acBuyPos - acSellPos
+                totalDiff = stPos - acPos
+                
+                if totalDiff < 0:
+                    self._sendSyncPosOrder(pos, -totalDiff, dSell, oOpen)
+                elif totalDiff > 0:
+                    self._sendSyncPosOrder(pos, totalDiff, dBuy, oOpen)
+
+            
+    def _sendSyncPosOrder(self, pos, orderQty, orderDirct, entryOrExit):
+        userNo = pos[0]
+        contNo = pos[1]
+        
+        orderType = otLimit
+        orderPrice = 0
+        # 如果市价同步
+        if self._autoSyncPosConf["PriceType"] == 2:
+            orderType = otMarket
+        else:    
+            orderPrice = self._getSyncPosPrice(contNo, orderDirct)
+        
+            if orderPrice == 0:
+                self.logger.warn("Sync Position Price can not get!")
+                return
+        
+        aOrder = {
+            'UserNo': userNo,
+            'Sign': self._trdModel.getSign(userNo),
+            'Cont': contNo,
+            'OrderType': orderType,
+            'ValidType': '0',
+            'ValidTime': '0',
+            'Direct': orderDirct,
+            'Offset': entryOrExit,
+            'Hedge': 'T',
+            'OrderPrice': orderPrice,
+            'TriggerPrice': 0,
+            'TriggerMode': 'N',
+            'TriggerCondition': 'N',
+            'OrderQty': orderQty,
+            'StrategyType': 'N',
+            'Remark': '',
+            'AddOneIsValid': tsDay,
+        }
+        
+        stId = 0
+        eId = str(stId) + '-' + str(self._getESessionId())
+        aOrderEvent = Event({
+            "EventCode": EV_ST2EG_ACTUAL_ORDER,
+            "StrategyId": stId,
+            "Data": aOrder,
+            "ESessionId": eId,
+        })
+        
+        #self.logger.debug("SendSyncOrder:%s" %aOrderEvent)
+        self._st2egQueue.put_nowait(aOrderEvent)
+    
+    def _getESessionId(self):
+        self._eSessionId += 1
+        return self._eSessionId
+    
+    def _getSyncPosPrice(self, contNo, orderDirct):
+        syncPrice = 0
+        priceType = self._autoSyncPosConf['PriceType']
+        nTicks = self._autoSyncPosConf['PriceTick']
+        
+        # 市价
+        if priceType == 2:
+            return 0
+            
+        contDict = self._qteModel.getContractDict()
+        if contNo not in contDict:
+                return 0
+        # 对价
+        if priceType == 0:
+            if orderDirct == dBuy:
+                syncPrice = contDict[contNo].getLv1Data(19, 0)
+            else:
+                syncPrice = contDict[contNo].getLv1Data(17, 0)
+                
+        # 最新价
+        if priceType == 1:
+            syncPrice = contDict[contNo].getLv1Data(4, 0)
+            
+        if syncPrice == 0:
+            return 0
+        
+        # 获取priceTick
+        commNo = contDict[contNo].getContract()['CommodityNo']
+        commDict = self._qteModel.getCommodityDict()
+        if commNo not in commDict:
+            self.logger.warn("Sync Position not found commodity!")
+            return 0
+            
+        priceTick = commDict[commNo].getCommodity()['PriceTick']
+        
+        # 考虑超价点数
+        if orderDirct == dBuy:
+            syncPrice += nTicks*priceTick
+        else:
+            syncPrice -= nTicks*priceTick
+            
+        return syncPrice
         
     def _send2uiQueue(self, event):
         # self.logger.info("[ENGINE] Send event(%d,%d) to UI!"%(event.getEventCode(), event.getStrategyId()))
@@ -1437,6 +1755,11 @@ class StrategyEngine(object):
 
     def _syncStrategyConfig(self, event):
         self._strategyMgr.syncStrategyConfig(event)
+        strategyId = event.getStrategyId()
+        stconf = event.getData()["Config"]
+        actRun = stconf['RunMode']['SendOrder2Actual']
+        self._isStActualRun[strategyId] = actRun
+        
 
     def sendEvent2UI(self, event):
         while True:
