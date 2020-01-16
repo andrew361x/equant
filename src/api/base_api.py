@@ -419,16 +419,18 @@ class BaseApi(object):
                 
               kLineType 指定周期类型，可选的枚举函数和相应含义为：
                 Enum_Period_Tick        : 周期类型_分笔
-                Enum_Period_Second      : 周期类型_秒线
                 Enum_Period_Min         : 周期类型_分钟
                 Enum_Period_Day         : 周期类型_日线
                 
               kLineValue 周期数， 如：5分钟线，周期数就是5；50秒线，周期数为50
+                                  要订阅秒线，周期类型选择Enum_Period_tick, 周期数选择大于等于1的整数
               contractNo 合约编号, 为空时取当前合约
               maxLength 定返回历史数据数组的最大长度，默认值为100
 
         【备注】
-              返回numpy数组，包括截止当前Bar的最多maxLength个指定的种类的历史数据
+              1. 获取前要使用SetBarInterval订阅指定合约，指定周期，指定数量的历史数据，否则HisData取不到数据
+              2. 返回numpy数组，获取订阅的maxLength个指定的种类的历史数据
+              
 
         【示例】
               closeList = HisData(Enum_Data_Close(), Enum_Period_Min(), 5, "ZCE|F|SR|906", 1000) # 获取合约ZCE|F|SR|906包含当前Bar在内的之前1000个5分钟线的收盘价
@@ -5681,7 +5683,7 @@ class BaseApi(object):
     def SetMargin(self, type, value, contractNo):
         '''
         【说明】
-              设置保证金参数，不设置取交易所公布参数
+              设置保证金参数，不设置或设置失败取界面设置的保证金比例
 
         【语法】
               int SetMargin(float type, float value=0, string contractNo='')
@@ -5717,9 +5719,9 @@ class BaseApi(object):
               返回整型，0成功，-1失败
 
         【示例】
-              SetTradeFee('O', 2， 5) 设置基础合约的开仓手续费为5元/手
-              SetTradeFee('O', 1， 0.02) 设置基础合约的开仓手续费为每笔2%
-              SetTradeFee('T', 2， 5, "ZCE|F|SR|906") 设置合约ZCE|F|SR|906的平今手续费为5元/手
+              SetTradeFee('O', 2, 5) 设置基础合约的开仓手续费为5元/手
+              SetTradeFee('O', 1, 0.02) 设置基础合约的开仓手续费为每笔2%
+              SetTradeFee('T', 2, 5, "ZCE|F|SR|906") 设置合约ZCE|F|SR|906的平今手续费为5元/手
         '''
         return self._dataModel.setTradeFee(type, feeType, feeValue, contractNo)
 
@@ -6747,7 +6749,7 @@ class BaseApi(object):
               无
 
         【备注】
-              返回字符, 'T' 定时触发; 'C' 周期性触发; 'K' 实时阶段K线触发; 'H' 回测阶段K线触发; 'S' 即时行情触发; 'O' 委托状态变化触发 ; 'M' 成交回报触发  
+              返回字符, 'T' 定时触发; 'C' 周期性触发; 'K' 实时阶段K线触发; 'H' 回测阶段K线触发; 'S' 即时行情触发; 'O' 委托状态变化触发
 
         【示例】
               无

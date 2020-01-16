@@ -1,4 +1,3 @@
-import datetime
 import json
 import os
 import threading
@@ -7,13 +6,14 @@ import pandas as pd
 import shutil
 # import sys
 import traceback
-import time
+from datetime import datetime
+
+from dateutil.parser import parse
+from copy import deepcopy
 
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import Qt, QPoint, QUrl, pyqtSignal, pyqtSlot, QSharedMemory, QTimer, QDir, QSettings
 from PyQt5.QtGui import QTextCursor, QIcon, QKeySequence
-from PyQt5.QtWebChannel import QWebChannel
-from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
 from PyQt5.QtWidgets import *
 
 from engine.strategy_cfg_model_new import StrategyConfig_new
@@ -22,12 +22,15 @@ from report.fieldConfigure import RunMode, StrategyStatus
 from api.base_api import BaseApi
 from api.api_func import _all_func_
 from capi.com_types import *
-from qtui.utils import parseStrategtParam, Tree, get_strategy_filters, FileIconProvider, MyMessageBox, getText, \
-    EmptyDelegate
+from qtui.utils import parseStrategtParam, Tree, FileIconProvider, MyMessageBox, getText, \
+    EmptyDelegate, MySortFilterProxyModel
 from utils.utils import save
+
+from qtui.quant.code_editor import CodeEditor
 
 from utils.window.framelesswindow import FramelessWindow, CommonHelper
 from utils.window.res.default import *
+from api.base_api import BaseApi
 
 strategy_path = os.path.join(os.getcwd(), 'strategy')
 
@@ -35,6 +38,8 @@ strategy_path = os.path.join(os.getcwd(), 'strategy')
 class StrategyPolicy(QWidget):
     def __init__(self, control, path, flag=False, master=None, param=None, parent=None):
         super().__init__(parent)
+
+        self._master = master  # 夫父窗口
 
         self.main_layout = QVBoxLayout()
         layout1 = QHBoxLayout()
@@ -75,12 +80,16 @@ class StrategyPolicy(QWidget):
         self.initFundlineEdit.setValidator(QtGui.QIntValidator())  # 设置只能输入数字
         self.defaultOrderLineEdit.setValidator(QtGui.QIntValidator())  # 设置只能输入数字
         self.miniOrderLineEdit.setValidator(QtGui.QIntValidator(1, 1000))  # 设置只能输入数字
-        self.marginRateLineEdit.setValidator(QtGui.QIntValidator(1, 100))  # 设置只能输入数字
-        self.openFeeRateLineEdit.setValidator(QtGui.QIntValidator(1, 100))  # 设置只能输入数字
-        self.closeFeeRateLineEdit.setValidator(QtGui.QIntValidator(1, 100))  # 设置只能输入数字
+        reg = QtCore.QRegExp("^(((\\d{1,2})[.]((\\d{1,2})?))|100)$")
+        marginLimit = QtGui.QRegExpValidator(reg)
+        self.marginRateLineEdit.setValidator(marginLimit)  # 设置只能输入数字
+
+        feeLimit = QtGui.QRegExpValidator(reg)
+        self.openFeeRateLineEdit.setValidator(feeLimit)  # 设置只能输入数字
+        self.closeFeeRateLineEdit.setValidator(feeLimit)  # 设置只能输入数字
         self.slippageLineEdit.setValidator(QtGui.QIntValidator())  # 设置只能输入数字
         self.isConOpenTimesLineEdit.setValidator(QtGui.QIntValidator(1, 100))  # 设置只能输入数字
-        self.openTimeslineEdit.setValidator(QtGui.QIntValidator(1, 100))  # 设置只能输入数字
+        self.openTimesLineEdit.setValidator(QtGui.QIntValidator(1, 100))  # 设置只能输入数字
         self.addTimerButton.clicked.connect(self.add_timer)
         self.deleteTimerButton.clicked.connect(self.delete_timer)
         self.addContract.clicked.connect(self.create_contract_win)
@@ -110,7 +119,7 @@ class StrategyPolicy(QWidget):
         # self.contractWin.setStyle(self.style())
 
         self.main_contractWin = FramelessWindow()
-        self.main_contractWin.setFixedSize(410, 335)
+
         self.main_contractWin.hideTheseBtn()
         self.main_contractWin.titleBar.iconLabel.hide()
         self.main_contractWin.disabledMaximumBtn()
@@ -119,6 +128,11 @@ class StrategyPolicy(QWidget):
         self.main_contractWin.titleBar.buttonClose.clicked.connect(self.main_contractWin.close)
         self.main_contractWin.setWidget(self.contractWin)
         self.contractWin.cancel.clicked.connect(self.main_contractWin.close)
+        # 设置窗口的大小和位置
+        pGeometry = self._master.frameGeometry()
+        self.main_contractWin.resize(pGeometry.width() * 0.4, pGeometry.height() * 0.5)
+        self.main_contractWin.center(pGeometry)
+
         if self._control.mainWnd.titleBar.theseState == '浅色':
             style = CommonHelper.readQss(WHITESTYLE)
         else:
@@ -173,6 +187,7 @@ class StrategyPolicy(QWidget):
         self.cycleCheckBox = QCheckBox('每间隔')
         self.cycleCheckBox.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.cycleLineEdit = QLineEdit('200')
+        self.cycleCheckBox.stateChanged.connect(self._cycleCheckBoxStateChangedCallback)
         self.cycleLabel = QLabel('毫秒执行代码（100的整数倍）')
         self.cycleLabel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         h_layout4.addWidget(self.cycleCheckBox)
@@ -273,6 +288,12 @@ class StrategyPolicy(QWidget):
 
         self.runPolicy.setLayout(run_layout)
         self.strategyTabWidget.addTab(self.runPolicy, '运行方式')
+
+    def _cycleCheckBoxStateChangedCallback(self, state):
+        """周期触发checkbox回调"""
+        if state == Qt.Checked:
+            self.cycleLineEdit.setFocus()
+            self.cycleLineEdit.selectAll()
 
     def create_contract_policy(self):
         self.contractPolicy = QWidget()
@@ -392,6 +413,7 @@ class StrategyPolicy(QWidget):
         self.set_label_size_policy(label6)
         self.openTypeComboBox = QComboBox()
         self.openTypeComboBox.addItems(['固定值', '比例'])
+        self.openTypeComboBox.currentIndexChanged.connect(self._openTypeComboBoxSelectCall)
         h_layout6.addWidget(label6)
         h_layout6.addWidget(self.openTypeComboBox)
         h_layout6.addItem(h_spacerItem6)
@@ -401,11 +423,11 @@ class StrategyPolicy(QWidget):
         label7.setFixedWidth(100)
         self.set_label_size_policy(label7)
         self.openFeeRateLineEdit = QLineEdit('1')
-        label71 = QLabel('%')
-        self.set_label_size_policy(label71)
+        self.label71 = QLabel('%')
+        self.set_label_size_policy(self.label71)
         h_layout7.addWidget(label7)
         h_layout7.addWidget(self.openFeeRateLineEdit)
-        h_layout7.addWidget(label71)
+        h_layout7.addWidget(self.label71)
         h_layout7.addItem(h_spacerItem7)
 
         h_layout8 = QHBoxLayout()
@@ -414,6 +436,7 @@ class StrategyPolicy(QWidget):
         self.set_label_size_policy(label8)
         self.closeTypeComboBox = QComboBox()
         self.closeTypeComboBox.addItems(['固定值', '比例'])
+        self.closeTypeComboBox.currentIndexChanged.connect(self._closeTypeComboBoxSelectCall)
         h_layout8.addWidget(label8)
         h_layout8.addWidget(self.closeTypeComboBox)
         h_layout8.addItem(h_spacerItem8)
@@ -423,11 +446,11 @@ class StrategyPolicy(QWidget):
         label9.setFixedWidth(100)
         self.set_label_size_policy(label9)
         self.closeFeeRateLineEdit = QLineEdit('1')
-        label91 = QLabel('%')
-        self.set_label_size_policy(label91)
+        self.label91 = QLabel('%')
+        self.set_label_size_policy(self.label91)
         h_layout9.addWidget(label9)
         h_layout9.addWidget(self.closeFeeRateLineEdit)
-        h_layout9.addWidget(label91)
+        h_layout9.addWidget(self.label91)
         h_layout9.addItem(h_spacerItem9)
 
         h_layout10 = QHBoxLayout()
@@ -473,6 +496,19 @@ class StrategyPolicy(QWidget):
         self.moneyPolicy.setLayout(main_layout)
         self.strategyTabWidget.addTab(self.moneyPolicy, '资金设置')
 
+    def _openTypeComboBoxSelectCall(self, tag):
+        if tag == 0:
+            self.label71.hide()
+        else:
+            self.label71.show()
+
+    def _closeTypeComboBoxSelectCall(self, tag):
+        if tag == 0:
+            self.label91.hide()
+        else:
+            self.label91.show()
+
+
     def create_sample_policy(self):
         send_order_widget = QWidget()
         send_order_widget.setObjectName("SendOrderWidget")
@@ -496,11 +532,11 @@ class StrategyPolicy(QWidget):
 
         h_layout2 = QHBoxLayout()
         self.openTimesCheckBox = QCheckBox('每根K线同向开仓次数：')
-        self.openTimeslineEdit = QLineEdit('1')
+        self.openTimesLineEdit = QLineEdit('1')
         label2 = QLabel('次(1-100)')
         self.set_label_size_policy(label2)
         h_layout2.addWidget(self.openTimesCheckBox)
-        h_layout2.addWidget(self.openTimeslineEdit)
+        h_layout2.addWidget(self.openTimesLineEdit)
         h_layout2.addWidget(label2)
         h_layout2.addItem(h_spacerItem2)
 
@@ -523,7 +559,10 @@ class StrategyPolicy(QWidget):
         self.isConOpenTimesCheckBox.setFixedWidth(150)
         self.openTimesCheckBox.setFixedWidth(150)
         self.isConOpenTimesLineEdit.setFixedWidth(50)
-        self.openTimeslineEdit.setFixedWidth(50)
+        self.openTimesLineEdit.setFixedWidth(50)
+
+        self.isConOpenTimesCheckBox.stateChanged.connect(self._conCheckBoxStateChangedCallback)
+        self.openTimesCheckBox.stateChanged.connect(self._openCheckBoxStateChangedCallback)
 
         self.groupBox.setLayout(main_layout)
         send_order_layout.addWidget(self.groupBox)
@@ -531,6 +570,28 @@ class StrategyPolicy(QWidget):
         send_order_layout.addItem(v_spacerItem)
         send_order_widget.setLayout(send_order_layout)
         self.strategyTabWidget.addTab(send_order_widget, '样本设置')
+
+    def _conCheckBoxStateChangedCallback(self, state):
+        """最大连续同向开仓次数checkbox回调"""
+        if state == Qt.Unchecked:
+            self.isConOpenTimesLineEdit.setText("不限制")
+            self.isConOpenTimesLineEdit.setEnabled(False)
+        else:
+            self.isConOpenTimesLineEdit.setText("1")
+            self.isConOpenTimesLineEdit.setEnabled(True)
+            self.isConOpenTimesLineEdit.setFocus()
+            self.isConOpenTimesLineEdit.selectAll()
+
+    def _openCheckBoxStateChangedCallback(self, state):
+        """每根K线同向开仓次数checkbox回调"""
+        if state == Qt.Unchecked:
+            self.openTimesLineEdit.setText("不限制")
+            self.openTimesLineEdit.setEnabled(False)
+        else:
+            self.openTimesLineEdit.setText("1")
+            self.openTimesLineEdit.setEnabled(True)
+            self.openTimesLineEdit.setFocus()
+            self.openTimesLineEdit.selectAll()
 
     def create_param_policy(self):
         self.paramPolicy = QWidget()
@@ -604,7 +665,11 @@ class StrategyPolicy(QWidget):
         self.contractSelectWin = ContractSelect(exchange, commodity, contract)
         self.contractSelectWin.setObjectName("ContractSelectWin")
         self.main_contractSelectWin = FramelessWindow()
-        self.main_contractSelectWin.setFixedSize(750, 550)
+        # self.main_contractSelectWin.setFixedSize(750, 550)
+        # 设置窗口的大小和位置
+        _pGeometry = self.main_contractWin.frameGeometry()
+        self.main_contractSelectWin.resize(_pGeometry.width() * 1.5, _pGeometry.height() * 1.5)
+        self.main_contractSelectWin.center(_pGeometry)
         self.main_contractSelectWin.titleBar.theseSelect.hide()
         self.main_contractSelectWin.titleBar.iconLabel.hide()
         self.main_contractSelectWin.disabledMaximumBtn()
@@ -655,9 +720,16 @@ class StrategyPolicy(QWidget):
             sample_dict_list = []
             for i in range(row):
                 sample_dict_list.append(json.loads(self.contractTableWidget.item(i, 4).text()))
-            if json.loads(items[4]) in sample_dict_list:
-                MyMessageBox.warning(self, '提示', '请勿添加重复合约设置！', QMessageBox.Ok)
-                return
+
+            # row不相同
+            d = json.loads(items[4])
+            d.pop('row')
+            for _items in deepcopy(sample_dict_list):
+                _items.pop('row')
+                if d == _items:
+                    MyMessageBox.warning(self, '提示', '请勿添加重复合约设置！', QMessageBox.Ok)
+                    return
+
             self.contractTableWidget.setRowCount(row + 1)
 
         for j in range(len(items)):
@@ -696,7 +768,9 @@ class StrategyPolicy(QWidget):
             self.contractWin.AllkLineRadioButton.setChecked(True)
         elif sample_dict.get('BeginTime'):
             self.contractWin.startDateRadioButton.setChecked(True)
-            self.contractWin.startDateLineEdit.setText(sample_dict.get('BeginTime'))
+            temp = sample_dict.get('BeginTime')
+            text = "".join(temp.split("-"))
+            self.contractWin.startDateLineEdit.setText(text)
         elif sample_dict.get('UseSample'):  # TODO 确认条件True还是False时候执行
             self.contractWin.historyRadioButton.setChecked(True)
         elif sample_dict.get('KLineCount'):
@@ -760,7 +834,7 @@ class StrategyPolicy(QWidget):
         isPop = int(self.allowCheckBox.isChecked())  # 允许弹窗
         # isContinue = self.isContinue.get()
         isOpenTimes = int(self.openTimesCheckBox.isChecked())  # 每根K线同向开仓次数标志
-        openTimes = self.openTimeslineEdit.text()  # 每根K线同向开仓次数
+        openTimes = self.openTimesLineEdit.text()  # 每根K线同向开仓次数
 
         isConOpenTimes = int(self.isConOpenTimesCheckBox.isChecked())  # 最大连续同向开仓次数标志
 
@@ -775,10 +849,6 @@ class StrategyPolicy(QWidget):
             if t:
                 timerFormatter.append(t)
 
-        if float(initFund) < 1000:
-            MyMessageBox.warning(self, "极星量化", "初始资金不能小于1000元", QMessageBox.Ok)
-            return
-
         if cycle == "":
             MyMessageBox.warning(self, "极星量化", "定时触发周期不能为空", QMessageBox.Ok)
             return
@@ -788,6 +858,22 @@ class StrategyPolicy(QWidget):
         else:
             pass
 
+        if not initFund:
+            MyMessageBox.warning(self, "极星量化", "初始资金不能为空", QMessageBox.Ok)
+            return
+
+        if float(initFund) < 1000:
+            MyMessageBox.warning(self, "极星量化", "初始资金不能小于1000元", QMessageBox.Ok)
+            return
+
+        if not defaultQty:
+            MyMessageBox.warning(self, "极星量化", "默认下单量不能为空", QMessageBox.Ok)
+            return
+
+        if not margin:
+            MyMessageBox.warning(self, "极星量化", "保证金率不能为空", QMessageBox.Ok)
+            return
+
         if minQty == "":
             MyMessageBox.warning(self, "极星量化", "最小下单量不能为空", QMessageBox.Ok)
             return
@@ -796,6 +882,14 @@ class StrategyPolicy(QWidget):
             return
         else:
             pass
+
+        if not openFee:
+            MyMessageBox.warning(self, "极星量化", "开仓手续费不能为空", QMessageBox.Ok)
+            return
+
+        if not closeFee:
+            MyMessageBox.warning(self, "极星量化", "平仓手续费不能为空", QMessageBox.Ok)
+            return
 
         if isConOpenTimes:
             if conOpenTimes == '' or int(conOpenTimes) < 1 or int(conOpenTimes) > 100:
@@ -822,18 +916,6 @@ class StrategyPolicy(QWidget):
                 contValues.append(self.contractTableWidget.item(i, j).text())
             contsInfo.append(contValues)
 
-            # kLineTypeDict = {
-            #     "分时": 't',
-            #     "分笔": 'T',
-            #     "秒线": 'S',
-            #     "分钟": 'M',
-            #     "小时": 'H',
-            #     "日线": 'D',
-            #     "周线": 'W',
-            #     "月线": 'm',
-            #     "年线": 'Y'
-            # }
-
             kLineTypeDict = {
                 "分笔": 'T',
                 "秒": 'T',
@@ -851,7 +933,8 @@ class StrategyPolicy(QWidget):
             elif contValues[3] == "不执行历史K线":
                 samValue = 'N'
             elif json.loads(contValues[4]).get('BeginTime'):
-                samValue = json.loads(contValues[4]).get('BeginTime')
+                temp = json.loads(contValues[4]).get('BeginTime')
+                samValue = "".join(temp.split("-"))
             elif json.loads(contValues[4]).get('KLineCount'):
                 samValue = json.loads(contValues[4]).get('KLineCount')
 
@@ -1046,7 +1129,7 @@ class StrategyPolicy(QWidget):
             else:
                 self._control._request.strategyParamRestart(self._paramFlag, config)
                 self._control.logger.info("Restarting strategy by new paramters")
-        self.close()
+        self._master.titleBar.closeWindow()
 
     def readConfig(self):
         """读取配置文件"""
@@ -1123,7 +1206,7 @@ class StrategyPolicy(QWidget):
             self.defaultOrderLineEdit.setText(conf[VDefaultQty]),
             self.miniOrderLineEdit.setText(conf[VMinQty]),
             # self.hedge.set(conf[VHedge]),
-            self.marginRateLineEdit.setText(conf[VMinQty]),
+            self.marginRateLineEdit.setText(conf[VMargin]),
 
             self.openTypeComboBox.setCurrentText(conf[VOpenType]),
             self.closeTypeComboBox.setCurrentText(conf[VCloseType]),
@@ -1134,6 +1217,15 @@ class StrategyPolicy(QWidget):
 
             self.cycleCheckBox.setChecked(conf[VIsCycle]),
             self.cycleLineEdit.setText(conf[VCycle]),
+
+            if self.openTypeComboBox.currentText() == "固定值":
+                self.label71.hide()
+            else:
+                self.label71.show()
+            if self.closeTypeComboBox.currentText() == "固定值":
+                self.label91.hide()
+            else:
+                self.label91.show()
 
             # 定时触发通过函数设置
             if conf[VTimer] != '':
@@ -1166,11 +1258,17 @@ class StrategyPolicy(QWidget):
                 self.allowCheckBox.setChecked(0)
 
             self.openTimesCheckBox.setChecked(conf[VIsOpenTimes]),
-            self.openTimeslineEdit.setText(conf[VOpenTimes]),
+            self.openTimesLineEdit.setText(conf[VOpenTimes]),
             self.isConOpenTimesCheckBox.setChecked(conf[VIsConOpenTimes]),
             self.isConOpenTimesLineEdit.setText(conf[VConOpenTimes]),
             self.canCloseCheckBox.setChecked(conf[VCanClose]),
             self.canOpenCheckBox.setChecked(conf[VCanOpen]),
+            if self.isConOpenTimesCheckBox.checkState() == Qt.Unchecked:
+                self.isConOpenTimesLineEdit.setText("不限制")
+                self.isConOpenTimesLineEdit.setEnabled(False)
+            if self.openTimesCheckBox.checkState() == Qt.Unchecked:
+                self.openTimesLineEdit.setText("不限制")
+                self.openTimesLineEdit.setEnabled(False)
 
             # 用户配置参数信息
             # 若保存的设置中用户参数为空，则不对self._userParam赋值
@@ -1228,6 +1326,7 @@ class ContractWin(QWidget):
         label1 = QLabel('商品代码：')
         self.contractCodeLineEdit = QLineEdit()
         self.contractCodeLineEdit.setFixedWidth(200)
+        self.contractCodeLineEdit.setFocusPolicy(Qt.NoFocus)
         self.select = QPushButton('选择')
         self.select.setFixedWidth(60)
         h_layout1.addWidget(label1)
@@ -1340,9 +1439,11 @@ class ContractWin(QWidget):
 
     def valid(self, index):
         if index == 0:
+            self.kLinePeriodComboBox.setItemText(0, "0")
             self.kLinePeriodComboBox.setCurrentIndex(0)
             self.kLinePeriodComboBox.setEnabled(False)
         else:
+            self.kLinePeriodComboBox.setItemText(0, "1")
             self.kLinePeriodComboBox.setEnabled(True)
 
     def valid_contract(self):
@@ -1350,10 +1451,8 @@ class ContractWin(QWidget):
             MyMessageBox.warning(self, '提示', '请先选择合约！！！', QMessageBox.Ok)
             return
         if self.startDateRadioButton.isChecked():
-            try:
-                assert len(self.startDateLineEdit.text()) == 8
-            except:
-                MyMessageBox.warning(self, '提示', '输入的时间格式不合法，请重新输入！！！', QMessageBox.Ok)
+            dateFormat = self._isDateFormat(self.startDateLineEdit.text())
+            if not dateFormat:
                 return
         if self.qtyRadioButton.isChecked():
             try:
@@ -1363,6 +1462,29 @@ class ContractWin(QWidget):
                 return
         self.confirm_signal.emit(self.get_contract_policy())
         self.parent().close()
+
+    def _isDateFormat(self, date):
+        """
+        判断用户输入的日期格式是否正确，正确则将该日期返回，错误则给出提示信息
+        :param date: 标准格式：'YYYYMMDD'
+        :return:
+        """
+        if len(date) > 8 or len(date) < 8:
+            MyMessageBox.information(self, "提示", "日期应为8位长度", QMessageBox.Ok)
+            return
+        else:
+            # TODO: 还需要判断日期是否是合法日期
+            try:
+                time = parse(date)
+            except ValueError:
+                MyMessageBox.information(self, "提示", "日期为非法日期", QMessageBox.Ok)
+                return
+            else:
+                if time > datetime.now():
+                    MyMessageBox.information(self, "提示", "日期不能大于今天", QMessageBox.Ok)
+                    return
+                else:
+                    return date
 
     def get_contract_policy(self):
         """获取商品属性"""
@@ -1389,6 +1511,7 @@ class ContractWin(QWidget):
             allK = True
         elif self.startDateRadioButton.isChecked():
             beginTime = self.startDateLineEdit.text()
+            beginTime = parse(beginTime).strftime("%Y-%m-%d")
         elif self.qtyRadioButton.isChecked():
             kLineCount = int(self.qtylineEdit.text())
         elif self.historyRadioButton.isChecked():
@@ -1546,162 +1669,14 @@ class ContractSelect(QWidget):
         self.choice_tree.clear()
 
 
-class WebEngineView(QWebEngineView):
-    contentFromQt = pyqtSignal(str, str)
-    saveSignal = pyqtSignal(str)
-    switchSignal = pyqtSignal(str)
-    setThemeSignal = pyqtSignal(str)
-    fileStatusSignal = pyqtSignal(str, str)
-    exitSignal = pyqtSignal()
-
-    def __init__(self, *args, **kwargs):
-        super(WebEngineView, self).__init__(*args, **kwargs)
-        self.initSettings()
-        self.channel = QWebChannel(self)
-        # 把自身对象传递进去
-        self.channel.registerObject('Bridge', self)
-        # 设置交互接口
-        self.page().setWebChannel(self.channel)
-
-        self.files = []
-
-        # 是否退出标志
-        self.exit_flag = False
-
-        # START #####以下代码可能是在5.6 QWebEngineView刚出来时的bug,必须在每次加载页面的时候手动注入
-        #### 也有可能是跳转页面后就失效了，需要手动注入，有没有修复具体未测试
-
-    #         self.page().loadStarted.connect(self.onLoadStart)
-    #         self._script = open('Data/qwebchannel.js', 'rb').read().decode()
-
-    #     def onLoadStart(self):
-    #         self.page().runJavaScript(self._script)
-
-    # END ###########################
-
-    # 注意pyqtSlot用于把该函数暴露给js可以调用
-    @pyqtSlot(str, str, bool)
-    def contentFromJS(self, file, text, confirm):
-        try:
-            if confirm and file in self.files:
-                reply = QMessageBox.question(self, '提示', '是否保存修改？', QMessageBox.Ok|QMessageBox.Cancel)
-                if reply == QMessageBox.Ok:
-                    with open(file, mode='w', encoding='utf-8') as f:
-                        f.write(text.replace('\r', ''))
-                    self.files.remove(file)
-            else:
-                with open(file, mode='w', encoding='utf-8') as f:
-                    f.write(text.replace('\r', ''))
-                self.files.remove(file)
-                if not self.files and self.exit_flag:
-                    self.exitSignal.emit()
-        except Exception as e:
-            print(e)
-
-    def sendContentToJS(self, file):
-        # 发送自定义信号
-        with open(file, 'r', encoding='utf-8') as f:
-            text = f.read()
-        self.contentFromQt.emit(file, text)
-
-    def sendSaveSignal(self, file):
-        self.saveSignal.emit(file)
-
-    def sendSetThemeSignal(self, theme):
-        self.setThemeSignal.emit(theme)
-
-    @pyqtSlot(str)
-    def switchFile(self, path):
-        """编辑器切换tab时候发信号到app修改策略路径"""
-        self.switchSignal.emit(path)
-
-    @pyqtSlot(str, bool)
-    def receiveFileStatus(self, file, status):
-        """
-        从编辑器接收文件保存状态
-        :param file: 文件路径
-        :param status: 文件状态(True: 已保存, False: 未保存)
-        :return:
-        """
-        if status:
-            if file not in self.files:
-                self.files.append(file)
-        else:
-            if file in self.files:
-                self.files.remove(file)
-
-
-    @pyqtSlot(str)
-    @pyqtSlot(QUrl)
-    def load(self, url):
-        '''
-        eg: load("https://pyqt5.com")
-        :param url: 网址
-        '''
-        return super(WebEngineView, self).load(QUrl(url))
-
-    def initSettings(self):
-        '''
-        eg: 初始化设置
-        '''
-        # 获取浏览器默认设置
-        settings = QWebEngineSettings.globalSettings()
-        # 设置默认编码utf8
-        settings.setDefaultTextEncoding("utf-8")
-        # 自动加载图片,默认开启
-        # settings.setAttribute(QWebEngineSettings.AutoLoadImages,True)
-        # 自动加载图标,默认开启
-        # settings.setAttribute(QWebEngineSettings.AutoLoadIconsForPage,True)
-        # 开启js,默认开启
-        # settings.setAttribute(QWebEngineSettings.JavascriptEnabled,True)
-        # js可以访问剪贴板
-        settings.setAttribute(
-            QWebEngineSettings.JavascriptCanAccessClipboard, True)
-        # js可以打开窗口,默认开启
-        # settings.setAttribute(QWebEngineSettings.JavascriptCanOpenWindows,True)
-        # 链接获取焦点时的状态,默认开启
-        # settings.setAttribute(QWebEngineSettings.LinksIncludedInFocusChain,True)
-        # 本地储存,默认开启
-        # settings.setAttribute(QWebEngineSettings.LocalStorageEnabled,True)
-        # 本地访问远程
-        settings.setAttribute(
-            QWebEngineSettings.LocalContentCanAccessRemoteUrls, True)
-        # 本地加载,默认开启
-        # settings.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls,True)
-        # 监控负载要求跨站点脚本,默认关闭
-        # settings.setAttribute(QWebEngineSettings.XSSAuditingEnabled,False)
-        # 空间导航特性,默认关闭
-        # settings.setAttribute(QWebEngineSettings.SpatialNavigationEnabled,False)
-        # 支持平超链接属性,默认关闭
-        # settings.setAttribute(QWebEngineSettings.HyperlinkAuditingEnabled,False)
-        # 使用滚动动画,默认关闭
-        settings.setAttribute(QWebEngineSettings.ScrollAnimatorEnabled, True)
-        # 支持错误页面,默认启用
-        # settings.setAttribute(QWebEngineSettings.ErrorPageEnabled, True)
-        # 支持插件,默认关闭
-        settings.setAttribute(QWebEngineSettings.PluginsEnabled, True)
-        # 支持全屏应用程序,默认关闭
-        settings.setAttribute(
-            QWebEngineSettings.FullScreenSupportEnabled, True)
-        # 支持屏幕截屏,默认关闭
-        settings.setAttribute(QWebEngineSettings.ScreenCaptureEnabled, True)
-        # 支持html5 WebGl,默认开启
-        settings.setAttribute(QWebEngineSettings.WebGLEnabled, True)
-        # 支持2d绘制,默认开启
-        settings.setAttribute(
-            QWebEngineSettings.Accelerated2dCanvasEnabled, True)
-        # 支持图标触摸,默认关闭
-        settings.setAttribute(QWebEngineSettings.TouchIconsEnabled, True)
-
-
 class QuantApplication(QWidget):
 
     exitSignal = pyqtSignal()
     positionSignal = pyqtSignal(list)
     pathSignal = pyqtSignal(str)
 
-    def __init__(self, control, parent=None):
-        super().__init__(parent)
+    def __init__(self, control, master=None):
+        super().__init__(master)
 
         self.exitSignal.connect(self.show_warn)
         self.positionSignal.connect(self.updateSyncPosition)
@@ -1710,6 +1685,7 @@ class QuantApplication(QWidget):
 
         # 初始化控制器
         self._controller = control
+        self._master = master
         self._logger = self._controller.get_logger()
 
         self.reportView = self._controller.reportView
@@ -1738,9 +1714,6 @@ class QuantApplication(QWidget):
         self.left_top_splitter.setHandleWidth(0)
         self.left_top_splitter.setChildrenCollapsible(False)
         self.left_top_splitter.setContentsMargins(0, 0, 0, 0)
-
-        # 获取所有策略可用过滤规则及目录
-        self.strategy_filter = get_strategy_filters(strategy_path)
 
         self.create_content_vbox()
         self.create_stragety_vbox()
@@ -1794,6 +1767,8 @@ class QuantApplication(QWidget):
 
         # 策略信息
         self.strategy_path = None
+        # 策略打开记录
+        self.strategy_open_record = set()
 
         # with open(r'ui/qdark.qss', encoding='utf-8') as f:
         #     self.setStyleSheet(f.read())
@@ -1813,22 +1788,19 @@ class QuantApplication(QWidget):
 
     def save_edit_strategy(self):
         question = QMessageBox(self)
-        if self.contentEdit.files:
-            question.setText('有策略被修改，程序退出前是否要保存这些策略？')
+        if self.contentEdit.modify_count():
+            question.setText('有策略已被修改，退出前是否保存？\t\t')
             question.setStandardButtons(QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
         else:
-            question.setText('您确定退出本程序吗？\t\t\t')
+            question.setText('您确定要退出本程序吗？\t\t\t')
             question.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
         question.setIcon(QMessageBox.Question)
         question.setWindowTitle('极星量化')
 
         reply = question.exec_()
         if reply == QMessageBox.Yes:
-            self.contentEdit.exit_flag = True
-            self.contentEdit.exitSignal.connect(self.close_app)
-            if self.contentEdit.files:
-                for file in self.contentEdit.files:
-                    self.contentEdit.saveSignal.emit(file)
+            self.contentEdit.on_saveMdySignal.connect(self.close_app)
+            self.contentEdit.save_mdy()
         elif reply == QMessageBox.No or reply == QMessageBox.Ok:
             self.close_app()
         elif reply == QMessageBox.Cancel:
@@ -1860,22 +1832,26 @@ class QuantApplication(QWidget):
         self.strategy_layout.setContentsMargins(0, 0, 0, 0)
         self.strategy_layout.setSpacing(0)
         self.model = QFileSystemModel()
-        self.strategy_tree = Tree(self.model, self.strategy_filter, self)
+        self.strategy_tree = Tree(self.model, self)
         self.strategy_tree.setObjectName("StrategyTree")
         # self.strategy_tree = Tree(strategy_path)
-        self.model.setRootPath(QtCore.QDir.rootPath())
+        # self.model.setRootPath(QtCore.QDir.rootPath())
+        self.model.setRootPath(strategy_path)
+        self.model.setNameFilterDisables(False)
+        self.proxyModel = MySortFilterProxyModel()
+        self.proxyModel.setSourceModel(self.model)
         self.strategy_tree.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.strategy_tree.setModel(self.model)
+        self.strategy_tree.setModel(self.proxyModel)
+        self.strategy_tree.setRootIndex(self.proxyModel.mapFromSource(self.model.index(strategy_path)))
+        # self.strategy_tree.setModel(self.model)
         # TODO: 拖动！！
         # self.strategy_tree.setDragDropMode(QAbstractItemView.InternalMove)
         self.strategy_tree.setRootIndex(self.model.index(strategy_path))
         # self.strategy_tree.setColumnCount(1)
         self.model.setReadOnly(False)
-        self.model.setNameFilters(self.strategy_filter)
         self.model.setNameFilterDisables(False)
-        self.model.setFilter(QDir.Dirs | QDir.Files)
+        self.model.setFilter(QDir.Dirs | QDir.Files | QDir.NoDotAndDotDot)
         self.model.setIconProvider(FileIconProvider())
-        # self.strategy_tree.setHeaderLabels(['策略'])
         self.strategy_tree.setHeaderHidden(True)
         self.strategy_tree.hideColumn(1)
         self.strategy_tree.hideColumn(2)
@@ -1905,7 +1881,7 @@ class QuantApplication(QWidget):
             self.strategy_tree.setCurrentIndex(index)
             self.strategy_path = path
             if not os.path.isdir(item_path):
-                self.contentEdit.sendContentToJS(item_path)
+                self.contentEdit.sendOpenSignal(item_path)
 
     # 策略右键菜单
     def strategy_tree_right_menu(self, point):
@@ -1933,7 +1909,8 @@ class QuantApplication(QWidget):
         if action == import_file:
             index = self.strategy_tree.currentIndex()
             model = index.model()  # 请注意这里可以获得model的对象
-            item_path = model.filePath(index)
+            index = model.mapToSource(index)  # 将index转化为过滤器的模型的index
+            item_path = self.model.filePath(index)
             if item_path:
                 if not os.path.isdir(item_path):
                     item_path = os.path.split(item_path)[0]
@@ -1947,58 +1924,53 @@ class QuantApplication(QWidget):
                             shutil.copy(fname, _path)
                     else:
                         shutil.copy(fname, _path)
-                    self.contentEdit.sendContentToJS(_path)
+                    self.contentEdit.sendOpenSignal(_path)
                     self.strategy_path = _path
         elif action == add_strategy:
             index = self.strategy_tree.currentIndex()
             model = index.model()  # 请注意这里可以获得model的对象
-            item_path = model.filePath(index)
-            if item_path and os.path.isdir(item_path):
-                value = ''
-                while True:
-                    value, ok = getText(self, '新增', '策略名称：')
-                    if not value.strip().endswith('.py'):
-                        path = os.path.join(item_path, value.strip() + '.py')
-                    else:
-                        path = os.path.join(item_path, value.strip())
-                    if os.path.exists(path) and ok:
-                        MyMessageBox.warning(self, '提示', '策略名%s在选择的分组已经存在！！！' % value.strip(), QMessageBox.Ok)
-                    elif not ok:
-                        break
-                    else:
-                        with open(path, 'w', encoding='utf-8') as w:
-                            w.write('import talib\n'
-                                    '\n\n'
-                                    'def initialize(context): \n    pass\n\n\n'
-                                    'def handle_data(context):\n    pass\n\n\n'
-                                    'def hisover_callback(context):\n    pass\n\n\n'
-                                    'def exit_callback(context):\n    pass\n')
-                        self.model.directoryLoaded.connect(lambda: self.focus_tree_item(path))
-                        self.strategy_tree.expand(index)
-                        break
-            elif not os.path.isdir(item_path):
-                value = ''
-                while True:
-                    value, ok = getText(self, '新建', '策略名称：')
-                    if not value.strip().endswith('.py'):
-                        path = os.path.join(os.path.split(item_path)[0], value.strip() + '.py')
-                    else:
-                        path = os.path.join(os.path.split(item_path)[0], value.strip())
-
-                    if os.path.exists(path) and ok:
-                        MyMessageBox.warning(self, '提示', '策略名在选择的分组%s已经存在！！！' % value, QMessageBox.Ok)
-                    elif not ok:
-                        break
-                    else:
-                        with open(path, 'w', encoding='utf-8') as w:
-                            w.write('import talib\n'
-                                    '\n\n'
-                                    'def initialize(context): \n    pass\n\n\n'
-                                    'def handle_data(context):\n    pass\n\n\n'
-                                    'def hisover_callback(context):\n    pass\n\n\n'
-                                    'def exit_callback(context):\n    pass\n')
-                        self.model.directoryLoaded.connect(lambda: self.focus_tree_item(path))
-                        break
+            index = model.mapToSource(index)  # 将index转化为过滤器的模型的index
+            item_path = self.model.filePath(index)
+            if not os.path.isdir(item_path):
+                item_path = os.path.split(item_path)[0]
+            value = ''
+            while True:
+                value, ok = getText(self, '新增', '策略名称：')
+                if not value.strip().endswith('.py'):
+                    path = '%s/%s.py' % (item_path, value.strip())
+                else:
+                    path = '%s/%s' % (item_path, value.strip())
+                if os.path.exists(path) and ok:
+                    MyMessageBox.warning(self, '提示', '策略名%s在选择的分组已经存在！！！' % value.strip(), QMessageBox.Ok)
+                elif not ok:
+                    break
+                else:
+                    with open(path, 'w', encoding='utf-8') as w:
+                        w.write('import talib\n'
+                            '\n\n'
+                            '# 策略参数字典\n'
+                            'g_params[\'p1\'] = 20    # 参数示例\n'
+                            '\n\n'
+                            '# 策略开始运行时执行该函数一次\n'
+                            'def initialize(context): \n'
+                            '    pass\n'
+                            '\n\n'
+                            '# 策略触发事件每次触发时都会执行该函数\n'
+                            'def handle_data(context):\n'
+                            '    pass\n'
+                            '\n\n'
+                            '# 历史回测阶段结束时执行该函数一次\n'
+                            'def hisover_callback(context):\n'
+                            '    pass\n'
+                            '\n\n'
+                            '# 策略退出前执行该函数一次\n'
+                            'def exit_callback(context):\n'
+                            '    pass\n'
+                            '\n\n'
+                            )
+                    self.model.directoryLoaded.connect(lambda: self.focus_tree_item(path))
+                    self.strategy_tree.expand(index)
+                    break
             else:
                 MyMessageBox.warning(self, '提示', '请选择分组！！！', QMessageBox.Ok)
 
@@ -2011,74 +1983,111 @@ class QuantApplication(QWidget):
                 else:
                     index = self.strategy_tree.currentIndex()
                     model = index.model()  # 请注意这里可以获得model的对象
-                    item_path = model.filePath(index)
+                    index = model.mapToSource(index)  # 将index转化为过滤器的模型的index
+                    item_path = self.model.filePath(index)
+                    # item_path = model.filePath(index)
                 value, ok = getText(self, '新建', '分组名称：')
                 if os.path.isdir(item_path):
-                    path = os.path.join(item_path, value)
+                    path = '%s/%s' % (item_path, value.strip())
                 else:
-                    path = os.path.join(os.path.split(item_path)[0], value)
+                    path = '%s/%s' % (os.path.split(item_path)[0], value.strip())
                 if os.path.exists(path) and ok:
                     MyMessageBox.warning(self, '提示', '分组%s已经存在！！！' % value, QMessageBox.Ok)
                 elif not ok:
                     break
                 else:
                     os.mkdir(path)
-                    self.strategy_filter.append(os.path.split(path)[1])
-                    self.model.setNameFilters(self.strategy_filter)
                     self.model.directoryLoaded.connect(lambda: self.focus_tree_item(path))
                     break
 
         elif action == start_file:
             index = self.strategy_tree.currentIndex()
             model = index.model()  # 请注意这里可以获得model的对象
-            item_path = model.filePath(index)
+            index = model.mapToSource(index)  # 将index转化为过滤器的模型的index
+            item_path = self.model.filePath(index)
+            # item_path = model.filePath(index)
             dir_name = os.path.dirname(item_path)
             os.startfile(dir_name)
         elif action == rename:
             index = self.strategy_tree.currentIndex()
             model = index.model()  # 请注意这里可以获得model的对象
-            item_path = model.filePath(index)
+            index = model.mapToSource(index)  # 将index转化为过滤器的模型的index
+            item_path = self.model.filePath(index)
+            # item_path = model.filePath(index)
             if not os.path.isdir(item_path):  # 修改策略名
                 value = ''
                 (file_path, filename) = os.path.split(item_path)
                 while True:
                     value, ok = getText(self, '修改', '策略名称', filename)
                     if not value.strip().endswith('.py'):
-                        new_path = os.path.join(file_path, value.strip() + '.py')
+                        new_path = '%s/%s.py' % (file_path, value.strip())
                     else:
-                        new_path = os.path.join(file_path, value.strip())
+                        new_path = '%s/%s' % (file_path, value.strip())
                     if os.path.exists(new_path) and ok:
                         MyMessageBox.warning(self, '提示', '策略名%s在此分组中已经存在！！！' % value.strip(), QMessageBox.Ok)
                     elif not ok:
                         break
                     else:
                         os.rename(item_path, new_path)
+                        if item_path == self.strategy_path:
+                            self.strategy_path = new_path
+                        # 更新策略打开记录
+                        if item_path in self.strategy_open_record:
+                            self.strategy_open_record.remove(item_path)
+                            self.strategy_open_record.add(new_path)
+                        self.contentEdit.sendRenameSignal(item_path, new_path)
                         break
             else:
                 value = ''
                 (dir_path, dir_name) = os.path.split(item_path)
                 while True:
                     value, ok = getText(self, '修改', '分组名称', dir_name)
-                    new_path = os.path.join(dir_path, value)
+                    new_path = '%s/%s' % (dir_path, value.strip())
                     if os.path.exists(new_path) and ok:
                         MyMessageBox.warning(self, '提示', '分组%s已经存在！！！' % value, QMessageBox.Ok)
                     elif not ok:
                         break
                     else:
+                        # def allFilePath(rootDir, newDir):
+                        #     """
+                        #     :param rootDir: 原根目录
+                        #     :param newPath: 修改后的根目录
+                        #     :return:
+                        #     """
+                        #     for root, dirs, files in os.walk(rootDir):
+                        #         for file in files:
+                        #             print("dddd: ", file)
+                        #             filePath = os.path.join(root, file)
+                        #             if filePath in self.strategy_open_record:
+                        #                 newFilePath = os.path.join(newDir, filePath)
+                        #                 self.strategy_open_record.remove(filePath)
+                        #                 self.strategy_open_record.add(os.path.join(newDir, filePath))
+                        #                 self.contentEdit.sendRenameSignal(filePath, newFilePath)
+                        #         for dir in dirs:
+                        #             dirPath = os.path.join(root, dir)
+                        #             newDirPath = os.path.join(newDir, dir)
+                        #             allFilePath(dirPath, newDirPath)
+
                         os.rename(item_path, new_path)
+                        if item_path == self.strategy_path:
+                            self.strategy_path = new_path
+                        # allFilePath(item_path, new_path)
                         break
         elif action == delete:
             index = self.strategy_tree.currentIndex()
             model = index.model()  # 请注意这里可以获得model的对象
-            item_path = model.filePath(index)
+            index = model.mapToSource(index)  # 将index转化为过滤器的模型的index
+            item_path = self.model.filePath(index)
+            # item_path = model.filePath(index)
             if item_path and os.path.isdir(item_path):
                 reply = MyMessageBox.question(self, '提示', '确定删除分组及目录下的所有文件吗？', QMessageBox.Ok | QMessageBox.Cancel)
                 if reply == QMessageBox.Ok:
                     shutil.rmtree(item_path)
-                    self.strategy_filter.remove(os.path.split(item_path)[1])
+
             elif item_path and not os.path.isdir(item_path):
                 reply = MyMessageBox.question(self, '提示', '确定删除策略%s吗？' % os.path.split(item_path)[1], QMessageBox.Ok | QMessageBox.Cancel)
                 if reply == QMessageBox.Ok:
+                    self.contentEdit.sendDeleteSignal(item_path)
                     os.remove(item_path)
             else:
                 pass
@@ -2202,7 +2211,7 @@ class QuantApplication(QWidget):
         self.save_btn.setMaximumWidth(100)
         self.run_btn.setEnabled(False)
         # self.contentEdit = MainFrmQt("localhost", 8765, "pyeditor", os.path.join(os.getcwd(), 'quant\python_editor\editor.htm'))
-        self.contentEdit = WebEngineView()
+        self.contentEdit = CodeEditor()
         self.contentEdit.setObjectName('contentEdit')
         if self.settings.contains('theme') and self.settings.value('theme') == 'vs-dark':
             self.contentEdit.load(
@@ -2210,7 +2219,7 @@ class QuantApplication(QWidget):
         else:
             self.contentEdit.load(
                 QUrl.fromLocalFile(os.path.abspath(r'qtui/quant/python_editor/editor_vs.htm')))
-        self.contentEdit.switchSignal.connect(self.switch_strategy_path)
+        self.contentEdit.on_switchSignal.connect(self.switch_strategy_path)
         self.statusBar = QLabel()
         self.statusBar.setText("  极星9.5连接失败，请重新打开极星量化！")
         self.statusBar.setStyleSheet('color: #0062A3;')
@@ -2221,7 +2230,8 @@ class QuantApplication(QWidget):
         self.content_layout.addWidget(self.contentEdit, 2, 0, 20, 3)
         self.content_vbox.setLayout(self.content_layout)
         self.run_btn.clicked.connect(self.emit_custom_signal)  # 改为提示用户保存当前的文件
-        self.run_btn.clicked.connect(lambda: self.create_strategy_policy_win({}, self.strategy_path, False))
+        self.run_btn.clicked.connect(
+            lambda: self.create_strategy_policy_win({}, self.strategy_path, False))
         self.save_btn.clicked.connect(self.emit_custom_signal)
         self.save_btn.setShortcut("Ctrl+S")  # ctrl + s 快捷保存
 
@@ -2237,8 +2247,7 @@ class QuantApplication(QWidget):
         self.run_btn.setEnabled(status)
 
     def emit_custom_signal(self):
-        if self.strategy_path in self.contentEdit.files:
-            self.contentEdit.sendSaveSignal(self.strategy_path)
+        self.contentEdit.sendSaveSignal(self.strategy_path)
 
     def create_func_tab(self):
         # 函数列表
@@ -2526,12 +2535,13 @@ class QuantApplication(QWidget):
         self.func_doc.setContentsMargins(0, 0, 0, 0)
 
     def strategy_tree_clicked(self):
-        # 策略双击槽函数
         index = self.strategy_tree.currentIndex()
-        model = index.model()  # 请注意这里可以获得model的对象
-        item_path = model.filePath(index)
+        model = index.model()
+        index = model.mapToSource(index)  # 将index转化为过滤器的模型的index
+        item_path = self.model.filePath(index)
         if not os.path.isdir(item_path):
-            self.contentEdit.sendContentToJS(item_path)
+            self.contentEdit.sendOpenSignal(item_path)
+            self.strategy_open_record.add(item_path)
             self.strategy_path = item_path
 
     def func_tree_clicked(self):
@@ -2569,9 +2579,13 @@ class QuantApplication(QWidget):
     def create_strategy_policy_win(self, param, path, flag):
         # 运行点击槽函数，弹出策略属性设置窗口
         if path:
-            self.strategy_policy_win = StrategyPolicy(self._controller, path, param=param, flag=flag)
+            pGeometry = self._controller.mainWnd.frameGeometry()
             self.main_strategy_policy_win = FramelessWindow()
-            self.main_strategy_policy_win.resize(560, 580)
+            self.main_strategy_policy_win.resize(pGeometry.width() * 0.4, pGeometry.height() * 0.7)
+            # self.main_strategy_policy_win.resize(560, 580)
+            self.main_strategy_policy_win.center(pGeometry)
+            self.strategy_policy_win = StrategyPolicy(self._controller, path, master=self.main_strategy_policy_win,
+                                                      param=param, flag=flag)
 
             self.main_strategy_policy_win.hideTheseBtn()
             self.main_strategy_policy_win.titleBar.iconLabel.hide()
@@ -2586,16 +2600,18 @@ class QuantApplication(QWidget):
                 style = CommonHelper.readQss(DARKSTYLE)
             self.main_strategy_policy_win.setStyleSheet('')
             self.main_strategy_policy_win.setStyleSheet(style)
-            self.strategy_policy_win.confirm.clicked.connect(self.main_strategy_policy_win.close)  # todo
+            # self.strategy_policy_win.confirm.clicked.connect(self.main_strategy_policy_win.close)  # todo
             self.strategy_policy_win.cancel.clicked.connect(self.main_strategy_policy_win.titleBar.closeWindow)
             self.strategy_policy_win.contractWin.select.clicked.connect(
                 lambda: self.strategy_policy_win.contractSelect(self._exchange, self._commodity, self._contract))
 
             # ----------------------解析g_params参数----------------------------
-            g_params = parseStrategtParam(path)
-            if g_params == -1:
-                MyMessageBox.warning(self, '提示', '策略不存在！！！', QMessageBox.Ok)
-                return
+            g_params = param
+            if not g_params:
+                g_params = parseStrategtParam(path)
+                if g_params == -1:
+                    MyMessageBox.warning(self, '提示', '策略不存在！！！', QMessageBox.Ok)
+                    return
             self.strategy_policy_win.paramsTableWidget.setRowCount(len(g_params))
             for i in range(len(self._userNo)):
                 self.strategy_policy_win.userComboBox.addItem(self._userNo[i]['UserNo'])
@@ -2620,7 +2636,7 @@ class QuantApplication(QWidget):
                     param_type = 'bool'
                     cell = QComboBox()
                     cell.addItems(['True', 'False'])
-                    index = 0 if item[0][1] == 'True' else 1
+                    index = 0 if item[1][0] is True else 1
                     cell.setCurrentIndex(index)
                 cell.setStyleSheet('border: none; min-height: 30px;')
                 self.strategy_policy_win.paramsTableWidget.cells.append(cell)
@@ -2634,12 +2650,6 @@ class QuantApplication(QWidget):
             self.main_strategy_policy_win.setWindowModality(Qt.ApplicationModal)  # 设置阻塞父窗口
             self.main_strategy_policy_win.show()
             self.strategy_policy_win.show()
-        else:
-            MyMessageBox.warning(self, '提示', '请选择策略！！！', QMessageBox.Ok)
-
-    def save_strategy(self):
-        if self.strategy_path:
-            self.contentEdit.on_saveclick(self.strategy_path)
         else:
             MyMessageBox.warning(self, '提示', '请选择策略！！！', QMessageBox.Ok)
 
@@ -2944,6 +2954,12 @@ class QuantApplication(QWidget):
 
         # 保存报告数据
         reportPath = save(data, runMode, stName)
+        #
+        _pGeometry = self._master.frameGeometry()
+        # 只在报告窗口关闭后才重新设置位置
+        if not self.reportWnd.isVisible():
+            self.reportWnd.center(_pGeometry)
+        # self.reportWnd.center(_pGeometry)
 
         self.reportView.reportShowSig.emit([data, reportPath])
         # TODO: 在这里展示报告会导致程序不响应，放到接收信号处展示

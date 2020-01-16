@@ -43,21 +43,30 @@ class Controller(object):
         # 根据分辨率调整字体
         font = QFont("Microsoft YaHei UI", 11)
         pointsize = font.pointSize()
-        font.setPixelSize(pointsize * 90 / 72)
+        font.setPixelSize(pointsize * 96 / 72)
         self.mainApp.setFont(font)
 
         ################创建回测报告####################
         self._createReportWin()
         ################################################
+        
+        version = ''
+        if os.path.exists('../Version.txt'):
+            with open('../Version.txt', 'r', encoding='utf-8-sig') as f:
+                version = f.readline()
+        if ' ' in version:
+            version = version.split(' ')[1]
+        if len(version) > 0:
+            version = ' - ' + version
 
-        self.app = QuantApplication(self)
+        self.mainWnd = FramelessWindow()
+        self.mainWnd.setWindowTitle('极星量化' + version)
+        self.app = QuantApplication(self, master=self.mainWnd)
         if self.app.settings.contains('theme') and self.app.settings.value('theme') == 'vs-dark':
             theme = THESE_STATE_DARK
         else:
             theme = THESE_STATE_WHITE
 
-        self.mainWnd = FramelessWindow()
-        self.mainWnd.setWindowTitle('极星量化')
         self.mainWnd.setWinThese(theme)
         self.mainWnd.setWindowIcon(QIcon('icon/epolestar ix2.ico'))
         screen = QDesktopWidget().screenGeometry()
@@ -270,27 +279,6 @@ class Controller(object):
                 self.app.reportDisplay(reportData, id)
                 return
             self._request.reportRequest(id)
-
-    def newStrategy(self, path):
-        """右键新建策略"""
-        if not os.path.exists(path):
-            f = open(path, "w")
-            f.write('import talib\n'
-                    '\n\n'
-                    'def initialize(context): \n    pass\n\n\n'
-                    'def handle_data(context):\n    pass\n\n\n'
-                    'def exit_callback(context):\n    pass')
-            f.close()
-
-        self.app.updateEditorModifyTime(os.path.getmtime(path))
-
-        # 更新策略路径
-        self.setEditorTextCode(path)
-
-        self.app.updateStrategyTree(path)
-
-        # 更新策略编辑界面内容
-        self.updateEditor(path)
 
     def newDir(self, path):
         """策略目录右键新建文件夹"""
