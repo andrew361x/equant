@@ -65,6 +65,9 @@ class Dir(QTreeView):
         self.setModel(self.model)
         # 需要加上这句setRootPath才生效
         self.setRootIndex(self.model.index(self._dirPath))
+        # 过滤 *.json文件  只保留pkl文件  以前放在 self.model = FileSystemModel()后不能生效
+        self.model.setNameFilterDisables(False)
+        self.model.setNameFilters(["*.pkl"])        
 
     def contextMenuEvent(self, evt):
         menu = QMenu(self)

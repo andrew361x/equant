@@ -57,12 +57,16 @@ def save(data, runMode, fileName):
 
     if not os.path.exists(strategyPath):
         os.mkdir(strategyPath)
-        with open(fileName, 'wb') as f:
+        
+    with open(fileName, 'wb') as f:
             pickle.dump(data, f)
-
-    else:
-        with open(fileName, 'wb') as f:
-            pickle.dump(data, f)
+            
+    import json
+    with open(fileDir + '\\' + strategyName + '\\' + runType + currentTime + '.json', 'w') as f:
+            json.dump(data, f)  
+    #else:
+        #with open(fileName, 'wb') as f:
+            #pickle.dump(data, f)
 
     return fileName
 
