@@ -51,14 +51,14 @@ class StrategyPolicy(QWidget):
         self.confirm.setMinimumWidth(80)
         self.cancel.setMinimumWidth(80)
 
-        self.strategyTabWidget = QTabWidget()
+        self.strategyTabWidget = QTabWidget() #运行方式标签,合约设置标签,资金设置标签,样本设置标签,参数设置标签的载体
         self.strategyTabWidget.setObjectName("StrategyTabWidget")
 
-        self.run_policy()
-        self.create_contract_policy()
-        self.create_money_policy()
-        self.create_sample_policy()
-        self.create_param_policy()
+        self.run_policy()             # 创建 属性设置的运行方式标签页面
+        self.create_contract_policy() # 创建 属性设置的合约设置标签页面
+        self.create_money_policy()    # 创建 属性设置的资金设置标签页面
+        self.create_sample_policy()   # 创建 属性设置的样本设置标签页面
+        self.create_param_policy()    # 创建 属性设置的参数设置标签页面
 
         layout1.addWidget(self.strategyTabWidget)
 
@@ -113,7 +113,7 @@ class StrategyPolicy(QWidget):
         # 设置属性值
         self.setDefaultConfigure()
 
-        self.contractWin = ContractWin()
+        self.contractWin = ContractWin()   #在合约设置标签页面下，点击增加或者修改 弹出合约设置窗口
         self.contractWin.setObjectName("ContractWin")
         self.contractWin.confirm_signal.connect(self.add_contract)
         # self.contractWin.setStyle(self.style())
@@ -154,7 +154,7 @@ class StrategyPolicy(QWidget):
             self.defaultOrderLineEdit.setText('1000000')
             self.label32.setText('元')
 
-    def run_policy(self):
+    def run_policy(self):# 属性设置的运行方式标签页面
         self.runPolicy = QWidget()
         self.runPolicy.setObjectName("RunPolicy")
         run_layout = QVBoxLayout()
@@ -331,7 +331,7 @@ class StrategyPolicy(QWidget):
         self.contractPolicy.setLayout(main_layout)
         self.strategyTabWidget.addTab(self.contractPolicy, '合约设置')
 
-    def create_money_policy(self):
+    def create_money_policy(self):# 属性设置的资金设置标签页面
         self.moneyPolicy = QWidget()
         self.moneyPolicy.setObjectName("MoneyPolicy")
         h_spacerItem1 = QSpacerItem(300, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
@@ -593,7 +593,7 @@ class StrategyPolicy(QWidget):
             self.openTimesLineEdit.setFocus()
             self.openTimesLineEdit.selectAll()
 
-    def create_param_policy(self):
+    def create_param_policy(self):# 属性设置的参数设置标签页面
         self.paramPolicy = QWidget()
         self.paramPolicy.setObjectName("ParamPolicy")
 
@@ -636,7 +636,7 @@ class StrategyPolicy(QWidget):
         if row != -1:
             self.timerListWidget.removeItemWidget(self.timerListWidget.takeItem(row))
 
-    def create_contract_win(self):
+    def create_contract_win(self): #在合约设置标签页面下，点击增加或者修改 弹出合约设置窗口
         # 增加合约槽函数，弹出合约设置窗口
         self.set_default_value()
         self.main_contractWin.setWindowModality(Qt.ApplicationModal)  # 阻塞父窗口
@@ -1125,7 +1125,7 @@ class StrategyPolicy(QWidget):
         if config:  # 获取到config
             if not self._paramFlag:
                 self._control._request.loadRequest(strategyPath, config)
-                self._control.logger.info("load strategy")
+                self._control.logger.info("click confirm button,load strategy")
             else:
                 self._control._request.strategyParamRestart(self._paramFlag, config)
                 self._control.logger.info("Restarting strategy by new paramters")
@@ -1715,7 +1715,7 @@ class QuantApplication(QWidget):
         self.left_top_splitter.setChildrenCollapsible(False)
         self.left_top_splitter.setContentsMargins(0, 0, 0, 0)
 
-        self.create_content_vbox()
+        self.create_content_vbox()  #中间的部分，上面 是状态显示 运行 保存按钮 还有正中间的编辑器
         self.create_stragety_vbox()
         self.create_func_tab()
         self.create_tab()
@@ -2219,10 +2219,11 @@ class QuantApplication(QWidget):
         else:
             self.contentEdit.load(
                 QUrl.fromLocalFile(os.path.abspath(r'qtui/quant/python_editor/editor_vs.htm')))
-        self.contentEdit.on_switchSignal.connect(self.switch_strategy_path)
+        self.contentEdit.on_switchSignal.connect(self.switch_strategy_path) # 黑色主题和 白色主题切换信号
         self.statusBar = QLabel()
         self.statusBar.setText("  极星9.5连接失败，请重新打开极星量化！")
-        self.statusBar.setStyleSheet('color: #0062A3;')
+        # self.statusBar.setStyleSheet('color: #0062A3;')
+        self.statusBar.setStyleSheet('color: #FF0040;')  #改成红色试试
 
         self.content_layout.addWidget(self.statusBar, 0, 0, 1, 1)
         self.content_layout.addWidget(self.run_btn, 0, 1, 1, 1)
@@ -2230,6 +2231,7 @@ class QuantApplication(QWidget):
         self.content_layout.addWidget(self.contentEdit, 2, 0, 20, 3)
         self.content_vbox.setLayout(self.content_layout)
         self.run_btn.clicked.connect(self.emit_custom_signal)  # 改为提示用户保存当前的文件
+		# 点击运行后，先提示保存，然后创建属性设置窗体，没有参数传入
         self.run_btn.clicked.connect(
             lambda: self.create_strategy_policy_win({}, self.strategy_path, False))
         self.save_btn.clicked.connect(self.emit_custom_signal)
@@ -2329,7 +2331,8 @@ class QuantApplication(QWidget):
         # self.func_vbox.setLayout(self.func_layout)
 
     def create_tab(self):
-        self.tab_widget = QTabWidget()
+        """下方的监控策略运行，运行日志，错误信息，组合监控 标签窗体"""
+        self.tab_widget = QTabWidget() # 这个tawidget就是要返回的对象
         self.tab_widget.setContentsMargins(0, 0, 0, 0)
         # 策略运行table
         self.strategy_table = QTableWidget()
@@ -2474,8 +2477,8 @@ class QuantApplication(QWidget):
         self.strategy_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.strategy_table.customContextMenuRequested[QPoint].connect(self.strategy_table_right_menu)
 
-    def strategy_table_right_menu(self, point):
-        self.strategy_table.popMenu = QMenu()
+    def strategy_table_right_menu(self, point):# 每一条策略记录 的右键菜单
+        self.strategy_table.popMenu = QMenu()# 策略运行的tablewidget
         self.strategy_table.popMenu.setStyleSheet(self.get_menu_style())
         run = QAction('启动', self.strategy_table)
         stop = QAction('停止', self.strategy_table)
@@ -2492,10 +2495,13 @@ class QuantApplication(QWidget):
         self.strategy_table.popMenu.addAction(onSignal)
         self.strategy_table.popMenu.addAction(policy)
         self.strategy_table.popMenu.addAction(selectAll)
-
+        
+        # 要将小部件的局部坐标转换为全局坐标  strategy_table.mapToGlobal(point) 将strategy_table局部坐标转换成全局坐标，返回QPoint
+        # 返回已触发的QAction；如果未触发任何项，则返回0（通常是由于用户按下Esc）。
         action = self.strategy_table.popMenu.exec_(self.strategy_table.mapToGlobal(point))
-        items = self.strategy_table.selectedItems()
-        # strategy_id = self.strategy_table.item(row, 0).text()
+        
+        items = self.strategy_table.selectedItems()# 获取item  为什么不用self.strategy_table.selectedIndexes()呢
+        # strategy_id = self.strategy_table.item(row, 0).text(
         strategy_id_list = []
         for item in items:
             if self.strategy_table.indexFromItem(item).column() == 0:
@@ -2535,6 +2541,7 @@ class QuantApplication(QWidget):
         self.func_doc.setContentsMargins(0, 0, 0, 0)
 
     def strategy_tree_clicked(self):
+        # 策略双击槽函数
         index = self.strategy_tree.currentIndex()
         model = index.model()
         index = model.mapToSource(index)  # 将index转化为过滤器的模型的index
@@ -2580,12 +2587,12 @@ class QuantApplication(QWidget):
         # 运行点击槽函数，弹出策略属性设置窗口
         if path:
             pGeometry = self._controller.mainWnd.frameGeometry()
-            self.main_strategy_policy_win = FramelessWindow()
+            self.main_strategy_policy_win = FramelessWindow() # 策略属性设置窗口
             self.main_strategy_policy_win.resize(pGeometry.width() * 0.4, pGeometry.height() * 0.7)
             # self.main_strategy_policy_win.resize(560, 580)
             self.main_strategy_policy_win.center(pGeometry)
             self.strategy_policy_win = StrategyPolicy(self._controller, path, master=self.main_strategy_policy_win,
-                                                      param=param, flag=flag)
+                                                      param=param, flag=flag)# QWidget类型
 
             self.main_strategy_policy_win.hideTheseBtn()
             self.main_strategy_policy_win.titleBar.iconLabel.hide()
@@ -2612,7 +2619,7 @@ class QuantApplication(QWidget):
                 if g_params == -1:
                     MyMessageBox.warning(self, '提示', '策略不存在！！！', QMessageBox.Ok)
                     return
-            self.strategy_policy_win.paramsTableWidget.setRowCount(len(g_params))
+            self.strategy_policy_win.paramsTableWidget.setRowCount(len(g_params)) #参数设置标签页面
             for i in range(len(self._userNo)):
                 self.strategy_policy_win.userComboBox.addItem(self._userNo[i]['UserNo'])
                 self.strategy_policy_win.userComboBox.setCurrentIndex(0)

@@ -1,6 +1,7 @@
 #-*-:conding:utf-8-*-
 
 from multiprocessing import Process, Queue
+import threading
 from threading import Thread
 import time, os, sys
 from capi.com_types import *
@@ -31,7 +32,7 @@ class StartegyManager(object):
         # 进程字典，{'id', Strategy}
         self._strategyDict = {}
         self._strategyInfo = {}
-        self._strategyAttribute = {}
+        self._strategyAttribute = {}  # 用来保存从策略侧同步过来的策略配置信息
         self._isEquantExitStage = False
         self._isEquantExitCom = False
 
@@ -58,6 +59,7 @@ class StartegyManager(object):
         process = Process(target=self.run, args=(strategy,))
         process.daemon = True
         process.start()
+        self.logger.info(f"StrategyID {strategyId} Process pid {process.pid}")
 
         args = {
             "Config": event.getData()["Args"],
@@ -166,7 +168,7 @@ class StartegyManager(object):
         try:
             process.terminate()
             process.join(timeout=1)
-            self.logger.debug("strategy %d exit success" % strategyId)
+            self.logger.debug("strategy %d exit success call destroyProcess" % strategyId)
         except Exception as e:
             # traceback.print_exc()
             self.logger.debug("strategy %d exit fail" % strategyId)
@@ -341,7 +343,7 @@ class Strategy:
 
         # 是否运行initialize函数
         self._noInitialize = "NoInitialize" in data and data["NoInitialize"]
-        self._uiConfig = copy.deepcopy(data['Args'])
+        self._uiConfig = copy.deepcopy(data['Args'])  #是属性设置UI里的参数集合吗？
 
         self._eg2stQueue = args['eg2st']
         self._st2egQueue = args['st2eg']
@@ -413,10 +415,10 @@ class Strategy:
 
         # 5. 初始化用户策略参数
         if not self._noInitialize:
-            userModule.initialize(self._context)
+            userModule.initialize(self._context) #执行用户策略的initialize函数
 
         self._cfgModel.setParams(self._argsDict["Params"])
-
+        # 可以看到详细的配置信息  self._cfgModel.getConfig()
         builtins.g_params = {k:v[0] for k,v in self._argsDict["Params"].items()}
         #     self._argsDict["Params"] = self._context.params
         #     self._dataModel.getConfigModel().setParams(self._context.params)
@@ -484,24 +486,36 @@ class Strategy:
         }
         
     def _actualRun(self):
+        th = threading.currentThread()
+        self.logger.info(f"Threading id: {th.ident}")
+        self.logger.info(f"Threading name: {th.getName()}")        
         try:
+            self.logger.info(f"Threading id: {th.ident} _actualRun内部初始化")
             # 1. 内部初始化
             self._initialize()
             # 1.1 请求交易所、品种、合约等
+            self.logger.info( f"Threading id: {th.ident} _actualRun请求交易所")
             self._reqExchange()
+            self.logger.info(f"Threading id: {th.ident} _actualRun请求、品种、合约等.")
             self._reqCommodity()
             # self._reqContract()
+            self.logger.info(f"Threading id: {th.ident} _actualRun请求主力/近月/指数合约映射合约信息")
             # 1.2 请求主力/近月/指数合约映射合约信息
             self._reqUnderlayMap()
+            self.logger.info(f"Threading id: {th.ident} _actualRun订阅即时行情")
             # 2. 订阅即时行情
-            self._subQuote()
+            # self._subQuote()
+            # self.logger.info(f"Threading id: {th.ident} _actualRun请求历史行情")
             # 3. 请求历史行情
             self._reqHisQuote()
+            self.logger.info( f"Threading id: {th.ident} _actualRun查询登录信息")
             # 4. 查询交易数据
             self._reqLoginInfo()
+            self.logger.info(f"Threading id: {th.ident} _actualRun数据处理循环中...")
             # 5. 数据处理
             self._mainLoop()
         except Exception as e:
+            self.logger.warn("进入 _actualRun的异常处理")
             self._strategyState = StrategyStatusExit
             self._isSt2EgQueueEffective = False
             errorText = traceback.format_exc()
@@ -509,11 +523,12 @@ class Strategy:
             self._exit(-1, errorText)
 
     def run(self):
+        self.logger.info("启动策略模块的实际运行线程actualRun，内部初始化，请求交易所、品种、合约等,请求主力/近月/指数合约映射合约信息,订阅即时行情,请求历史行情,查询交易数据,数据处理循环中...")
         self._actualThread = Thread(target=self._actualRun)
         self._actualThread.start()
     
         self.top = Tk()
-        self.top.withdraw()
+        self.top.withdraw()# 实现主窗口隐藏
         self.top.mainloop()
     
     # ////////////////////////////内部接口////////////////////
@@ -535,7 +550,8 @@ class Strategy:
             if code not in self._egCallbackDict:
                 self.logger.warn("_egCallbackDict code(%d) not register!"%code)
                 continue
-            self._egCallbackDict[code](event) 
+            self._egCallbackDict[code](event)
+            #self.logger.info(f"策略处理消息 Event {code:#X},type {event._type}, \n record {event._record}")# , \n <Data> {event.getData()}")
 
     def _clearQueue(self, someQueue):
         try:
@@ -545,6 +561,9 @@ class Strategy:
             pass
 
     def _runStrategy(self):
+        th = threading.currentThread()
+        self.logger.info(f"Threading id: {th.ident}")
+        self.logger.info(f"Threading name: {th.getName()}")
         try:
             # 等待回测阶段
             self._runStatus = ST_STATUS_HISTORY
@@ -563,14 +582,16 @@ class Strategy:
                     self._dataModel.runRealTime(self._context, self._userModule.handle_data, event)
                 except queue.Empty as e:
                     if self._firstTriggerQueueEmpty:
+                        self.logger.info("进入runStrategy queueEmpty异常分支，_triggerQueue取不到数据")
                         self._clearHisPos()
-                        self._atHisOver()
+                        self._atHisOver()   #print  hisover_callback
                         self._runStatus = ST_STATUS_CONTINUES
                         self._send2UiEgStatus(self._runStatus)
                         self._firstTriggerQueueEmpty = False
                     else:
                         time.sleep(0.1)
         except Exception as e:
+                self.logger.warn("进入 _runStrategy的异常处理")
                 self._strategyState = StrategyStatusExit
                 self._isSt2EgQueueEffective = False
                 errorText = traceback.format_exc()
@@ -613,6 +634,7 @@ class Strategy:
 
     def _startStrategyThread(self):
         '''历史数据准备完成后，运行策略'''
+        self.logger.info("启动策略模块的启动策略线程runStrategy，更改策略状态并推送至UI，并启动HisModel的runreport")
         self._stThread = Thread(target=self._runStrategy)
         self._stThread.start()
         
@@ -702,6 +724,9 @@ class Strategy:
 
 
     def _runTimer(self):
+        th = threading.currentThread()
+        self.logger.info(f"Threading id: {th.ident}")
+        self.logger.info(f"Threading name: {th.getName()}")           
         timeList = self._dataModel.getConfigTimer()
         if timeList is None:
             timeList = []
@@ -721,6 +746,7 @@ class Strategy:
             time.sleep(0.1)
 
     def _startStrategyTimer(self):
+        self.logger.info("启动定时器线程,并启动 定时触发 周期性触发 通知资金变化 持仓变化")
         self._stTimer = Thread(target=self._runTimer)
         self._stTimer.start()
         
@@ -837,6 +863,8 @@ class Strategy:
     # 报告事件, 发到engine进程中，engine进程 再发到ui进程。
     def _onReport(self, event):
         data = self._dataModel.getCalcCenter().testResult()
+        self.logger.info("Strategy.py call _onReport ")
+        #self.logger.info(data)
         responseEvent = Event({
             "EventCode":EV_EG2UI_REPORT_RESPONSE,
             "StrategyId":self._strategyId,
@@ -1167,10 +1195,11 @@ class Strategy:
             while True:
                 try:
                     self._st2egQueue.put_nowait(event)
+                    #self.logger.info(f"策略向引擎发送消息  Event {event.getEventCode():#X}, strategyId {event.getStrategyId()}, type {event._type}, record {event._record}")#, <Data> {event.getData()} ")
                     break
                 except queue.Full:
                     time.sleep(0.1)
-                    #self.logger.error(f"策略{self._strategyId}向引擎传递事件{event.getEventCode()}时卡住")
+                    self.logger.error(f"策略{self._strategyId}向引擎传递事件{event.getEventCode()}时卡住")
 
     def sendEvent2EngineForce(self, event):
         while True:
@@ -1179,12 +1208,13 @@ class Strategy:
                 break
             except queue.Full:
                 time.sleep(0.1)
-                #self.logger.error(f"策略{self._strategyId}强制向引擎传递事件{event.getEventCode()}时阻塞")
+                self.logger.error(f"策略{self._strategyId}强制向引擎传递事件{event.getEventCode()}时阻塞")
 
     def sendEvent2UI(self, event):
         while True:
             try:
                 self._st2uiQueue.put_nowait(event)
+                #self.logger.info(f"策略向UI发送消息  Event {event.getEventCode():#X}, strategyId {event.getStrategyId()}, type {event._type}, record {event._record}")#, <Data> {event.getData()} ")
                 break
             except queue.Full:
                 time.sleep(0.1)

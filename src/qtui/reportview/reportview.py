@@ -36,9 +36,9 @@ class ReportView(QWidget):
         vLayout.setContentsMargins(0, 0, 0, 0)
         vLayout.setSpacing(0)
 
-        self.tab = Tab()
+        self.tab = Tab()   #回测报告窗体
         self.tab.setObjectName("ReportTab")
-        self.dir = Dir(self)
+        self.dir = Dir(self) #在左侧显示 资金详情 分析报告 阶段总结 交易详情 图表分析
 
         vLayout.addSpacing(0)
         vLayout.addWidget(self.dir)
@@ -58,6 +58,7 @@ class ReportView(QWidget):
 
         self.parent.show()
         self.parent.raise_()
+        # self.show()
 
     def selectReportItem(self, path):
         """定位报告位置"""

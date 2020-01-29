@@ -1376,6 +1376,7 @@ class CalcCenter(object):
         :param cost:
         :return:
         """
+        # self._logger.info(f"enter updateFundRecord {time}, {profit}, {cost}")
         beFound = False  # 判断是否和上一条记录重复标志，如果时间重复，则覆盖
         lastFundRecord = defaultdict(int)
         fundRecord = defaultdict(int)

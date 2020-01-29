@@ -188,7 +188,7 @@ class StrategyHisQuote(object):
     def initialize(self):
         self._contractTuple = self._config.getContract()
         # 基准合约
-        self._contractNo = self._config.getBenchmark()
+        self._contractNo = self._config.getBenchmark()  # self._dataModel.getConfigModel() and self._config is a same object 
         self._triggerMgr = TriggerMgr(list(self._dataModel.getConfigModel().getKLineKindsInfo()), self._strategy)
         # Bar
         for record in self._config.getKLineKindsInfo():
@@ -553,6 +553,7 @@ class StrategyHisQuote(object):
         dateTimeStampLength = len("20190326143100000")
         for record in self._config.getKLineSubsInfo():
             countOrDate = record['BarCount']
+            self.logger.info(f"reqAndSubKLine  {countOrDate}")
             key = (record['ContractNo'], record['KLineType'], record['KLineSlice'])
             # print(" count or date is ", countOrDate)
             if isinstance(countOrDate, int):
@@ -775,6 +776,7 @@ class StrategyHisQuote(object):
 
 
     def _sendHisKLineTriggerEvent(self, key, data):
+        """历史K线触发事件"""
         if not data["IsKLineStable"] or not self._config.hasKLineTrigger() or key not in self._config.getKLineTriggerInfoSimple():
             return
 
@@ -827,6 +829,19 @@ class StrategyHisQuote(object):
         # print("[on his quote notice ]", kindInfo, len(event.getData()), event.getData()[0]["DateTimeStamp"])
         assert kindInfo in self._config.getKLineKindsInfo(), " Error "
         localDataList = self._kLineNoticeData[key]['KLineData']
+        #kLineData
+        #{'DateTimeStamp': 20200103141500000,
+         #'HighPrice': 3558.0,
+         #'IsKLineStable': True,
+         #'KLineIndex': 264,
+         #'KLineQty': 80041,
+         #'LastPrice': 3546.0,
+         #'LowPrice': 3545.0,
+         #'OpeningPrice': 3558.0,
+         #'PositionQty': 1411199,
+         #'SettlePrice': 0.0,
+         #'TotalQty': 667685,
+         #'TradeDate': 20200103}        
         self._handleKLineNoticeData(localDataList, event)
 
     # ///////////////////////////回测接口////////////////////////////////
@@ -934,13 +949,13 @@ class StrategyHisQuote(object):
     def runReport(self, context, handle_data):
         # 不使用历史K线，也需要切换
         # 切换K线
-        key = self._config.getKLineShowInfoSimple()
+        key = self._config.getKLineShowInfoSimple()  # ('SHFE|Z|RB|INDEX','D',1)
 
-        self._switchKLine(key)
+        self._switchKLine(key) # 切换K线图显示
         # 增加信号线
         self._addSignal()
         self._sendFlushEvent()
-
+        # 等待历史数据补充完毕...
         while not self._isAllReady():
             # print("waiting for data arrived ")
             # self.printRspReady()

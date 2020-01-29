@@ -26,11 +26,12 @@ class PyAPI(object):
         self._cDll = CDLL(_cdllPath)
 
         # 注册服务事件
-        self._apiEventHandler = ServiceCallBackFuncType(self._apiCallbackFunc)
+        self._apiEventHandler = ServiceCallBackFuncType(self._apiCallbackFunc) # 类似int(11) float(12.356) type casting 把python的函数类型转换成c\C++可以注册使用的
         self._cDll.E_RegEvent(self._apiEventHandler)
         
         # 初始化C Dll
         errorCode = self._cDll.E_Init()
+        self.logger.info("执行完self._cDll.E_Init()函数")
         if errorCode != 0:
             self.logger.error("与极星9.5连接失败，请重启极星9.5以及量化")
             return
@@ -60,6 +61,7 @@ class PyAPI(object):
         apiEvent = Event(service)
         try:
             code = apiEvent.getEventCode()
+            # self.logger.info(f"API侧收到CAPI的消息 Event {code:#X},type {apiEvent._type}, \n record {apiEvent._record}")#for debug
             if code not in self._apiCallbackDict:
                 self.logger.error("callback(%d) not register!"%code)
                 return -1
@@ -121,6 +123,7 @@ class PyAPI(object):
             }
         '''
         self.logger.info('request exchange!')
+        #self.logger.info(event.getData().encode())
         
         sessionId = c_uint()
         req = EEquExchangeReq(event.getData().encode())
@@ -136,7 +139,7 @@ class PyAPI(object):
             }
         '''
         self.logger.info('request exchange status!')
-        
+        self.logger.info('py2c call reqExchangeStatus 查询交易所状态')
         sessionId = c_uint()
         req = EEquExchangeStateReq()
         self._cDll.E_ReqExchangeStateQry(byref(sessionId), byref(req))
@@ -152,6 +155,7 @@ class PyAPI(object):
             }
         '''
         self.logger.info('request commodity!')
+        #self.logger.info(event.getData().encode())
         
         sessionId = c_uint()
         req = EEquCommodityReq(event.getData().encode())
@@ -164,7 +168,7 @@ class PyAPI(object):
         参数：{
               }
         '''
-        self.logger.info('request trend contract map!')
+        self.logger.info('request trend contract map!虚拟合约映射关系查询请求')
         sessionId = c_uint()
         req = EEquSpreadMappingReq()
         self._cDll.E_ReqQryUnderlayMapping(byref(sessionId), byref(req))
@@ -247,7 +251,7 @@ class PyAPI(object):
             }
         '''
         data = event.getData()
-        self.logger.debug("request subscribe quote(%s)!"%(data))
+        self.logger.debug("request unsubscribe quote(%s)!"%(data))
         sessionId = c_uint()
         req = (c_char*101*len(data))()
         for i, userContractNo in enumerate(data):
@@ -866,7 +870,7 @@ class PyAPI(object):
                 'Data'            : 策略状态,char
             }
         '''
-        self.logger.info("Strategy %d quit!"%event.getStrategyId())
+        self.logger.info("reqKLineStrategyStateNotice Strategy %d quit!"%event.getStrategyId())
         sessionId = c_uint()
         req = EEquKlineStrategyStateNotice()
         req.StrategyId = event.getStrategyId()
@@ -887,7 +891,8 @@ class PyAPI(object):
                 }
             }
         '''
-        self.logger.info("Request query login info:%s"%event.getData())
+        self.logger.info('py2c.py call reqQryLoginInfo')
+        #self.logger.info("Request query login info:%s"%event.getData())
         sessionId = c_uint()
         req = EEquLoginInfoReq()
         req.LoginNo = "".encode()
@@ -906,7 +911,7 @@ class PyAPI(object):
                 }
             }
         '''
-        self.logger.info("Request query user info:%s"%event.getData())
+        #self.logger.info("Request query user info:%s"%event.getData())
         sessionId = c_uint()
         data = event.getData()
         req = EEquUserInfoReq()
@@ -1091,7 +1096,7 @@ class PyAPI(object):
             self.logger.error('Connect epolestar 9.5 error!')
             return
         
-        self.logger.info('Connect epolestar 9.5 successfully!')
+        self.logger.info('apiCallback[_onConnect] Connect epolestar 9.5 successfully!')
         apiEvent.setData('')
         sid = apiEvent.getSessionId()
         apiEvent.setStrategyId(self._getStrategyId(sid))
@@ -1124,7 +1129,7 @@ class PyAPI(object):
             }
             dataList.append(idict)
             self._exchangeCount += 1
-        
+        # self.logger.info(f" call _onExchange {dataList}")
         #发送到引擎  
         apiEvent.setData(dataList)
         sid = apiEvent.getSessionId()
@@ -1134,6 +1139,7 @@ class PyAPI(object):
         # 交易数据已经完了，查品种数据吧
         if apiEvent.isChainEnd():
             self.logger.info("request exchage data over(%d)!"%(self._exchangeCount))
+            self.logger.info("call _onExchange 交易所数据应答")
         else: 
             pass
 
@@ -1168,7 +1174,7 @@ class PyAPI(object):
             # api保存品种信息，查模板使用 
             self._CommodityList.append(idict['CommodityNo'])
             self._comContractDict[idict['CommodityNo']] = []
-        
+        # self.logger.info(f"call _onCommodity {dataList}")
         #发送到引擎  
         apiEvent.setData(dataList)
         sid = apiEvent.getSessionId()
@@ -1178,6 +1184,8 @@ class PyAPI(object):
         # 查合约
         if apiEvent.isChainEnd():
             self.logger.info("request commodity data over(%d)!"%(len(self._CommodityList)))
+            # self.logger.info(self._CommodityList)
+            # self.logger.info(self._comContractDict)
         else:
             pass
             
@@ -1213,6 +1221,8 @@ class PyAPI(object):
         
         if apiEvent.isChainEnd():
             self.logger.info("request contract data over(%d)!"%(self._contractCount))
+            # self.logger.info(self._comContractDict)
+            self.logger.info('py2c.py call _onCcontract')
         else:
             pass
 
@@ -1326,17 +1336,18 @@ class PyAPI(object):
             memmove(addressof(data), buf, sizeof(EEquHisQuoteTimeBucket))
             
             idict = {
-                'Index'     : data.Index,
-                'BeginTime' : data.BeginTime,
-                'EndTime'   : data.EndTime,
-                'TradeState': data.TradeState.decode('utf-8'),
-                'DateFlag'  : data.DateFlag.decode('utf-8'),
-                'CalCount'  : data.CalCount,
-                'Commodity' : data.Commodity.decode('utf-8')
+                'Index'     : data.Index,   # 时间节点 序号
+                'BeginTime' : data.BeginTime,  # 只使用了BeginTime,  时间节点
+                'EndTime'   : data.EndTime,  # 都是0
+                'TradeState': data.TradeState.decode('utf-8'),  # 3开始交易时间  4 盘中休息时间 5结束交易时间
+                'DateFlag'  : data.DateFlag.decode('utf-8'),    # 夜盘标识 0 夜盘  1 白天盘
+                'CalCount'  : data.CalCount, # 从第一个TradeState==3的时间点开始计算分钟数
+                'Commodity' : data.Commodity.decode('utf-8')   # 品种的名字  后面带~的是仿真品种
             }           
             
             dataList.append(idict)
-        
+        #self.logger.info("call _onTimebucket...")
+        #self.logger.info(dataList)
         # 发送到引擎
         apiEvent.setData(dataList)
         sid = apiEvent.getSessionId()
@@ -1661,6 +1672,7 @@ class PyAPI(object):
         req = EEquSpreadMappingReq()
         self._cDll.E_ReqQrySpreadMapping(byref(sessionId), byref(req))
         self._setSessionId(sessionId.value, 0)
+        self.logger.info("py2c call reqSpreadContractMapping dll E_ReqQrySpreadMapping")
 
     #
     def _onSpreadContractMapping(self, apiEvent):
@@ -1683,7 +1695,7 @@ class PyAPI(object):
         apiEvent.setData(dataList)
         sid = apiEvent.getSessionId()
         apiEvent.setStrategyId(self._getStrategyId(sid))
-
+        # self.logger.info(f"call _onSpreadContractMapping  {dataList}")
         # 不放队列
         for record in apiEvent.getData():
             self._userContractNo2InnerContractNo[record["SrcContractNo"]] = record["ContractNo"]
@@ -1704,7 +1716,8 @@ class PyAPI(object):
                 'UnderlayContractNo': data.UnderlayContractNo.decode('utf-8'),
             }
             dataList.append(idict)
-
+        # self.logger.info("call _onTrendContractMapping...")
+        #self.logger.info(dataList)
         # 发送到引擎
         apiEvent.setData(dataList)
         sid = apiEvent.getSessionId()

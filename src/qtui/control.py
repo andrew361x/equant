@@ -99,7 +99,7 @@ class Controller(object):
         self.reportWnd.setMinimumSize(600, 600)
         self.reportWnd.setMaximumSize(1000, 600)
         self.reportWnd.hideTheseBtn()
-        self.reportWnd.disabledMaximumBtn()
+        # self.reportWnd.disabledMaximumBtn() #可以最大最小化
         self.reportWnd.setWindowTitle("回测报告")
         self.reportWnd.setWindowIcon(QIcon('icon/epolestar ix2.ico'))
         self.reportView = ReportView(self.reportWnd)
@@ -177,6 +177,8 @@ class Controller(object):
         self.logger.info("after app.close")
 
     def run(self):
+        import os
+        self.logger.info("ControlProcess pid: " + str(os.getpid()))
         # 启动监控策略线程
         # self.monitorThread.start()
         # 启动接收数据线程
@@ -236,7 +238,7 @@ class Controller(object):
                     )
         return g_params
 
-    def load(self, strategyPath, param={}):
+    def load(self, strategyPath, param={}):# 这个函数没有用到
         # TODO：新增param参数，用于接收用户策略的参数
         """
         加载合约事件
@@ -248,7 +250,7 @@ class Controller(object):
         self.saveStrategy()
         # 解析策略参数
         param = self.parseStrategtParam(strategyPath)
-        self.app.create_strategy_policy_win(param=param)
+        self.app.create_strategy_policy_win(param=param)# 通过传入参数来新建属性设置窗体
 
         config = self.app.getConfig()
         if config:  # 获取到config
@@ -257,11 +259,11 @@ class Controller(object):
 
     def paramLoad(self, id):
         """用户参数修改后策略重新启动"""
-        param = self.getUserParam(id)
+        param = self.getUserParam(id)  #从strategyManager获取到参数信息
         strategyPath = self.strategyManager.getSingleStrategy(id)["Path"]
         self.app.create_strategy_policy_win(param, strategyPath, id)
 
-    def generateReportReq(self, strategyIdList):
+    def generateReportReq(self, strategyIdList):#策略运行右键菜单里的投资报告
         """发送生成报告请求"""
         # 量化启动时的恢复策略列表中的策略没有回测数据
         # 策略停止之后的报告数据从本地获取，不发送请求
@@ -271,6 +273,8 @@ class Controller(object):
             id = strategyIdList[0]
             status = self.strategyManager.queryStrategyStatus(id)
             strategyData = self.strategyManager.getSingleStrategy(id)
+            self.logger.info(f"strategyID {id} strategystatus {status}  strategyData")
+            #self.logger.info(strategyData)
             if status == ST_STATUS_QUIT:  # 策略已停止，从本地获取数据
                 if "ResultData" not in strategyData:  # 程序启动时恢复的策略没有回测数据
                     QMessageBox.warning(None, '警告', '策略未启动，报告数据不存在')
@@ -315,7 +319,7 @@ class Controller(object):
         for id in strategyIdList:
             self._request.strategyPause(id)
 
-    def resumeRequest(self, strategyIdList):
+    def resumeRequest(self, strategyIdList):#策略运行右键菜单里的启动
         """
         发送所选策略恢复运行请求
         :param strategyId: 所选策略Id列表
@@ -331,7 +335,7 @@ class Controller(object):
                     continue
             self._request.strategyResume(id)
 
-    def quitRequest(self, strategyIdList):
+    def quitRequest(self, strategyIdList):#策略运行右键菜单里的停止
         """
         发送所选策略停止请求
         :param strategyId:  所选策略Id列表
@@ -348,7 +352,7 @@ class Controller(object):
             else:
                 self.logger.info("策略管理器中不存在策略%s" % (id))
 
-    def delStrategy(self, strategyIdList):
+    def delStrategy(self, strategyIdList):#策略运行右键菜单里的删除
         # 获取策略管理器
         for id in strategyIdList:
             strategyDict = self.strategyManager.getStrategyDict()
@@ -361,7 +365,7 @@ class Controller(object):
             else:
                 self.app.delUIStrategy(id)
 
-    def signalDisplay(self, strategyIdList):
+    def signalDisplay(self, strategyIdList):#策略运行右键菜单里的图表展示
         """查看策略的信号及指标图(默认查看一个)"""
         if len(strategyIdList) >= 1:
             id = strategyIdList[0]
@@ -371,12 +375,12 @@ class Controller(object):
         """获取用户设置的参数信息"""
         return self.strategyManager.getStrategyParamData(id)
 
-    def paramSetting(self, strategyIdList):
+    def paramSetting(self, strategyIdList):#策略运行右键菜单里的属性设置
         """发送属性设置事件"""
         if len(strategyIdList) >= 1:
             id = strategyIdList[0]
 
-            self.paramLoad(id)
+            self.paramLoad(id)# 加载已经设置好的设置信息
 
 
 class ChildThread(threading.Thread):

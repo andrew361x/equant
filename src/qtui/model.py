@@ -104,7 +104,7 @@ class SendRequest(object):
         # TODO: 下面队列会阻塞
         try:
             self._ui2egQueue.put(event)
-            self._logger.info("[UI]: Running request Send Completely！")
+            self._logger.info("[UI]: 发送加载策略请求 request Send Completely！")
         except:
             print("队列已满, 现在已有消息%s条" % self._ui2egQueue.qsize())
 
@@ -170,7 +170,7 @@ class SendRequest(object):
         self._ui2egQueue.put(event)
         self._logger.info(f"[UI]{strategyId}: Strategy resume request send completely!")
 
-    def strategyQuit(self, strategyId):
+    def strategyQuit(self, strategyId):#UI上右键停止 会触发这个函数
         """策略停止运行"""
         msg = {
             "EventSrc"    :   EEQU_EVSRC_UI,
@@ -280,13 +280,14 @@ class GetEgData(object):
         self._curStId = event.getStrategyId()
         data = event.getData()
         self._stManager.addStrategy(data)
-        self._logger.info(f"[UI][{self._curStId}]: Receiveing running answer successfully!")
+        self._logger.info(f"[UI][{self._curStId}]: Receiveing running answer successfully! 策略加载应答")
 
     def _onEgReportAnswer(self, event):
         """获取引擎报告应答数据并显示报告"""
         data = event.getData()
         id = event.getStrategyId()
-
+        self._logger.info("call _onEgReportAnswer ")
+        #self._logger.info(data)
         tempResult = data["Result"]
         if not tempResult["Fund"]:
             self._logger.info(f"[UI][{id}]: Report data is empty!")
@@ -297,7 +298,7 @@ class GetEgData(object):
 
         # 取到报告数据弹出报告
         if self._reportData:
-            self._logger.info(f"[UI][{id}]: Receiving report data answer successfully!")
+            self._logger.info(f"[UI][{id}]: Receiving report data answer successfully!获取回测报告数据成功")
             self._app.reportDisplay(self._reportData, id)
             return
 
@@ -384,7 +385,7 @@ class GetEgData(object):
         id = event.getStrategyId()
         sStatus = event.getData()["Status"]
 
-        self._logger.info(f"[UI][{id}]: Receiving strategy status %s successfully!"%(sStatus))
+        self._logger.info(f"[UI][{id}]: Receiving strategy status %s successfully!策略状态变更"%(sStatus))
 
         #TODO: if需要改下
         if id not in self._stManager.getStrategyDict() and sStatus != ST_STATUS_REMOVE:

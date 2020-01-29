@@ -32,7 +32,9 @@ class StrategyEngine(object):
         
     def _initialize(self):
         '''进程中初始化函数'''
-        self.logger.info('Initialize strategy engine!')
+        import os
+        self.logger.info("StrategyEngineProcess pid " + str(os.getpid()))
+        self.logger.info('Initialize strategy engine! 初始化策略引擎进程')
         
         # 数据模型
         self._dataModel = DataModel(self.logger)
@@ -160,7 +162,7 @@ class StrategyEngine(object):
                     "ContractNo": key[0],
                     "KLineType": key[1],
                     "KLinceSlice": key[2],
-                    "IsActualRun": config.isActualRun(),
+                    "IsActualRun": config.isActualRun(),# 是否实盘运行
                     "InitialFund": config.getInitCapital(),
                     "Config": strategyIni["Config"],
                     "Path": strategyIni["Path"],
@@ -274,6 +276,7 @@ class StrategyEngine(object):
         while True:
             try:
                 eg2stQueue.put_nowait(event)
+                #self.logger.info(f"引擎向策略发送消息 Event {event.getEventCode():#X},type {event._type}, \n record {event._record}")# , \n <Data> {event.getData()}")#for debug
                 break
             except queue.Full:
                 time.sleep(0.1)
@@ -308,7 +311,9 @@ class StrategyEngine(object):
     def _handleUIData(self):
         event = self._ui2egQueue.get()
         code = event.getEventCode()
-
+        
+        #self.logger.info(f"引擎处理UI消息 Event {code:#X},type {event._type}, \n record {event._record}")# , \n <Data> {event.getData()}")#for debug
+        
         if code == EV_UI2EG_LOADSTRATEGY:
             # 加载策略事件
             self._loadStrategy(event)
@@ -371,6 +376,7 @@ class StrategyEngine(object):
         self._stRunStatus[event.getStrategyId()] = stat
 
     def _onStrategyExceptionCom(self, event):
+        self.logger.info("call _onStrategyExceptionCom")
         self.sendEvent2UI(event)
         self._cleanStrategyInfo(event.getStrategyId())
         self._strategyMgr.handleStrategyException(event)
@@ -398,6 +404,8 @@ class StrategyEngine(object):
             # 处理api event及异常
             try:
                 self._apiCallbackDict[code](apiEvent)
+                # self.logger.info(f"引擎处理API消息 Event {code:#X},type {apiEvent._type}, record {apiEvent._record}")#for debug
+                # self.logger.info("处理 c api 发来的数据, event code = {}".format(code))
             except Exception as e:
                 traceback.print_exc()
                 self.logger.error("处理 c api 发来的数据出现错误, event code = {}".format(code))
@@ -420,6 +428,8 @@ class StrategyEngine(object):
                 # print("未处理的event code =",code)
                 return
             try:
+                # self.logger.info(f"引擎处理策略消息  Event {code:#X},strategyId {strategyId},type {event._type}")#for debug
+                
                 if strategyId in self._isSt2EngineDataEffective and not self._isSt2EngineDataEffective[strategyId]:
                     return
                 self._mainWorkFuncDict[code](event)
@@ -446,7 +456,7 @@ class StrategyEngine(object):
             
     def _startMainThread(self):
         '''从api队列及策略队列中接收数据'''
-        self._apiThreadH = Thread(target=self._mainThreadFunc)
+        self._apiThreadH = Thread(target=self._mainThreadFunc, name = "MainThread_forApi")
         self._apiThreadH.start()
         
     def _1SecondsThreadFunc(self):
@@ -826,6 +836,7 @@ class StrategyEngine(object):
 
     #////////////////api回调事件//////////////////////////////
     def _onApiConnect(self, apiEvent):
+        self.logger.info("[引擎回调函数] call _onApiConnect")
         self._pyApi.reqSpreadContractMapping()
         self._pyApi.reqExchange(Event({'StrategyId':0, 'Data':''}))
         self._send2uiQueue(apiEvent)
@@ -1641,6 +1652,7 @@ class StrategyEngine(object):
 
     # 当策略退出成功时
     def _cleanStrategyInfo(self, strategyId):
+        self.logger.info("call _cleanStrategyInfo")
         self._isEffective[strategyId] = False
         self._isSt2EngineDataEffective[strategyId] = False
         # 清除即时行情数据观察者
@@ -1783,6 +1795,7 @@ class StrategyEngine(object):
         while True:
             try:
                 self._eg2uiQueue.put_nowait(event)
+                # self.logger.info(f"引擎向UI传递事件  Event {event.getEventType():#X},type {event._type}, record {event._record}")#for debug
                 break
             except queue.Full:
                 time.sleep(0.1)

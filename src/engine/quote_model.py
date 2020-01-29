@@ -81,6 +81,8 @@ class QuoteModel:
             
         if apiEvent.isChainEnd():
             self.logger.info('Initialize trend conotract data(%d) successfully!'%len(self._underlayData))
+            self.logger.info('quote_model.py call updateUnderlayMap')
+            #self.logger.info(self._underlayData)
             self._baseDataReady = True
 
     # 合约

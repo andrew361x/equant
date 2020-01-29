@@ -5,7 +5,7 @@ import queue
 import time
 import datetime
 from copy import deepcopy
-
+import wingdbstub
 
 class MyHandlerText(logging.StreamHandler):
     '''put log to Tkinter Text'''
@@ -135,16 +135,18 @@ class Logger(object):
         # self.sys_log   = open(sys_path, mode='a', encoding='utf-8')
 
         #logger config
-        self.logger = logging.getLogger("equant")
-        self.logger.setLevel(logging.DEBUG)
+        self.logger = logging.getLogger("equant") #创建一个Logger类的实例,也可以用logging.Logger()来实例化一个对象
+        self.logger.setLevel(logging.DEBUG)  #设置日志器logger将会处理的日志消息的最低严重级别
         self.formatter = logging.Formatter("[%(levelname)7s][%(asctime)-15s]: %(message)s")
 
         self.level_dict = {"DEBUG":logging.DEBUG, "INFO":logging.INFO, "WARN":logging.WARN, "ERROR":logging.ERROR}
         self.level_func = {"DEBUG":self.logger.debug, "INFO":self.logger.info, "WARN": self.logger.warning, "ERROR": self.logger.error}
         
         self.add_handler()
+        sys.stdout.write( 'pid:'+ str(os.getpid()) + '  run logger._initialize.\n') 
 
     def run(self):
+        sys.stdout.write( 'pid:'+ str(os.getpid()) + ' run logger.run.\n') 
         #在子进程中做初始化，否则打印失效
         self._initialize()
         '''从log_queue中获取日志，刷新到文件和控件上'''

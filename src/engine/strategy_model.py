@@ -118,6 +118,7 @@ class StrategyModel(object):
 
     def runRealTime(self, context, handle_data, event):
         code = event.getEventCode()
+        #self.logger.info("ST_TRIGGER " + str(code))
         if code == ST_TRIGGER_FILL_DATA:
             self._hisModel.runFillData(context, handle_data, event)
         elif code == ST_TRIGGER_HIS_KLINE:
@@ -1016,7 +1017,7 @@ class StrategyModel(object):
         curBarIndex = None
         curBar = None
         key = self._config.getKLineShowInfoSimple()
-        curShowBar = self.getHisQuoteModel().getCurBar(key)
+        curShowBar = self.getHisQuoteModel().getCurBar(key)  #  self.getHisQuoteModel() == self._hisModel
         if curShowBar:
             curBar = copy.deepcopy(curShowBar)
             curBarIndex = curBar["KLineIndex"]
@@ -1799,10 +1800,10 @@ class StrategyModel(object):
         ret['CommodityNo'] = contList[-1]
         return ret
 
-    def setStopWinKtBlack(self, op, kt):
+    def setStopWinKtBlack(self, op, kt): # 设置不触发止损止盈和浮动止损的K线类型
         return self._cfgModel.setStopWinKtBlack(op, kt)
         
-    def getStopWinKtBlack(self):
+    def getStopWinKtBlack(self):     # 获取不触发止损止盈和浮动止损的K线类型列表
         return self._cfgModel.getStopWinKtBlack()
 
     def getCanTrade(self, contNo):
@@ -2159,10 +2160,10 @@ class StrategyModel(object):
         commodityName = commodityModel._metaData['CommodityName']
         return commodityName + commodityInfo['CommodityNo']
 
-    def getSymbolType(self, contNo):
+    def getSymbolType(self, contNo):# 获取商品合约代码的函数，多次调用 可以在其他地方统一调用
         return self.getCommodityInfoFromContNo(contNo)['CommodityCode']
 
-    def getIndexMap(self, contNo=''):
+    def getIndexMap(self, contNo=''):# 获取商品主连/近月对应的合约
         if not contNo:
             contNo = self._config.getBenchmark()
 

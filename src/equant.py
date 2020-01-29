@@ -79,9 +79,22 @@ def saveMainPid(pid=""):
 def main():
     # 创建日志模块
     logger = Logger()
-    log_process = Process(target=run_log_process, args=(logger,))
+    log_process = Process(target=run_log_process, args=(logger,),name = "LoggerProcess")
     log_process.start()
-
+    
+    # import psutil
+    # 获取所有进程的信息
+    # tmplist = [ (proc.pid,proc.name(),psutil.Process(proc.pid).cmdline()) for proc in psutil.process_iter() ]
+    import psutil
+    mainProcess = psutil.Process(pid = os.getpid())
+    tmplist = mainProcess.children()
+    processlist = [mainProcess, *tmplist ]
+    tmplist1 = [p.cmdline() for p in  processlist]
+    logger.info("mainProcess pid "+str(os.getpid()))
+    for i in  tmplist:
+        if i._name == "python.exe":
+            logger.info("LoggerProcess pid "+str(i.pid))
+    
     saveMainPid(os.getpid())
 
     # 检查软件更新
@@ -96,7 +109,9 @@ def main():
     engine = StrategyEngine(logger, eg2ui_q, ui2eg_q)
     engine_process = Process(target=run_engine_process, args=(engine,))
     engine_process.start()
-
+    
+    # logger.info("StrategyEngineProcess pid "+str(engine_process.pid))
+    
     control = Controller(logger, ui2eg_q, eg2ui_q)
     control.run()
     time.sleep(3)
