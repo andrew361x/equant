@@ -787,7 +787,7 @@ class StrategyConfig_new(object):
         if sampleDict['AllK']:
             nowDateTime = datetime.now()
             if self.getKLineType() == EEQU_KLINE_DAY:
-                threeYearsBeforeDateTime = nowDateTime - relativedelta(years=3)
+                threeYearsBeforeDateTime = nowDateTime - relativedelta(years = 1) # 把3年修改为10年
                 threeYearsBeforeStr = datetime.strftime(threeYearsBeforeDateTime, "%Y%m%d")
                 return threeYearsBeforeStr
             elif self.getKLineType() == EEQU_KLINE_HOUR or self.getKLineType() == EEQU_KLINE_MINUTE:
