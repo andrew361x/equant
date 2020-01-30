@@ -285,6 +285,13 @@ class Controller(object):
                 reportData = strategyData["ResultData"]
                 self.app.reportDisplay(reportData, id)
                 return
+            if "ResultData"  in strategyData:
+                self.logger.info("不管策略的状态，只要本地有回测数据，就显示出来")
+                #self.logger.info(strategyData)
+                reportData = strategyData["ResultData"]
+                self.app.reportDisplay(reportData, id)
+                return
+                
             self._request.reportRequest(id)
 
     def newDir(self, path):

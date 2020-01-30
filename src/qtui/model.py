@@ -299,6 +299,8 @@ class GetEgData(object):
         # 取到报告数据弹出报告
         if self._reportData:
             self._logger.info(f"[UI][{id}]: Receiving report data answer successfully!获取回测报告数据成功")
+            #self._stManager.addResultData(id, self._reportData) #加这个会异常的卡,所以注释掉了，因为默认回测报告数据是临时计算的，不是保存在内存中的，采用的是信号槽机制，需要报告时根据交易信号生成报告，addResultData只在停止策略时使用
+            #self._logger.info(f"[UI][{id}]: 将回测报告放在策略管理器里面缓存，后续可以直接调用")            
             self._app.reportDisplay(self._reportData, id)
             return
 
