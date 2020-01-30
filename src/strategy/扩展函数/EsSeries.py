@@ -1,10 +1,11 @@
 import numpy as np
 
 class NumericSeries(list):
-    def __init__(self, rawList=[], isOpenLog=True):
+    def __init__(self, rawList=[], isOpenLog=True, name = ''):
         super().__init__(rawList)
         self._curBarIndex = -1
         self._isOpenLog = isOpenLog
+        self._name = name 
 
     def __setitem__(self, key, value):
         length = super().__len__()
@@ -22,7 +23,7 @@ class NumericSeries(list):
                 super().append(value)
                 self._curBarIndex = curBarIndex
             elif self._isOpenLog:
-                LogInfo(f"无效的参数, 当前self._curBarIndex = {self._curBarIndex}, currentBarIndex={curBarIndex}")
+                LogInfo(f"{self._name} setitem 无效的参数, 当前self._curBarIndex = {self._curBarIndex}, currentBarIndex={curBarIndex}")
         elif self._isOpenLog:
             LogInfo(f"无效的参数,{key} {value}")
 
@@ -38,11 +39,11 @@ class NumericSeries(list):
             return super().__getitem__(item)
         elif item<0 and item<-length:
             if self._isOpenLog:
-                LogInfo(f"无效的参数{item}, 实际返回下标{-length}")
+                LogInfo(f"{self._name} getitem 无效的参数{item}, 实际返回下标{-length}")
             return super().__getitem__(-length)
         elif item>0 and item>length-1:
             if self._isOpenLog:
-                LogInfo(f"无效的参数{item}, 实际返回下标{length-1}")
+                LogInfo(f"{self._name} getitem 无效的参数{item}, 实际返回下标{length-1}")
             return super().__getitem__(length-1)
 
     def __iter__(self):
@@ -138,3 +139,5 @@ class NumericSeries(list):
     
     def __str__(self):
         return self.__repr__()
+    def getdata(self):
+        return list(super().__iter__())
