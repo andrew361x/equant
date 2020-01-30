@@ -1,0 +1,2 @@
+Name,Case,Whole Word,Path,Diacritics,Regex,Search,Macro,Key
+"clean equant log",0,0,0,0,0,"""E:\workspace\equant\""       "".history""    |  __pycache__  | "".mypy_cache"" |  log\  | config\ |  reportdata\",,
