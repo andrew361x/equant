@@ -3460,6 +3460,13 @@ function init_function_info() {
                                   '    float GrossProfit()',
                 kind            : monaco.languages.CompletionItemKind.Function
             },{
+                label           : 'TotalQty()',
+                insertText      : 'TotalQty()',
+                detail          : '# 返回当日累计成交量。\n' +
+                                  '    int TotalQty()',
+                kind            : monaco.languages.CompletionItemKind.Function
+            }
+            ,{
                 label           : 'Margin(contractNo=\'\')',
                 insertText      : 'Margin(${1})',
                 detail          : '# 返回指定合约的持仓保证金。\n' +

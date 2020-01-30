@@ -235,6 +235,11 @@ class StrategyModel(object):
     def getHisBarsInfo(self, contNo, kLineType, kLineValue, maxLength):
         multiContKey = self.getKey(contNo, kLineType, kLineValue)
         return self._hisModel.getHisBarsInfo(multiContKey, maxLength)
+    
+    def getTotalQty(self, contractNo, kLineType, kLineValue):
+        multiContKey = self.getKey(contractNo, kLineType, kLineValue)
+        return self._hisModel.getTotalQty(multiContKey)
+    
 
     def getBarsLast(self, condition):
         conLen = len(condition)

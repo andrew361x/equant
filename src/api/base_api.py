@@ -44,6 +44,27 @@ class BaseApi(object):
               当前Bar对应的日期为2019-03-25，则Date返回值为20190325
         '''
         return self._dataModel.getBarDate(contractNo, kLineType, kLineValue)
+    
+    def TotalQty(self,contractNo, kLineType, kLineValue):
+        '''
+        【说明】
+              当前Bar的当日累计成交量
+
+        【语法】
+              int TotalQty(string contractNo='', char kLineType='', int kLineValue=0)
+
+        【参数】
+              contractNo 合约编号, 默认基准合约
+              kLineType K线类型，可选值请参阅周期类型枚举函数
+              kLineValue K线周期
+
+        【备注】
+              当日累计成交量的整数
+
+        【示例】
+              TotalQty('ZCE|F|SR|905', 'M', 1) 获取白糖905合约1分钟K线的所有当日累计成交量列表
+        '''
+        return self._dataModel.getTotalQty(contractNo, kLineType, kLineValue)    
 
     def Time(self, contractNo, kLineType, kLineValue):
         '''
@@ -6976,6 +6997,8 @@ def HisData(type, period='', interval=0, contractNo='', maxLength=100):
 def HisBarsInfo(contractNo='', kLineType='', kLineValue=0, maxLength=None):
     return baseApi.HisBarsInfo(contractNo, kLineType, kLineValue, maxLength)
 
+def TotalQty(contractNo='', kLineType='', kLineValue=0):
+    return baseApi.TotalQty(contractNo, kLineType, kLineValue)
 #即时行情
 def Q_UpdateTime(contractNo=''):
     return baseApi.Q_UpdateTime(contractNo)

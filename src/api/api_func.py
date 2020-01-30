@@ -24,6 +24,7 @@ _all_func_ = {
                     ['HistoryDataExist'    , '历史数据是否存在'],
                     ['HisData'             , '获取各种历史数据数组'],
                     ['HisBarsInfo'         , '获取历史K线详细数据'],
+                    ['TotalQty'         , '当日累计成交量'],
                 ],
                 
     '即时行情': [

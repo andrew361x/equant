@@ -123,6 +123,10 @@ class BarInfo(object):
         if tradeDate not in self._tradeDateBars:
             return None
         return self._tradeDateBars[tradeDate].getData()
+    
+    def getTotalQty(self):
+        '''获取当日累计成交量'''
+        return self._getBarValue('TotalQty')    
         
         
 class StrategyHisQuote(object):
@@ -361,7 +365,12 @@ class StrategyHisQuote(object):
         if multiContKey not in self._curBarDict:
             return np.array([])
         return self._curBarDict[multiContKey].getBarHigh()
-        
+    
+    def getTotalQty(self, multiContKey):
+        if multiContKey not in self._curBarDict:
+            return np.array([])
+        return self._curBarDict[multiContKey].getTotalQty()
+    
     def getBarLow(self, multiContKey):
         if multiContKey not in self._curBarDict:
             return np.array([])
