@@ -1,3 +1,3 @@
 Set ws = CreateObject("Wscript.Shell")
-ws.run "cmd /c  equant.bat", 0, True
+ws.run "cmd /k  equant.bat", 1, True
 Set ws = Nothing
