@@ -965,6 +965,145 @@ class StrategyHisQuote(object):
             key = (record["ContractNo"], record["KLineType"], record["KLineSlice"])
             length =len(self._kLineRspData[key]["KLineData"])
             self.logger.info(f"get data from epolestar9.5: {key} len {length}")
+			
+        #################################################################################
+        key = self._config.getKLineShowInfoSimple()  # ('SHFE|Z|RB|INDEX','D',1)
+        contractSymbol = key[0].split('|')[-2]       # 'RB'
+        import os,os.path
+        import datetime as mydt
+        file_path = os.path.abspath( os.path.join(os.getcwd(), "..",'files', contractSymbol) )
+        
+        contractFileMapping = {}  # dict是有序的
+        for record in self._config.getKLineKindsInfo():
+            epolarSymbol = record["ContractNo"]  # "SHFE|F|RB|2001"  "SHFE|F|RB|2005" "SHFE|F|RB|2009" "SHFE|Z|RB|MAIN" "SHFE|Z|RB|INDEX"
+            if record["KLineType"] == 'M' and  record["KLineSlice"] == 30:
+                cycle = '4'
+            else:
+                cycle = '6'  # 日线
+            symbol = epolarSymbol.split('|')[-2]  # 'RB'
+            category = epolarSymbol.split('|')[-1] # "2001"  "2005" "2009" "MAIN" "INDEX"
+            if category == "2001":
+                filename = symbol + '01_' +cycle +'.csv'  # "RB01_4.csv"
+                fileIndex = 1
+            elif category == "2005":
+                filename = symbol + '05_' +cycle +'.csv'  # "RB05_4.csv"
+                fileIndex = 2
+            elif category == "2009":
+                filename = symbol + '09_' +cycle +'.csv'  # "RB09_4.csv"
+                fileIndex = 3
+            elif category == "MAIN":
+                filename = symbol + '00_' +cycle +'.csv'  # "RB00_4.csv"
+                fileIndex = 4
+            elif category == "INDEX":
+                filename = symbol + '13_' +cycle +'.csv'  # "RB13_4.csv"
+                fileIndex = 5
+            
+            contractFileMapping[epolarSymbol] = (filename, fileIndex)
+            
+        # contractFileMapping={"SHFE|F|RB|2001":("RB01_4.csv",1) ,"SHFE|F|RB|2005":("RB05_4.csv",2),"SHFE|F|RB|2009": ("RB09_4.csv",3),"SHFE|Z|RB|MAIN": ("RB00_4.csv",4),"SHFE|Z|RB|INDEX": ("RB13_4.csv",5)}
+        
+        def readCsvFile(fileName=None,contractNo=None,priority = None, isIndexData=False):
+            data = pd.read_csv(fileName, index_col=0, header=0,parse_dates=True)
+            #data.columns = ['open','high', 'low', 'close', 'volume']
+            data.columns = ['OpeningPrice','HighPrice', 'LowPrice', 'LastPrice', 'KLineQty']
+            data.index.name = 'dtIndex'
+            data = data[~(data.KLineQty == 0) ]
+            data["KLineQty"] = data["KLineQty"].astype(np.int64)
+            data["ContractNo"] =contractNo
+            data["KLineSlice"] =30
+            data["KLineType"] ="M"
+            data["PositionQty"]=10000  #持仓量 无意义
+            data["SettlePrice"] =0     #结算价 无意义
+            data["Priority"] =priority     #量化极星内部品种排序优先级  为了后面形成01 05 09 index的数据喂入顺序
+            
+            #df.assign(cnt=df.groupby('rank').cumcount()+1)
+            
+            # 算radeDate,把夜盘当做第二天的数据
+            #1.把夜盘的日期设为NA
+            tradeDate =pd.Series(np.where(data.index.time>mydt.time(15,30),np.nan,data.index.date ))
+            #2.反向填充FillNa 往上填充
+            tradeDate.fillna(method="bfill",inplace=True)
+            data["TradeDate"] = tradeDate.values
+            data.dropna(subset=['TradeDate'],inplace=True) #删除最后几行没有填充的数据   删除NA 认为float
+            data["TradeDate"]=data["TradeDate"].map(lambda x:mydt.datetime.strftime(x,"%Y%m%d"))
+            data["TradeDate"] = data["TradeDate"].astype(np.int64)
+            data.sort_index(inplace=True)
+            
+            # 不能写在这里，因为后面要对齐，删除错误的数据，KLineIndex就出现空档了
+            #data["KLineIndex"] =pd.Series(data.index).rank().astype(int).values
+            #data["KLineIndex"] = data["KLineIndex"].astype(np.int64)
+            
+            #data["TotalQty"] = data[["TradeDate","KLineQty"]].groupby("TradeDate").cumsum().values.flatten()
+            #data["TotalQty"] = data["TotalQty"].astype(np.int64)
+            
+            #data.reset_index(inplace=True)
+            def convertdatetime(dt):
+                if dt.time()==mydt.time(10,15):
+                    return dt.replace(minute=30)
+                elif dt.time()==mydt.time(10,14):
+                    return dt.replace(minute=30)
+                elif dt.time()==mydt.time(14,59):
+                    return dt.replace(hour=15,minute=0)
+                elif dt.time()==mydt.time(11,29):
+                    return dt.replace(hour=11,minute=30)
+                elif dt.time()==mydt.time(22,59):
+                    return dt.replace(hour=23,minute=0)
+                else:
+                    return dt
+                
+            if isIndexData:
+                data["DateTimeStamp"]= data.index.map(convertdatetime)
+            data["DateTimeStamp"] = data.index.map(lambda x:mydt.datetime.strftime(x,"%Y%m%d%H%M%S%f")[:-3]) #毫秒的前三位
+            #data["DateTimeStamp"] = data["DateTimeStamp"].dt.strftime("%Y%m%d%H%M%S%f")  #%f是毫秒
+            data["DateTimeStamp"] = data["DateTimeStamp"].astype(np.int64)
+            return data
+        
+        
+        dataDict={}
+        
+        for record in self._config.getKLineKindsInfo():
+            key = (record["ContractNo"], record["KLineType"], record["KLineSlice"])
+            fileName = os.path.join(file_path,contractFileMapping[key[0]][0] )
+            try:
+                data=readCsvFile(fileName,key[0], contractFileMapping[key[0]][1])
+            except:
+                self.logger.info("{}  readcsvFile {}  failed.".format(key[0], fileName))
+                data = pd.DataFrame()
+            else:  # 如果没有异常进入else分支
+                self.logger.info("{}  readcsvFile {} successfully".format(key[0], fileName))
+            finally:  # 无论是否进过异常分支都会进入finally 任何条件都会进入
+                dataDict[key]=data
+        
+        errFileNumber = np.array([val.shape == (0, 0) for val in dataDict.values()]).sum()  # True 为1 合计是几，就是几个为None
+        
+        if errFileNumber == 0:
+            self.logger.info("开始替换历史数据...")
+            indexList =[pd.DataFrame(data= np.zeros_like(r.index.values),index=r.index.values) for r in dataDict.values()]
+            indexdata=pd.concat(indexList,join='inner',axis=1)
+            
+            for key,values in dataDict.items():
+                df= values.reindex(index=indexdata.index)  
+                df["KLineIndex"] =pd.Series(df.index).rank().astype(int).values
+                df["KLineIndex"] = df["KLineIndex"].astype(np.int64)
+                df["TotalQty"] = df[["TradeDate","KLineQty"]].groupby("TradeDate").cumsum().values.flatten()
+                df["TotalQty"] = df["TotalQty"].astype(np.int64)            
+                dataDict[key] = df
+            
+            #import pandas as pd
+            #data = pd.read_excel(io)
+            for record in self._config.getKLineKindsInfo():
+                key = (record["ContractNo"], record["KLineType"], record["KLineSlice"])
+                self._kLineRspData[key]["KLineData"] = dataDict[key].to_dict(orient='records')
+            
+            
+        #record =[r for r in self._kLineRspData.keys()]
+        #len(self._kLineRspData[record[0]]["KLineData"])
+        #len(self._kLineRspData[record[1]]["KLineData"])
+        #len(self._kLineRspData[record[2]]["KLineData"])
+        #len(self._kLineRspData[record[3]]["KLineData"])
+        
+        #################################################################################
+        
         allHisData = []
         for record in self._config.getKLineKindsInfo():
             key = (record["ContractNo"], record["KLineType"], record["KLineSlice"])
@@ -978,6 +1117,12 @@ class StrategyHisQuote(object):
          #('SHFE|F|RB|2001', 'M', 30),
          #('SHFE|F|RB|2005', 'M', 30),
          #('SHFE|F|RB|2009', 'M', 30)]
+        
+        for record in self._config.getKLineKindsInfo():
+            key = (record["ContractNo"], record["KLineType"], record["KLineSlice"])
+            length =len(self._kLineRspData[key]["KLineData"])
+            self.logger.info(f"now，local historydata: {key} len {length}")    
+             
         if len(allHisData) == 0:
             self.logger.error("没有数据，请检查SetBarInterval函数")
             return
@@ -1004,9 +1149,11 @@ class StrategyHisQuote(object):
             effectiveDTS.append(curEffectiveDTS.strftime("%Y%m%d%H%M%S%f"))
 
         newDF["DateTimeStampForSort"] = effectiveDTS
-        newDF.sort_values(['TradeDate', 'DateTimeStampForSort', 'Priority'], ascending=[True, True, False], inplace=True)
+        newDF.sort_values(['TradeDate', 'DateTimeStampForSort', 'Priority'], ascending=[True, True, True], inplace=True)#升序排列Priority,目的是index数据在最后一个更新
         newDF.reset_index(drop=True, inplace=True)
-
+        # newDF.to_csv("new_df_after.csv")
+        # newDF = newDF.iloc[-500:]
+        #newDF = newDF.iloc[51:]
         # print("new df is ")
         # print(newDF[["TradeDate", "DateTimeStampForSort", "DateTimeStamp", "KLineType"]])
         allHisData = newDF.to_dict(orient="index")

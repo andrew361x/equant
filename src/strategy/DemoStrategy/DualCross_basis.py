@@ -20,8 +20,8 @@ barType = 'M'
 
 def initialize(context): 
      # 必须订阅品种 周期，然后Close无法获取数据 ，但是handledata会每次都回调  因为对获取到的数据进行了替换，所以这里获取一根数据速度就会快点
-    SetBarInterval(symbolindex,barType,barInteval,10)
-    SetBarInterval(mainContract,barType,barInteval,10) 
+    SetBarInterval(symbolindex,barType,barInteval,1)
+    SetBarInterval(mainContract,barType,barInteval,1) 
     SetOrderWay(2)
     
     margin = 0.1    # 保证金 统一按照10%
