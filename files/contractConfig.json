@@ -1,0 +1,289 @@
+{
+    "AG": {
+        "commission": "0.00006",
+        "contractmultiple": "15",
+        "margin": "0.1",
+        "isfixed": "0",
+        "name":"白银"
+    },
+    "AL": {
+        "commission": "3.1",
+        "contractmultiple": "5",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"沪铝"
+    },
+    "AP": {
+        "commission": "20.1",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"苹果"
+    },
+    "AU": {
+        "commission": "11",
+        "contractmultiple": "1000",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"黄金"
+    },
+    "A": {
+        "commission": "2.1",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"豆一"
+    },
+    "B": {
+        "commission": "1.1",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"豆二"
+    },
+    "BU": {
+        "commission": "0.00011",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "0",
+        "name":"沥青"
+    },
+    "C": {
+        "commission": "1.3",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"玉米"
+    },
+    "CF": {
+        "commission": "4.73",
+        "contractmultiple": "5",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"棉花"
+    },
+    "CS": {
+        "commission": "1.6",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"淀粉"
+    },
+    "CU": {
+        "commission": "0.000055",
+        "contractmultiple": "5",
+        "margin": "0.1",
+        "isfixed": "0",
+        "name":"沪铜"
+    },
+    "FG": {
+        "commission": "5.1",
+        "contractmultiple": "20",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"玻璃"
+    },
+    "HC": {
+        "commission": "0.00011",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "0",
+        "name":"热卷"
+    },
+    "I": {
+        "commission": "0.00013",
+        "contractmultiple": "100",
+        "margin": "0.1",
+        "isfixed": "0",
+        "name":"矿石"
+    },
+    "IC": {
+        "commission": "0.0006",
+        "contractmultiple": "200",
+        "margin": "0.2",
+        "isfixed": "0",
+        "name":"中证500"
+    },
+    "IF": {
+        "commission": "0.0006",
+        "contractmultiple": "300",
+        "margin": "0.2",
+        "isfixed": "0",
+        "name":"沪深300"
+    },
+    "IH": {
+        "commission": "0.0006",
+        "contractmultiple": "300",
+        "margin": "0.2",
+        "isfixed": "0",
+        "name":"上证50"
+    },
+    "J": {
+        "commission": "0.000198",
+        "contractmultiple": "100",
+        "margin": "0.1",
+        "isfixed": "0",
+        "name":"焦炭"
+    },
+    "JD": {
+        "commission": "0.00017",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "0",
+        "name":"鸡蛋"
+    },
+    "JM": {
+        "commission": "0.000198",
+        "contractmultiple": "60",
+        "margin": "0.1",
+        "isfixed": "0",
+        "name":"焦煤"
+    },
+    "L": {
+        "commission": "2.1",
+        "contractmultiple": "5",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"塑料"
+    },
+    "M": {
+        "commission": "1.6",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"豆粕"
+    },
+    "MA": {
+        "commission": "5.1",
+        "contractmultiple": "50",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"甲醇"
+    },
+    "NI": {
+        "commission": "6.1",
+        "contractmultiple": "1",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"沪镍"
+    },
+    "OI": {
+        "commission": "2.1",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"菜油"
+    },
+    "P": {
+        "commission": "2.6",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"棕榈"
+    },
+    "PB": {
+        "commission": "0.000044",
+        "contractmultiple": "25",
+        "margin": "0.1",
+        "isfixed": "0",
+        "name":"沪铅"
+    },
+    "PP": {
+        "commission": "0.000066",
+        "contractmultiple": "5",
+        "margin": "0.1",
+        "isfixed": "0",
+        "name":"PP"
+    },
+    "RB": {
+        "commission": "0.00011",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "0",
+        "name":"螺纹"
+    },
+    "RM": {
+        "commission": "1.65",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"菜粕"
+    },
+    "RU": {
+        "commission": "0.000055",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "0",
+        "name":"橡胶"
+    },
+    "SC": {
+        "commission": "5.1",
+        "contractmultiple": "1000",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"原油"
+    },
+    "SN": {
+        "commission": "3.1",
+        "contractmultiple": "1",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"沪锡"
+    },
+    "SR": {
+        "commission": "3.1",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"白糖"
+    },
+    "T": {
+        "commission": "3.1",
+        "contractmultiple": "10000",
+        "margin": "0.03",
+        "isfixed": "1",
+        "name":"10债"
+    },
+    "TA": {
+        "commission": "3.1",
+        "contractmultiple": "5",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"PTA"
+    },
+    "TF": {
+        "commission": "3.1",
+        "contractmultiple": "10000",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"5债"
+    },
+    "V": {
+        "commission": "2.1",
+        "contractmultiple": "5",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"PVC"
+    },
+    "Y": {
+        "commission": "2.75",
+        "contractmultiple": "10",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"豆油"
+    },
+    "ZC": {
+        "commission": "4.4",
+        "contractmultiple": "200",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"动力煤"
+    },
+    "ZN": {
+        "commission": "3.1",
+        "contractmultiple": "5",
+        "margin": "0.1",
+        "isfixed": "1",
+        "name":"沪锌"
+    }
+}

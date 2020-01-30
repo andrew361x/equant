@@ -960,19 +960,31 @@ class StrategyHisQuote(object):
             # print("waiting for data arrived ")
             # self.printRspReady()
             time.sleep(1)
-
+        # 统计并打印从equant9.5客户端获取的历史数据
+        for record in self._config.getKLineKindsInfo():
+            key = (record["ContractNo"], record["KLineType"], record["KLineSlice"])
+            length =len(self._kLineRspData[key]["KLineData"])
+            self.logger.info(f"get data from epolestar9.5: {key} len {length}")
         allHisData = []
         for record in self._config.getKLineKindsInfo():
             key = (record["ContractNo"], record["KLineType"], record["KLineSlice"])
             #self.logger.error(key)
             hisData = self._kLineRspData[key]["KLineData"]
             allHisData.extend(hisData)
-
+			
+        #xxx=[ (record["ContractNo"], record["KLineType"], record["KLineSlice"]) for record in self._config.getKLineKindsInfo()]
+        #xxx
+        #[('SHFE|Z|RB|INDEX', 'M', 30),
+         #('SHFE|F|RB|2001', 'M', 30),
+         #('SHFE|F|RB|2005', 'M', 30),
+         #('SHFE|F|RB|2009', 'M', 30)]
         if len(allHisData) == 0:
             self.logger.error("没有数据，请检查SetBarInterval函数")
             return
 
         newDF = pd.DataFrame(allHisData)
+        # newDF.to_excel("data_beforeSorted.xlsx")
+        # self.logger.info(newDF.dtypes)
         test = newDF[["DateTimeStamp", "KLineType", "KLineSlice"]].values
         effectiveDTS = []
         for i, record in enumerate(test):
@@ -1004,20 +1016,26 @@ class StrategyHisQuote(object):
         beginTimeStr = datetime.now().strftime('%H:%M:%S.%f')
         print('**************************** run his begin', len(allHisData))
         self.logger.info('[runReport] run report begin')
+        
+        # self._strategy._hisModel._curBarDict[('SHFE|F|RB|2001', 'D', 1)]._barList    实际内容[]
+        # self._strategy._hisModel._curBarDict[('SHFE|F|RB|2005', 'D', 1)]._barList    实际内容[]
+        # self._strategy._hisModel._curBarDict[('SHFE|F|RB|2009', 'D', 1)]._barList    实际内容[]
+        # self._strategy._hisModel._curBarDict[('SHFE|Z|RB|INDEX', 'D', 1)]._barList    实际内容[]
+        
         beginPos = 0
         endPos = 0
         for index, row in allHisData.items():
-            key = (row["ContractNo"], row["KLineType"], row["KLineSlice"])
-            isShow = key == self._config.getKLineShowInfoSimple()
-            lastBar = self.getCurBar(key)
-            self._updateCurBar(key, row)
-            curBar = self.getCurBar(key)
-            if lastBar is None or math.fabs(curBar["LastPrice"]-lastBar["LastPrice"])>1e-4:
-                self._calcProfitWhenHis()
+            key = (row["ContractNo"], row["KLineType"], row["KLineSlice"])   #这里不一定是基准合约，如果订阅了多个合约，这里可能是其他合约
+            isShow = key == self._config.getKLineShowInfoSimple() # self._config.getKLineShowInfoSimple这个函数取出的是显示的合约，也是基准合约 #不是基准合约不显示
+            lastBar = self.getCurBar(key) # 先从self._strategy._hisModel._curBarDict[key]获取数据  
+            self._updateCurBar(key, row)  #获取不到就更新进去
+            curBar = self.getCurBar(key)  #然后重新获取
+            if lastBar is None or math.fabs(curBar["LastPrice"]-lastBar["LastPrice"])>1e-4: # 不是基准合约
+                self._calcProfitWhenHis()# curTriggerInfo = self._strategy.getCurTriggerSourceInfo()# 有些情况是None,后面self._strategy.setCurTriggerSourceInfo(args)
             if not self._config.hasKLineTrigger():
                 continue
 
-            if isShow or key in self._config.getKLineTriggerInfoSimple():
+            if isShow or key in self._config.getKLineTriggerInfoSimple(): #虽然不是基准合约,但是仍然在K线触发的合约列表中  {('SHFE|F|RB|2005', 'D', 1), ('SHFE|Z|RB|INDEX', 'D', 1), ('SHFE|F|RB|2001', 'D', 1), ('SHFE|F|RB|2009', 'D', 1)}
                 args = {
                     "Status": ST_STATUS_HISTORY,
                     "TriggerType":ST_TRIGGER_HIS_KLINE,
@@ -1028,8 +1046,8 @@ class StrategyHisQuote(object):
                     "DateTimeStamp":row["DateTimeStamp"],
                     "TriggerData":row,
                 }
-                self._strategy.setCurTriggerSourceInfo(args)
-                context.setCurTriggerSourceInfo(args)
+                self._strategy.setCurTriggerSourceInfo(args)# curTriggerInfo = self._strategy.getCurTriggerSourceInfo()现在触发信息有了
+                context.setCurTriggerSourceInfo(args)       # context类也保存CurTriggerSourceInfo信息
                 handle_data(context)
 
             # 处理历史回测阶段止损止盈
@@ -1118,7 +1136,7 @@ class StrategyHisQuote(object):
 
     def _calcProfitWhenHis(self):
         priceInfos = {}
-        curTriggerInfo = self._strategy.getCurTriggerSourceInfo()
+        curTriggerInfo = self._strategy.getCurTriggerSourceInfo()# 不是基准合约就是None
 
         if curTriggerInfo is None or curTriggerInfo["KLineType"] is None or curTriggerInfo["KLineSlice"] is None:
             return
