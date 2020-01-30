@@ -1254,6 +1254,8 @@ class StrategyHisQuote(object):
 
     # 在跑历史回测期间积攒的实时数据，但是作为历史回测, 因为有效期已过。
     def runVirtualReport(self, context, handle_data, event):
+        pass # 直接不处理,全部丢掉
+        '''
         key = (event.getContractNo(), event.getKLineType(), event.getKLineSlice())
         kLineData = event.getData()["Data"]
         isShow = key==self._config.getKLineShowInfoSimple()
@@ -1289,6 +1291,7 @@ class StrategyHisQuote(object):
         if isShow:
             self._addSingleKLine(kLineData)
             self._sendFlushEvent()
+        '''
 
     def _calcProfitWhenHis(self):
         priceInfos = {}
