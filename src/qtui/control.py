@@ -278,6 +278,9 @@ class Controller(object):
             if status == ST_STATUS_QUIT:  # 策略已停止，从本地获取数据
                 if "ResultData" not in strategyData:  # 程序启动时恢复的策略没有回测数据
                     QMessageBox.warning(None, '警告', '策略未启动，报告数据不存在')
+                    QMessageBox.warning(None, '警告', '启动测试报告窗体')
+                    self.reportWnd.show()
+                    self.reportWnd.raise_()                    
                     return
                 reportData = strategyData["ResultData"]
                 self.app.reportDisplay(reportData, id)
