@@ -411,13 +411,17 @@ class Strategy:
         # 2. 创建策略上下文
         self._context = StrategyContext()
 
+        self._cfgModel.setParams(self._argsDict["Params"])
+
+        builtins.g_params = {k:v[0] for k,v in self._argsDict["Params"].items()}
+
         # 5. 初始化用户策略参数
         if not self._noInitialize:
             userModule.initialize(self._context)
 
-        self._cfgModel.setParams(self._argsDict["Params"])
-
-        builtins.g_params = {k:v[0] for k,v in self._argsDict["Params"].items()}
+        # self._cfgModel.setParams(self._argsDict["Params"])
+        #
+        # builtins.g_params = {k:v[0] for k,v in self._argsDict["Params"].items()}
         #     self._argsDict["Params"] = self._context.params
         #     self._dataModel.getConfigModel().setParams(self._context.params)
         # else:
@@ -558,18 +562,16 @@ class Strategy:
 
             while not self._isExit():
                 try:
-                    event = self._triggerQueue.get_nowait()
+                    event = self._triggerQueue.get(timeout=0.1)
                     # 发单方式，实时发单、k线稳定后发单。
                     self._dataModel.runRealTime(self._context, self._userModule.handle_data, event)
-                except queue.Empty as e:
+                except queue.Empty:
                     if self._firstTriggerQueueEmpty:
                         self._clearHisPos()
                         self._atHisOver()
                         self._runStatus = ST_STATUS_CONTINUES
                         self._send2UiEgStatus(self._runStatus)
                         self._firstTriggerQueueEmpty = False
-                    else:
-                        time.sleep(0.1)
         except Exception as e:
                 self._strategyState = StrategyStatusExit
                 self._isSt2EgQueueEffective = False
@@ -782,6 +784,8 @@ class Strategy:
         
     def _reqMoney(self):
         self._reqData(EV_ST2EG_MONEY_REQ)
+
+        self.logger.info("request money 0")
         
     # 查询委托数据
     def _reqOrder(self):
@@ -1018,7 +1022,7 @@ class Strategy:
         popSessionList  = []
         
         for k, v in self._localOrder.items():
-            if v_userNo in userDict:
+            if v in userDict:
                 popSessionList.append(k)
                     
         for eid in popSessionList:
@@ -1054,6 +1058,12 @@ class Strategy:
     def getOrderFilledPrice(self, eSessionId):
         if eSessionId not in self._localOrder:
             return 0
+        tradeRecord = self._localOrder[eSessionId]
+        return tradeRecord._matchPrice
+
+    def getOrderFilledList(self, eSessionId):
+        if eSessionId not in self._localOrder:
+            return {}
         tradeRecord = self._localOrder[eSessionId]
         return tradeRecord._matchPrice
 

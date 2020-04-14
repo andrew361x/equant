@@ -3,6 +3,7 @@ import sys,os
 from multiprocessing import Queue, Process
 import queue
 import time
+import psutil
 import datetime
 from copy import deepcopy
 
@@ -149,10 +150,15 @@ class Logger(object):
         self._initialize()
         '''从log_queue中获取日志，刷新到文件和控件上'''
         while True:
-            data_list = self.log_queue.get()
-            if data_list is None: break
-            #数据格式不对
-            self.level_func[data_list[0]](data_list[1:])
+            try:
+                data_list = self.log_queue.get(timeout=0.5)
+                #数据格式不对
+                self.level_func[data_list[0]](data_list[1:])
+            except queue.Empty:
+                ppid = os.getppid()
+                if ppid == 1 or not psutil.pid_exists(ppid):
+                    os._exit(0)
+
 
     def renameHisLog(self):
         """重命名历史日志文件"""

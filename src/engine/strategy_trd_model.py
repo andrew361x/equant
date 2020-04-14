@@ -95,8 +95,7 @@ class StrategyTrade(TradeModel):
         tMoneyModel = None
         if 'Base' in tUserInfoModel._money:
             tMoneyModel = tUserInfoModel._money['Base']
-
-        if len(tUserInfoModel._money) > 0:
+        elif len(tUserInfoModel._money) > 0:
             tMoneyModelList = list(tUserInfoModel._money.values())
             tMoneyModel = tMoneyModelList[0]
 
@@ -162,6 +161,16 @@ class StrategyTrade(TradeModel):
         if not userNo:
             userNo = self._selectedUserNo
             
+        return self.getDataFromTMoneyModel(userNo, 'FloatProfit')
+
+    def getPerProfitLoss(self, userNo):
+        '''
+        :return:当前公式应用的交易帐户的逐笔浮盈
+        '''
+        # 默认usrNo为空字符串（''），此时取当前用户
+        if not userNo:
+            userNo = self._selectedUserNo
+
         return self.getDataFromTMoneyModel(userNo, 'FloatProfitTBT')
 
     def getCoverProfit(self, userNo):
@@ -169,6 +178,13 @@ class StrategyTrade(TradeModel):
         if not userNo:
             userNo = self._selectedUserNo
             
+        return self.getDataFromTMoneyModel(userNo, 'CoverProfit')
+
+    def getPerCoverProfit(self, userNo):
+        # 默认usrNo为空字符串（''），此时取当前用户
+        if not userNo:
+            userNo = self._selectedUserNo
+
         return self.getDataFromTMoneyModel(userNo, 'CoverProfitTBT')
 
     def getTotalFreeze(self, userNo):
@@ -181,12 +197,14 @@ class StrategyTrade(TradeModel):
             
         return self.getDataFromTMoneyModel(userNo, 'FrozenFee') + self.getDataFromTMoneyModel(userNo, 'FrozenDeposit')
 
-    def getItemSumFromPositionModel(self, userNo, direct, contNo, key):
+    def getItemSumFromPositionModel(self, userNo, direct, contNo, key, lastPrice=0, contUnit=0):
         '''
-        获取某个账户下所有指定方向、指定合约的指标之和
+        获取某个账户下所有指定方向、指定合约的指标之和，
+        其中指标买浮动盈亏，卖浮动盈亏和总浮动盈亏因由9.5实时传数据数据量较大，这里通过传入最新价和每手乘数自己计算
         :param direct: 买卖方向，为空时表示所有方向
         :param contNo: 合约编号
         :param key: 指标名称
+        :param lastPrice: 合约最新价用于浮动盈亏的计算
         :return:
         '''
         # 默认usrNo为空字符串（''），此时取当前用户
@@ -200,11 +218,26 @@ class StrategyTrade(TradeModel):
         if len(tUserInfoModel._position) == 0:
             return 0
 
+        excDict = ("FloatProfitTBT", "FloatProfit")  # 需要单独计算的关键字
         contractNo = self._config.getBenchmark() if not contNo else contNo
         itemSum = 0.0
         for orderNo in list(tUserInfoModel._position.keys()):
             tPositionModel = tUserInfoModel._position[orderNo]
             if tPositionModel._metaData['Cont'] == contractNo and key in tPositionModel._metaData:
+                if key in excDict:
+                    if direct == "B" and tPositionModel._metaData["Direct"] == direct:     # 计算买浮动盈亏
+                        itemSum += (lastPrice - tPositionModel._metaData["PositionPrice"]) * \
+                                   tPositionModel._metaData["PositionQty"] * contUnit
+                    elif direct == "S" and tPositionModel._metaData["Direct"] == direct:   # 计算卖浮动盈亏
+                        itemSum += (tPositionModel._metaData["PositionPrice"] - lastPrice) * \
+                                   tPositionModel._metaData["PositionQty"] * contUnit
+                    elif direct == "":    # 计算总浮动盈亏
+                        temp = (lastPrice - tPositionModel._metaData["PositionPrice"]) * \
+                                   tPositionModel._metaData["PositionQty"] * contUnit
+                        if tPositionModel._metaData["Direct"] == "S":  # 卖出持仓上述结果要取反
+                            temp = -temp
+                        itemSum += temp
+                    continue
                 if not direct or tPositionModel._metaData['Direct'] == direct:
                     itemSum += tPositionModel._metaData[key]
 
@@ -285,15 +318,19 @@ class StrategyTrade(TradeModel):
 
         return queueSum
 
-    def getBuyProfitLoss(self, userNo, contNo):
+    def getBuyProfitLoss(self, userNo, contNo, lastPrice, contUnit):
         '''
-        :return:当前公式应用的帐户下当前商品的买入持仓盈亏
+        :param userNo: 用户交易账号
+        :param contNo: 合约编号
+        :param lastPrice: 该合约最新价
+        :param contUnit:  该合约的每手乘数
+        :return: 当前公式应用的帐户下当前商品的买入持仓盈亏
         '''
         # 默认usrNo为空字符串（''），此时取当前用户
         if not userNo:
             userNo = self._selectedUserNo
             
-        return self.getItemSumFromPositionModel(userNo, 'B', contNo, 'FloatProfitTBT')
+        return self.getItemSumFromPositionModel(userNo, 'B', contNo, 'FloatProfit', lastPrice, contUnit)
 
     def getSellAvgPrice(self, userNo, contNo):
         '''
@@ -343,16 +380,19 @@ class StrategyTrade(TradeModel):
         sellPos = self.getSellPosition(userNo, contNo) - self.getQueueSumFromOrderModel(userNo, 'B', contNo, ('C', 'T'))
         return int(sellPos)
 
-
-    def getSellProfitLoss(self, userNo, contNo):
+    def getSellProfitLoss(self, userNo, contNo, lastPrice, contUnit):
         '''
+        :param userNo: 用户交易账号
+        :param contNo: 合约编号
+        :param lastPrice: 该合约最新价
+        :param contUnit:  该合约的每手乘数
         :return: 当前公式应用的帐户下当前商品的卖出持仓盈亏
         '''
         # 默认usrNo为空字符串（''），此时取当前用户
         if not userNo:
             userNo = self._selectedUserNo
             
-        return self.getItemSumFromPositionModel(userNo, 'S', contNo, 'FloatProfitTBT')
+        return self.getItemSumFromPositionModel(userNo, 'S', contNo, 'FloatProfit', lastPrice, contUnit)
 
     def getTotalAvgPrice(self, userNo, contNo):
         '''
@@ -392,15 +432,19 @@ class StrategyTrade(TradeModel):
         totalPos = int(self.getItemSumFromPositionModel(userNo, 'B', contNo, 'PositionQty')) - int(self.getItemSumFromPositionModel(userNo, 'S', contNo, 'PositionQty'))
         return totalPos
 
-    def getTotalProfitLoss(self, userNo, contNo):
+    def getTotalProfitLoss(self, userNo, contNo, lastPrice, contUnit):
         '''
+        :param userNo: 用户交易账号
+        :param contNo: 合约编号
+        :param lastPrice: 该合约最新价
+        :param contUnit:  该合约的每手乘数
         :return: 当前公式应用的帐户下当前商品的总持仓盈亏
         '''
         # 默认usrNo为空字符串（''），此时取当前用户
         if not userNo:
             userNo = self._selectedUserNo
             
-        return self.getItemSumFromPositionModel(userNo, '', contNo, 'FloatProfit')
+        return self.getItemSumFromPositionModel(userNo, '', contNo, 'FloatProfit', lastPrice, contUnit)
 
     def getTodayBuyPosition(self, userNo, contNo):
         '''
@@ -478,6 +522,34 @@ class StrategyTrade(TradeModel):
         '''
         return self.getDataByOrderId(eSession, 'MatchPrice', 0.0)
 
+    def getOrderFilledList(self, userNo, eSession):
+        if isinstance(eSession, str) and '-' in eSession:
+            orderId = self._strategy.getOrderId(eSession)
+        else:
+            orderId = eSession
+
+        if not orderId:
+            return []
+
+        realUserNo = self.getUserNoByOrderId(orderId)
+        if realUserNo not in self._userInfo:
+            if not realUserNo:
+                self.logger.error('user(%s) not login!'%realUserNo)
+            return []
+        order = self._userInfo[realUserNo].getOrderDict()
+        if orderId not in order:
+            return []
+
+        orderNo = order[orderId].getMetaData()["OrderNo"]        # 订单信息
+        matchDict = self._userInfo[realUserNo].getMatchDict()   # 成交信息
+        if orderNo not in matchDict:
+            return []
+        # print("AAAAAAAAA: ", matchDict)
+        data = matchDict[orderNo].getMetaData()
+        rlt = []
+        for value in data.values():
+            rlt.append(value)
+        return rlt
 
     def getOrderLot(self, userNo, eSession):
         '''
