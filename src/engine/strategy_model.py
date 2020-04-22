@@ -33,7 +33,7 @@ class StrategyModel(object):
         self._cfgModel = StrategyConfig_new(self._argsDict)
         self._config = self._cfgModel
         # 回测计算
-        self._calcCenter = CalcCenter(self.logger)
+        self._calcCenter = CalcCenter(self.logger, self)
 
         self._qteModel = StrategyQuote(strategy, self._cfgModel)
         self._hisModel = StrategyHisQuote(strategy, self._cfgModel, self._calcCenter, self)
@@ -268,6 +268,19 @@ class StrategyModel(object):
     def getQAskPrice(self, symbol, level):
         return self._qteModel.getQAskPrice(symbol, level)
 
+    # 新增
+    def getQPreClose(self, symbol):
+        return self._qteModel.getQPreClose(symbol)
+
+    def getQSettlePrice(self, symbol):
+        return self._qteModel.getQSettlePrice(symbol)
+
+    def getQBuyTotalVol(self, symbol):
+        return self._qteModel.getQBuyTotalVol(symbol)
+
+    def getQSellTotalVol(self, symbol):
+        return self._qteModel.getQSellTotalVol(symbol)
+
     def getQAskPriceFlag(self, symbol):
         return self._qteModel.getQAskPriceFlag(symbol)
 
@@ -313,7 +326,7 @@ class StrategyModel(object):
                 break
         if not key:
             raise Exception(
-                "在使用Q_LastTime方法时，请确保已经在设置界面或者在策略代码中添加了SetBarInterval('%s', 'T', 1)为合约%s订阅了Tick行情！" % (symbol, symbol))
+                "在使用Q_LastDate方法时，请确保已经在设置界面或者在策略代码中添加了SetBarInterval('%s', 'T', 1)为合约%s订阅了Tick行情！" % (symbol, symbol))
         tickInfo = self._hisModel.getLastStoredKLine(key)[0]
         dateTimeStamp = tickInfo['DateTimeStamp']
         return int(dateTimeStamp) // 1000000000
@@ -827,8 +840,14 @@ class StrategyModel(object):
     def getProfitLoss(self, userNo):
         return self._trdModel.getProfitLoss(userNo)
 
+    def getPerProfitLoss(self, userNo):
+        return self._trdModel.getPerProfitLoss(userNo)
+
     def getCoverProfit(self, userNo):
         return self._trdModel.getCoverProfit(userNo)
+
+    def getPerCoverProfit(self, userNo):
+        return self._trdModel.getPerCoverProfit(userNo)
 
     def getTotalFreeze(self, userNo):
         return self._trdModel.getTotalFreeze(userNo)
@@ -847,7 +866,10 @@ class StrategyModel(object):
 
     def getBuyProfitLoss(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getBuyProfitLoss(userNo, contNo)
+        # 获取每手乘数、最新价用于计算浮动盈亏
+        contUnit = self.getContractUnit(contNo)
+        lastPrice = self.getQLast(contNo)
+        return self._trdModel.getBuyProfitLoss(userNo, contNo, lastPrice, contUnit)
 
     def getSellAvgPrice(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
@@ -859,11 +881,15 @@ class StrategyModel(object):
 
     def getSellPositionCanCover(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
+
         return self._trdModel.getSellPositionCanCover(userNo, contNo)
 
     def getSellProfitLoss(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getSellProfitLoss(userNo, contNo)
+        # 获取每手乘数、最新价用于计算浮动盈亏
+        contUnit = self.getContractUnit(contNo)
+        lastPrice = self.getQLast(contNo)
+        return self._trdModel.getSellProfitLoss(userNo, contNo, lastPrice, contUnit)
 
     def getTotalAvgPrice(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
@@ -875,7 +901,10 @@ class StrategyModel(object):
 
     def getTotalProfitLoss(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
-        return self._trdModel.getTotalProfitLoss(userNo, contNo)
+        # 获取每手乘数、最新价用于计算浮动盈亏
+        contUnit = self.getContractUnit(contNo)
+        lastPrice = self.getQLast(contNo)
+        return self._trdModel.getTotalProfitLoss(userNo, contNo, lastPrice, contUnit)
 
     def getTodayBuyPosition(self, userNo, contNo):
         contNo = self.getIndexMap(contNo)
@@ -896,6 +925,9 @@ class StrategyModel(object):
 
     def getOrderFilledPrice(self, userNo, eSession):
         return self._trdModel.getOrderFilledPrice(userNo, eSession)
+
+    def getOrderFilledList(self, userNo, eSession):
+        return self._trdModel.getOrderFilledList(userNo, eSession)
 
     def getOrderLot(self, userNo, eSession):
         return self._trdModel.getOrderLot(userNo, eSession)
@@ -1031,7 +1063,7 @@ class StrategyModel(object):
             "UserNo": userNo,  # 账户编号
             "OrderType": orderType,  # 定单类型
             "ValidType": validType,  # 有效类型
-            "ValidTime": '0',  # 有效日期时间(GTD情况下使用)
+            "ValidTime": '',  # 有效日期时间(GTD情况下使用)
             "Cont": contNo,  # 合约
             "Direct": orderDirct,  # 买卖方向：买、卖
             "Offset": entryOrExit,  # 开仓、平仓、平今
@@ -1185,7 +1217,7 @@ class StrategyModel(object):
             'Cont': contNo,
             'OrderType': orderType,
             'ValidType': validType,
-            'ValidTime': '0',
+            'ValidTime': '',
             'Direct': orderDirct,
             'Offset': entryOrExit,
             'Hedge': hedge,
@@ -1863,7 +1895,12 @@ class StrategyModel(object):
             return 0
 
         timeBucket = self._qteModel._commodityData[commodity]._metaData['TimeBucket']
-        endTime = timeBucket[2 * index + 1]["BeginTime"] if 2 * index + 1 < len(timeBucket) else 0
+        if not isinstance(index, int):
+            raise IndexError("交易时段索引应为整数")
+        if 2 * index + 1 >= len(timeBucket) or 2 * index + 1 < -len(timeBucket):
+            self.logger.warn("GetSessionEndTime()函数交易时段索引超限")
+            return 0.0
+        endTime = timeBucket[2 * index + 1]["BeginTime"]
         return float(endTime) / 1000000000
 
     def getGetSessionStartTime(self, contNo, index):
@@ -1872,7 +1909,12 @@ class StrategyModel(object):
             return 0
 
         timeBucket = self._qteModel._commodityData[commodity]._metaData['TimeBucket']
-        beginTime = timeBucket[2 * index]["BeginTime"] if 2 * index < len(timeBucket) else 0
+        if not isinstance(index, int):
+            raise IndexError("交易时段索引应为整数")
+        if 2 * index >= len(timeBucket) or 2 * index < -len(timeBucket):
+            self.logger.warn("GetSessionStartTime()函数交易时段索引超限")
+            return 0.0
+        beginTime = timeBucket[2 * index]["BeginTime"]
         return float(beginTime) / 1000000000
 
     def getNextTimeInfo(self, contNo, timeStr):
@@ -1912,7 +1954,7 @@ class StrategyModel(object):
         return float(currentTime)
         
     def _gethms(self, time):
-        itime = int((time + 1e-9) * 1000000)
+        itime = round((time + 1e-9) * 1000000)
         hh,mm,ss = 0, 0, 0
         if itime > 0:
             hh = int(itime / 10000)
@@ -2658,14 +2700,14 @@ class StrategyModel(object):
         
     def getCrossOver(self, price1, price2):
         '''price1是否上穿price2,前一个在下，当前跟在上'''
-        if price1[-1]  <= price2[-1]:
+        if price1[-1] <= price2[-1]:
             return False
         #只有一根线，不做比较
         if len(price1) <= 1:
             return False
             
         #如果前一根相等，则继续往前找上一根
-        pos = -2;
+        pos = -2
         while price1[pos] == price2[pos]:
             pos = pos -1
             if pos <= -len(price1):

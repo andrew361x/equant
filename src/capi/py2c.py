@@ -1394,7 +1394,7 @@ class PyAPI(object):
                 idict['SettlePrice']  = data.KLineData.KLineData0.SettlePrice
 
             dataList.append(idict)
-        
+
         # 发送到引擎
         # print("[in py2c] ", len(dataList), apiEvent.getContractNo(), apiEvent.getKLineType(), apiEvent.getKLineSlice(), apiEvent.isChainEnd())
         apiEvent.setData(dataList)
@@ -1561,6 +1561,7 @@ class PyAPI(object):
                 'MatchDateTime'    : data.MatchDateTime.decode('utf-8'),
                 'AddOne'           : data.AddOne.decode('utf-8'),
                 'Deleted'          : data.Deleted.decode('utf-8'),
+                'MatchNo'          : data.MatchNo.decode('utf-8'),
                 "StrategyId"       : None,
                 "StrategyOrderId"  : None,
             }
@@ -1587,7 +1588,13 @@ class PyAPI(object):
             dataList[i]["StrategyOrderId"] = apiEvent.getESessionId()
         # ==============================================================================================================
         # 发送到引擎
-        apiEvent.setData(dataList)
+        dct = {}
+        for data in dataList:
+            key = (data["MatchNo"], data["Cont"], data["Direct"])
+            dct[key] = data
+
+        # apiEvent.setData(dataList)
+        apiEvent.setData([dct])
         self._api2egQueue.put(apiEvent)
         
     def _onPositionData(self, apiEvent):
@@ -1660,7 +1667,7 @@ class PyAPI(object):
                 'UpdateTime'    : data.UpdateTime,
             }
             dataList.append(idict)
-        
+
         # print(dataList)
         # 发送到引擎
         apiEvent.setData(dataList)
@@ -1752,9 +1759,13 @@ class PyAPI(object):
                 'CommodityNo'       : data.CommodityNo.decode('utf-8'),
             }
             dataList.append(idict)
-        
+            # if idict["ExchangeNo"] == "ZCE":
+            #     print("交易所状态应答时间: ", datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
+            #     print("郑商所交易状态: ", idict['TradeState'])
+            #     print("-------------------------------------------------------------------")
+
         #self.logger.debug("AAAAA:%s"%dataList)
-        
+
         #发送到引擎  
         apiEvent.setData(dataList)
         sid = apiEvent.getSessionId()

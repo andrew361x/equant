@@ -49,7 +49,7 @@ class Controller(object):
         ################创建回测报告####################
         self._createReportWin()
         ################################################
-        
+
         version = ''
         if os.path.exists('../Version.txt'):
             with open('../Version.txt', 'r', encoding='utf-8-sig') as f:
@@ -69,9 +69,9 @@ class Controller(object):
 
         self.mainWnd.setWinThese(theme)
         self.mainWnd.setWindowIcon(QIcon('icon/epolestar ix2.ico'))
-        screen = QDesktopWidget().screenGeometry()
-        self.mainWnd.setGeometry(screen.width() * 0.1, screen.height() * 0.1, screen.width() * 0.8,
-                                 screen.height() * 0.8)
+        # screen = QDesktopWidget().screenGeometry()
+        # self.mainWnd.setGeometry(screen.width() * 0.1, screen.height() * 0.1, screen.width() * 0.8,
+        #                          screen.height() * 0.8)
         # self.mainWnd.titleBar.buttonClose.clicked.connect(self.quitThread)
         self.mainWnd.titleBar.buttonClose.clicked.disconnect(self.mainWnd.titleBar.closeWindow)
         self.mainWnd.titleBar.buttonClose.clicked.connect(self.app.save_edit_strategy)
@@ -97,7 +97,7 @@ class Controller(object):
         self.reportWnd.setObjectName("ReportWnd")
         self.reportWnd.resize(1000, 600)
         self.reportWnd.setMinimumSize(600, 600)
-        self.reportWnd.setMaximumSize(1000, 600)
+        # self.reportWnd.setMaximumSize(1000, 600)
         self.reportWnd.hideTheseBtn()
         # self.reportWnd.disabledMaximumBtn() #可以最大最小化
         self.reportWnd.setWindowTitle("回测报告")
@@ -139,8 +139,8 @@ class Controller(object):
                 try:
                     # TODO：StrategyState为什么会不存在呢？
                     if strategyDict[stId]["StrategyState"] == ST_STATUS_PAUSE or strategyDict[stId][
-                        "StrategyState"] == ST_STATUS_QUIT or strategyDict[stId][
-                        "StrategyState"] == ST_STATUS_EXCEPTION:
+                            "StrategyState"] == ST_STATUS_QUIT or strategyDict[stId][
+                            "StrategyState"] == ST_STATUS_EXCEPTION:
                         continue
                 except KeyError as e:
                     self.logger.warn(f"策略数据错误: {stId}, {strategyDict[stId]}")
@@ -188,11 +188,11 @@ class Controller(object):
 
         # self.usrThread.start()
 
-        #启动主界面线程
+        # 启动主界面线程
 
         self.mainWnd.show()
         self.mainApp.exec_()
-        
+
     def set_help_text(self, funcName, text):
         self.app.set_help_text(funcName, text)
 
@@ -238,7 +238,7 @@ class Controller(object):
                     )
         return g_params
 
-    def load(self, strategyPath, param={}):# 这个函数没有用到
+    def load(self, strategyPath, param={}):  # 这个函数没有用到
         # TODO：新增param参数，用于接收用户策略的参数
         """
         加载合约事件
@@ -250,7 +250,7 @@ class Controller(object):
         self.saveStrategy()
         # 解析策略参数
         param = self.parseStrategtParam(strategyPath)
-        self.app.create_strategy_policy_win(param=param)# 通过传入参数来新建属性设置窗体
+        self.app.create_strategy_policy_win(param=param)  # 通过传入参数来新建属性设置窗体
 
         config = self.app.getConfig()
         if config:  # 获取到config
@@ -259,11 +259,11 @@ class Controller(object):
 
     def paramLoad(self, id):
         """用户参数修改后策略重新启动"""
-        param = self.getUserParam(id)  #从strategyManager获取到参数信息
+        param = self.getUserParam(id)  # 从strategyManager获取到参数信息
         strategyPath = self.strategyManager.getSingleStrategy(id)["Path"]
         self.app.create_strategy_policy_win(param, strategyPath, id)
 
-    def generateReportReq(self, strategyIdList):#策略运行右键菜单里的投资报告
+    def generateReportReq(self, strategyIdList):  # 策略运行右键菜单里的投资报告
         """发送生成报告请求"""
         # 量化启动时的恢复策略列表中的策略没有回测数据
         # 策略停止之后的报告数据从本地获取，不发送请求
@@ -274,24 +274,24 @@ class Controller(object):
             status = self.strategyManager.queryStrategyStatus(id)
             strategyData = self.strategyManager.getSingleStrategy(id)
             self.logger.info(f"strategyID {id} strategystatus {status}  strategyData")
-            #self.logger.info(strategyData)
+            # self.logger.info(strategyData)
             if status == ST_STATUS_QUIT:  # 策略已停止，从本地获取数据
                 if "ResultData" not in strategyData:  # 程序启动时恢复的策略没有回测数据
                     QMessageBox.warning(None, '警告', '策略未启动，报告数据不存在')
                     QMessageBox.warning(None, '警告', '启动测试报告窗体')
                     self.reportWnd.show()
-                    self.reportWnd.raise_()                    
+                    self.reportWnd.raise_()
                     return
                 reportData = strategyData["ResultData"]
                 self.app.reportDisplay(reportData, id)
                 return
-            if "ResultData"  in strategyData:
+            if "ResultData" in strategyData:
                 self.logger.info("不管策略的状态，只要本地有回测数据，就显示出来")
-                #self.logger.info(strategyData)
+                # self.logger.info(strategyData)
                 reportData = strategyData["ResultData"]
                 self.app.reportDisplay(reportData, id)
                 return
-                
+
             self._request.reportRequest(id)
 
     def newDir(self, path):
@@ -329,7 +329,7 @@ class Controller(object):
         for id in strategyIdList:
             self._request.strategyPause(id)
 
-    def resumeRequest(self, strategyIdList):#策略运行右键菜单里的启动
+    def resumeRequest(self, strategyIdList):  # 策略运行右键菜单里的启动
         """
         发送所选策略恢复运行请求
         :param strategyId: 所选策略Id列表
@@ -345,7 +345,7 @@ class Controller(object):
                     continue
             self._request.strategyResume(id)
 
-    def quitRequest(self, strategyIdList):#策略运行右键菜单里的停止
+    def quitRequest(self, strategyIdList):  # 策略运行右键菜单里的停止
         """
         发送所选策略停止请求
         :param strategyId:  所选策略Id列表
@@ -362,7 +362,7 @@ class Controller(object):
             else:
                 self.logger.info("策略管理器中不存在策略%s" % (id))
 
-    def delStrategy(self, strategyIdList):#策略运行右键菜单里的删除
+    def delStrategy(self, strategyIdList):  # 策略运行右键菜单里的删除
         # 获取策略管理器
         for id in strategyIdList:
             strategyDict = self.strategyManager.getStrategyDict()
@@ -375,7 +375,7 @@ class Controller(object):
             else:
                 self.app.delUIStrategy(id)
 
-    def signalDisplay(self, strategyIdList):#策略运行右键菜单里的图表展示
+    def signalDisplay(self, strategyIdList):  # 策略运行右键菜单里的图表展示
         """查看策略的信号及指标图(默认查看一个)"""
         if len(strategyIdList) >= 1:
             id = strategyIdList[0]
@@ -385,12 +385,12 @@ class Controller(object):
         """获取用户设置的参数信息"""
         return self.strategyManager.getStrategyParamData(id)
 
-    def paramSetting(self, strategyIdList):#策略运行右键菜单里的属性设置
+    def paramSetting(self, strategyIdList):  # 策略运行右键菜单里的属性设置
         """发送属性设置事件"""
         if len(strategyIdList) >= 1:
             id = strategyIdList[0]
 
-            self.paramLoad(id)# 加载已经设置好的设置信息
+            self.paramLoad(id)  # 加载已经设置好的设置信息
 
 
 class ChildThread(threading.Thread):

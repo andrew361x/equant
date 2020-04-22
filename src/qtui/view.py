@@ -13,7 +13,7 @@ from copy import deepcopy
 
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import Qt, QPoint, QUrl, pyqtSignal, pyqtSlot, QSharedMemory, QTimer, QDir, QSettings
-from PyQt5.QtGui import QTextCursor, QIcon, QKeySequence
+from PyQt5.QtGui import QTextCursor, QFont, QIcon, QKeySequence
 from PyQt5.QtWidgets import *
 
 from engine.strategy_cfg_model_new import StrategyConfig_new
@@ -1755,6 +1755,32 @@ class QuantApplication(QWidget):
             self.main_splitter.restoreState(self.settings.value('main_splitter'))
         else:
             self.main_splitter.setSizes([self.width * 0.4, self.width * 0.1])
+        # 设置主窗口位置
+        if self.settings.contains('geometry'):
+            preRect = self.settings.value('geometry')   # 保存的窗口大小和位置
+            desktop = QApplication.desktop()
+            srnCount = desktop.screenCount()
+
+            preX, preY, preWidth, preHeight = preRect.x(), preRect.y(), preRect.width(), preRect.height()
+            pxLeft, pyLeft = (preX, preY)
+            pxRight, pyRight = (preX + preWidth, preY)
+            for i in range(srnCount):
+                screenRect = desktop.availableGeometry(i)
+                x, y, sWidth, sHeight = (screenRect.x(), screenRect.y(), screenRect.width(), screenRect.height())
+                xRight, yRight = (x + sWidth, y + sHeight)
+
+                if (x < pxLeft < xRight and y < pyLeft < yRight) or (x < pxRight < xRight and y < pyRight < yRight):
+                    self._master.setGeometry(self.settings.value('geometry'))
+                    break
+            else:   # 保存的位置不在屏幕显示范围内则显示在默认位置
+                screen = QDesktopWidget().availableGeometry()
+                self._master.setGeometry(screen.width() * 0.1, screen.height() * 0.1, screen.width() * 0.8,
+                                         screen.height() * 0.8)
+
+        else:
+            screen = QDesktopWidget().availableGeometry()
+            self._master.setGeometry(screen.width() * 0.1, screen.height() * 0.1, screen.width() * 0.8,
+                                     screen.height() * 0.8)
 
         self.hbox.addWidget(self.main_splitter)
         self.setLayout(self.hbox)
@@ -1783,6 +1809,8 @@ class QuantApplication(QWidget):
 
     def close_app(self):
         self.save_settings()
+
+        self.reportView.saveSettings()
         self._controller.quitThread()
         self._controller.mainWnd.titleBar.closeWindow()
 
@@ -1815,6 +1843,8 @@ class QuantApplication(QWidget):
         self.settings.setValue('main_splitter', self.main_splitter.saveState())
         self.settings.setValue(
             'theme', 'vs' if self._controller.mainWnd.getWinThese() == '浅色' else 'vs-dark')
+        # 保存主窗口位置和大小
+        self.settings.setValue('geometry', self._master.frameGeometry())
 
     def init_control(self):
         self._exchange = self._controller.model.getExchange()
@@ -2359,12 +2389,16 @@ class QuantApplication(QWidget):
         self.log_widget = QTabWidget()
         self.log_widget.setTabPosition(QTabWidget.South)
         self.user_log_widget = QTextBrowser()
+        font = QFont("Courier New", 11)
+        self.user_log_widget.setFont(font)
         self.user_log_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.user_log_widget.customContextMenuRequested[QPoint].connect(self.user_log_right_menu)
         self.signal_log_widget = QTextBrowser()
+        self.signal_log_widget.setFont(font)
         self.signal_log_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.signal_log_widget.customContextMenuRequested[QPoint].connect(self.signal_log_right_menu)
         self.sys_log_widget = QTextBrowser()
+        self.sys_log_widget.setFont(font)
         self.sys_log_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.sys_log_widget.customContextMenuRequested[QPoint].connect(self.sys_log_right_menu)
         self.log_widget.addTab(self.user_log_widget, '用户日志')
