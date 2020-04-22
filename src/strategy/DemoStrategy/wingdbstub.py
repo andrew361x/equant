@@ -40,7 +40,7 @@ else:
 # the full path of the Wing application bundle, for example 
 # /Applications/WingPro.app.  When set to None, the environment variable 
 # WINGHOME is used instead.  
-WINGHOME = r"C:\Program Files (x86)\Wing Pro 7.1"
+WINGHOME = r"C:\Program Files (x86)\Wing Pro 7.2"
 
 #------------------------------------------------------------------------
 # Optional configuration values:  The named environment variables, if set, 
@@ -95,13 +95,35 @@ kLogVeryVerbose = 0
 # (WINGDB_EMBEDDED environment variable)
 kEmbedded = 0
 
-# Path to search for the debug password file and the name of the file
-# to use.  The password file contains a security token for all 
-# connections to the IDE and must match the wingdebugpw file in the 
-# User Settngs directory used by the IDE. '$<winguserprofile>' 
-# is replaced by the User Settings directory for the user that
-# is running the process.
-# (WINGDB_PWFILEPATH environment variable)
+# Security Token configuration
+
+# Wing uses a security token to control access from the debug process.
+# In cases where the debugger is running as the same user and on the same
+# host as the IDE, no further configuration is needed because the token
+# stored in wingdebugpw in the Settings Directory shown in Wing's About
+# box is used by both ends of the connection.  In other cases, Wing will
+# wrote a new security token to the Settings Directory for the user running
+# the debug process.  An unknown security token will be rejected, but Wing
+# will offer to accept future connections using an that token.  To avoid
+# this, copy the file wingdebugpw from the Settings Directory shown in Wing's
+# About box to the same directory as this copy of wingdbstub.py, or set
+# kSecurityToken below to the contents of that file.  This is also needed
+# when Wing cannot write to the Settings Directory, or the contents of that
+# directory are not persisted between debug runs, as is the case with some
+# types of containers.
+
+# The security token to use, overriding any other value.  If None, the token is 
+# instead read from the file configured with kFWFilePath and kPWFileName below.  
+# Disk permissions of any copy of wingdbstub.py with kSecurityToken set should 
+# be adjusted to avoid unauthorized access by other users.
+# (WINGDB_SECURITYTOKEN environment variable)
+kSecurityToken = None
+
+# Path to search for the debugger security token and the name of the file
+# to use.  These values are for advanced use cases and rarely need to be changed.  
+# In kPWFilePath, the value '$<winguserprofile>' is replaced by the User Settings 
+# Directory for the user that is running the debug process.
+# (WINGDB_PWFILEPATH and WINGDB_PWFILENAME environment variables)
 kPWFilePath = [os.path.dirname(__file__), '$<winguserprofile>']
 kPWFileName = 'wingdebugpw'
 
@@ -155,9 +177,6 @@ def NP_FindActualWingHome(winghome):
   
 WINGHOME = NP_FindActualWingHome(WINGHOME)
 os.environ['WINGHOME'] = WINGHOME
-
-# Path used to find the wingdebugpw file
-kPWFilePath.append(WINGHOME)
 
 #-----------------------------------------------------------------------
 def NP_LoadModuleFromBootstrap(winghome, modname):
@@ -234,6 +253,9 @@ if (not kWingDebugDisabled and debugger is None and
     # Check if running embedded script
     embedded = int(os.environ.get('WINGDB_EMBEDDED', kEmbedded))
   
+    # Obtain security token
+    security_token = os.environ.get('WINGDB_SECURITYTOKEN', kSecurityToken)
+    
     # Obtain debug password file search path
     if 'WINGDB_PWFILEPATH' in os.environ:
       pwfile_path = os.environ['WINGDB_PWFILEPATH'].split(os.pathsep)
@@ -254,7 +276,7 @@ if (not kWingDebugDisabled and debugger is None and
         self.fErrors.append(s)
     tmp_log = CTmpLog()
     
-    # Set up the meta importer; everything after this point can be update
+    # Set up the meta importer; everything after this point can be updated
     bootstrap_utils = NP_LoadModuleFromBootstrap(WINGHOME, 'bootstrap_utils')
     winghome, user_settings = bootstrap_utils.NP_SetupWingHomeModule(WINGHOME)
     meta = bootstrap_utils.NP_CreateMetaImporter(WINGHOME, user_settings, 'dbg',
@@ -273,7 +295,8 @@ if (not kWingDebugDisabled and debugger is None and
       err.write(s)
       
     # Create debug server
-    debugger = netserver.CNetworkServer(host, port, attachport, err, 
+    debugger = netserver.CNetworkServer(host, port, attachport, err,
+                                        security_token=security_token, 
                                         pwfile_path=pwfile_path,
                                         pwfile_name=pwfile_name,
                                         autoquit=not embedded)

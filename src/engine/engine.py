@@ -459,7 +459,7 @@ class StrategyEngine(object):
 
     def _startMainThread(self):
         '''从api队列及策略队列中接收数据'''
-        self._apiThreadH = Thread(target=self._mainThreadFunc, name="MainThread_forApi")
+        self._apiThreadH = Thread(target=self._apiThreadFunc, name="MainThread_forApi")
         self._apiThreadH.start()
 
         self._stThreadH = Thread(target=self._stThreadFunc)

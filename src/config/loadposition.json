@@ -1,0 +1,8 @@
+{
+    "OneKeySync": false,
+    "AutoSyncPos": false,
+    "PriceType": 0,
+    "PriceTick": 1,
+    "OnlyDec": false,
+    "SyncTick": 5000
+}
