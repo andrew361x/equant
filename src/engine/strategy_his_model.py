@@ -993,6 +993,7 @@ class StrategyHisQuote(object):
                 cycle = '6'  # 日线
             symbol = epolarSymbol.split('|')[-2]  # 'RB'
             category = epolarSymbol.split('|')[-1] # "2001"  "2005" "2009" "MAIN" "INDEX"
+            print(category)
             if category == "2001":
                 filename = symbol + '01_' +cycle +'.csv'  # "RB01_4.csv"
                 fileIndex = 1
@@ -1015,15 +1016,23 @@ class StrategyHisQuote(object):
         
         def readCsvFile(fileName=None,contractNo=None,priority = None, isIndexData=False):
             data = pd.read_csv(fileName, index_col=0, header=0,parse_dates=True)
-            #data.columns = ['open','high', 'low', 'close', 'volume']
-            data.columns = ['OpeningPrice','HighPrice', 'LowPrice', 'LastPrice', 'KLineQty']
+            #data.columns = ['open','high', 'low', 'close', 'volume','amount','openint'] #成交额，持仓量
+            data.columns = ['OpeningPrice','HighPrice', 'LowPrice', 'LastPrice', 'KLineQty','TurnOver','PositionQty']
+            data["OpeningPrice"] = data["OpeningPrice"].astype(np.float)
+            data["HighPrice"] = data["HighPrice"].astype(np.float)
+            data["LowPrice"] = data["LowPrice"].astype(np.float)
+            data["LastPrice"] = data["LastPrice"].astype(np.float)
+
+            data.drop(columns=['TurnOver'],inplace=True)
             data.index.name = 'dtIndex'
             data = data[~(data.KLineQty == 0) ]
+
             data["KLineQty"] = data["KLineQty"].astype(np.int64)
+            data["PositionQty"] = data["PositionQty"].astype(np.int64)
             data["ContractNo"] =contractNo
             data["KLineSlice"] =30
             data["KLineType"] ="M"
-            data["PositionQty"]=10000  #持仓量 无意义
+            #data["PositionQty"]=10000  #持仓量 无意义
             data["SettlePrice"] =0     #结算价 无意义
             data["Priority"] =priority     #量化极星内部品种排序优先级  为了后面形成01 05 09 index的数据喂入顺序
             

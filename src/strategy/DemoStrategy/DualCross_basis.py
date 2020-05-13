@@ -7,7 +7,7 @@ import json
 
 p1=5
 p2=20
-contractSymbol = "RU"
+contractSymbol = "RB"
 contractExchange = "SHFE"
 
 symbolindex = contractExchange + "|Z|" + contractSymbol + "|INDEX"#基准合约

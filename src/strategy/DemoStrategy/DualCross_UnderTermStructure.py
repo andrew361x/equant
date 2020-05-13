@@ -17,13 +17,13 @@ from pandas.tseries.offsets import BDay  #工作日
 
 p1=39
 p2=147
-contractSymbol = "RU"
+contractSymbol = "RB"
 contractExchange = "SHFE"
 
 symbolindex = contractExchange + "|Z|" + contractSymbol + "|INDEX"# 基准合约
 symbol01 = contractExchange + "|F|" + contractSymbol +"|2001"
 symbol05 = contractExchange + "|F|" + contractSymbol +"|2005"
-symbol09 = contractExchange + "|F|" + contractSymbol +"|2009"
+symbol09 = contractExchange + "|F|" + contractSymbol +"|2010"
 
 spotFileName = os.path.abspath( os.path.join(os.getcwd(), "..",'files',contractSymbol,  contractSymbol + "_spotprice.csv") )
 contractCfgPath = os.path.abspath( os.path.join(os.getcwd(), "..",'files',"contractConfig.json") )

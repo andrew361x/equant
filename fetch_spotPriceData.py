@@ -8,18 +8,14 @@ Created on Thu Nov 14 14:32:43 2019
 2019年11月14日 更新数据时，9月合约已经到期，要选择最新的09合约，然后重新更新
 
 """
-import sys
-sys.path.append("E:\\workspace\\coderepository\\Lib")
-sys.path.append("E:\\workspace\\coderepository\\Lib\\jzt")
-sys.path.append("E:\\workspace\\coderepository\\Lib\\wind")
 
-from wind import WindClient
+from mytoolbox.lib.wind import WindClient
 import os
 import time
-scriptDir = r'E:\\workspace\\equant\\'
+scriptDir = r'D:\\workspace\\github\\equant'
 os.chdir(scriptDir)
 StartTime = "2008-01-01"
-EndTime = "2019-12-31"
+EndTime = "2020-5-12"
 
 wd = WindClient.client()
 from  pandas.io.json import json_normalize
@@ -108,10 +104,10 @@ contractList =[
          "leg1":"JD2001.DCE","leg2":"JD2005.DCE","leg3":"JD2009.DCE",
          "indexSymbol":"JDFI.WI","spot":"W00066SPT.NM","spotName":"鸡蛋现货(山东青岛)"},
         ]
-contractList =contractList[12]
+contractList =contractList[1] #rb
 cfg=json_normalize(contractList)
   
-srcDir = scriptDir+'\\equant\\files'
+srcDir = scriptDir#+'\\files'
 if not os.path.exists(srcDir):
     os.makedirs(srcDir)
 os.chdir(srcDir)
@@ -129,6 +125,6 @@ for i,data in cfg.iterrows():
         time.sleep(3)
         spotdata.to_csv(data.symbol.upper()+"_spotprice.csv")
         print(data.symbol.upper()+"_spotprice.csv")
-srcDir = scriptDir+'\\equant\\files'
+#srcDir = scriptDir+'\\equant\\files'
 os.chdir(srcDir)
 

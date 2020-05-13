@@ -1,6 +1,6 @@
 @echo off
 
-set eqtpath="%MYWORKSPACEHOME%\equant\src\equant-script.py"
+set eqtpath="%MYWORKSPACEHOME%\github\equant\src\equant-script.py"
 
 set pypath="C:\Anaconda3\python.exe"
 if not exist %pypath% (
