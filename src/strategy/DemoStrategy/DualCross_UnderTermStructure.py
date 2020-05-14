@@ -21,7 +21,7 @@ contractSymbol = "RB"
 contractExchange = "SHFE"
 
 symbolindex = contractExchange + "|Z|" + contractSymbol + "|INDEX"# 基准合约
-symbol01 = contractExchange + "|F|" + contractSymbol +"|2001"
+symbol01 = contractExchange + "|F|" + contractSymbol +"|2101"
 symbol05 = contractExchange + "|F|" + contractSymbol +"|2005"
 symbol09 = contractExchange + "|F|" + contractSymbol +"|2010"
 

@@ -993,22 +993,34 @@ class StrategyHisQuote(object):
                 cycle = '6'  # 日线
             symbol = epolarSymbol.split('|')[-2]  # 'RB'
             category = epolarSymbol.split('|')[-1] # "2001"  "2005" "2009" "MAIN" "INDEX"
-            print(category)
-            if category == "2001":
+            label =""
+            try:
+                int(category)
+            except:
+                label = category  #MAIN  INDEX
+            else:   #没有进入上面异常的分支，就是数字
+                label = category[-2:]
+            finally:
+                print("label: ",label)
+
+            if label == "01":
                 filename = symbol + '01_' +cycle +'.csv'  # "RB01_4.csv"
                 fileIndex = 1
-            elif category == "2005":
+            elif label == "05":
                 filename = symbol + '05_' +cycle +'.csv'  # "RB05_4.csv"
                 fileIndex = 2
-            elif category == "2009":
+            elif label == "09":
                 filename = symbol + '09_' +cycle +'.csv'  # "RB09_4.csv"
                 fileIndex = 3
-            elif category == "MAIN":
-                filename = symbol + '00_' +cycle +'.csv'  # "RB00_4.csv"
+            elif label == "10":
+                filename = symbol + '10_' +cycle +'.csv'  # "RB10_4.csv"
                 fileIndex = 4
-            elif category == "INDEX":
-                filename = symbol + '13_' +cycle +'.csv'  # "RB13_4.csv"
+            elif label == "MAIN":
+                filename = symbol + '00_' +cycle +'.csv'  # "RB00_4.csv"
                 fileIndex = 5
+            elif label == "INDEX":
+                filename = symbol + '13_' +cycle +'.csv'  # "RB13_4.csv"
+                fileIndex = 6
             
             contractFileMapping[epolarSymbol] = (filename, fileIndex)
             
